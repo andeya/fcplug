@@ -91,9 +91,9 @@ void free_buffer(struct Buffer buf);
 fn gen_gen_sh(go_proto_code_config: &GoProtoCodeConfig, report: &Report) {
     let mut f = fs::File::create("gen.sh").expect("Couldn't create gen.sh");
     f.write("#!/bin/bash\n\n".as_bytes()).unwrap();
+    f.write(format!("mkdir -p {}\n", go_proto_code_config.out_dir).as_bytes()).unwrap();
     f.write(format!("cp -rf {} {}\n", report.c_header_filename, go_proto_code_config.out_dir).as_bytes()).unwrap();
     f.write(format!("cp -rf {} {}\n", report.c_lib_filename, go_proto_code_config.out_dir).as_bytes()).unwrap();
-    f.write(format!("mkdir -p {}\n", go_proto_code_config.out_dir).as_bytes()).unwrap();
     f.write(format!("protoc --proto_path={} --go_out {} {}",
                     PathBuf::from(&go_proto_code_config.filename).parent().unwrap().to_str().unwrap(),
                     go_proto_code_config.out_dir,

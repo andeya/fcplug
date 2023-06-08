@@ -23,7 +23,7 @@ exclude = []
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Aoleah <aoleahlee@outlook.com>"]
 description = "Foreign Clang Plugin solution"
 repository = "https://github.com/andeya/fcplug"
