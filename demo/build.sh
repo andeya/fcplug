@@ -1,6 +1,7 @@
 #!/bin/bash
 
-cp -rf /Users/henrylee2cn/rust/fcplug/target/debug/demo.h .
-cp -rf /Users/henrylee2cn/rust/fcplug/target/debug/libdemo.a .
-mkdir -p go_gen
-protoc --proto_path= --go_out go_gen idl.proto
+cargo build --package demo -vv
+sh ./gen.sh
+go mod tidy
+CGO_ENABLED=1 go build
+exec ./demo

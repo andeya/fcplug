@@ -1,25 +1,13 @@
-package main
+package gocall
 
-/*
-#cgo CFLAGS: -I.
-#cgo LDFLAGS: -L. -ldemo
-
-#include "demo.h"
-*/
-import "C"
 import (
 	"errors"
 	"fmt"
 	"reflect"
-	"unsafe"
 
-	"github.com/andeya/fcplug/go/gocall"
 	"github.com/golang/protobuf/proto"
 )
 
-type Buffer = C.struct_Buffer
-type Method = func(Buffer) Buffer
-type ABICode int32
 type ABIResult[T proto.Message] struct {
 	Code ABICode `json:"code,omitempty"`
 	Msg  string  `json:"msg,omitempty"`
@@ -27,7 +15,7 @@ type ABIResult[T proto.Message] struct {
 }
 
 func (a *ABIResult[T]) IsErr() bool {
-	return a == nil || a.Code != 0
+	return a != nil && a.Code != 0
 }
 
 func (a *ABIResult[T]) ToErr() error {
@@ -40,33 +28,28 @@ func (a *ABIResult[T]) ToErr() error {
 	return nil
 }
 
+type ABICode int32
+
 const (
 	OkCode             ABICode = 0
 	ErrorCodeMarshal   ABICode = -1
 	ErrorCodeUnmarshal ABICode = -2
 )
 
-func InvokeFFI[T proto.Message](method Method, args proto.Message) *ABIResult[T] {
-	b, err := proto.Marshal(args)
+func Marshal[T proto.Message](m proto.Message) ([]byte, *ABIResult[T]) {
+	b, err := proto.Marshal(m)
 	if err != nil {
-		return &ABIResult[T]{
+		return nil, &ABIResult[T]{
 			Code: ErrorCodeMarshal,
 			Msg:  err.Error(),
 		}
 	}
-	argBuf := C.struct_Buffer{
-		ptr: (*C.uint8_t)(unsafe.Pointer(&b[0])),
-		len: C.uintptr_t(len(b)),
-		cap: C.uintptr_t(cap(b)),
-	}
-	resBuf := method(argBuf)
-	defer C.free_buffer(resBuf)
-	return cBufferToResult[T](resBuf)
+	return b, nil
 }
 
-func cBufferToResult[T proto.Message](resBuf C.struct_Buffer) *ABIResult[T] {
-	var res gocall.FFIResult
-	err := proto.Unmarshal(cBufferToBytes(resBuf), &res)
+func Unmarshal[T proto.Message](b []byte) *ABIResult[T] {
+	var res FFIResult
+	err := proto.Unmarshal(b, &res)
 	if err != nil {
 		return &ABIResult[T]{
 			Code: ErrorCodeUnmarshal,
@@ -95,12 +78,4 @@ func cBufferToResult[T proto.Message](resBuf C.struct_Buffer) *ABIResult[T] {
 		Msg:  res.Msg,
 		Data: m,
 	}
-}
-
-func cBufferToBytes(buf C.struct_Buffer) []byte {
-	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(buf.ptr)),
-		Len:  int(buf.len),
-		Cap:  int(buf.cap),
-	}))
 }

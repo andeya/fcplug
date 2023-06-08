@@ -7,5 +7,7 @@
 /Cargo.lock
 /libfcplug.a
 /fcplug.h
-/rust/fcplug-rclib/build.sh
 /demo/demo
+ffi.c.go
+/demo/go_gen/
+gen.sh
