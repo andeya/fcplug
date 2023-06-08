@@ -1,5 +1,11 @@
 #!/bin/bash
+# cleanup
+rm -rf ./go_gen
+rm -rf ./gen.sh
+rm -rf ./demo
+#exit 0;
 
+#generate
 cargo build --package demo -vv
 sh ./gen.sh
 go mod tidy
