@@ -1,0 +1,42 @@
+[profile.release]
+opt-level = 3
+debug = true
+debug-assertions = false
+overflow-checks = false
+lto = true
+incremental = false
+codegen-units = 1
+rpath = false
+
+[workspace]
+resolver = "2"
+members = [
+    "rust/fcplug-rclib",
+    "rust/fcplug-macros",
+    "rust/fcplug-build",
+    "demo",
+]
+exclude = []
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+authors = ["Aoleah <aoleahlee@outlook.com>"]
+description = "Foreign Clang Plugin solution"
+repository = "https://github.com/andeya/fcplug"
+license = "MIT"
+license-file = "LICENSE"
+readme = "README.md"
+documentation = "https://github.com/andeya/fcplug/blob/main/README.md"
+
+[workspace.dependencies]
+fcplug-rclib = { path = "rust/fcplug-rclib" }
+fcplug-macros = { path = "rust/fcplug-macros" }
+fcplug-build = { path = "rust/fcplug-build" }
+
+syn = { version = "1.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0.7"
+protobuf = "2.28.0"
+protoc-rust = "2.28.0"
+cbindgen = "0.24.3"

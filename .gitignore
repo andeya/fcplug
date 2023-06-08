@@ -1,0 +1,11 @@
+.idea
+
+*.a
+*.h
+
+/target
+/Cargo.lock
+/libfcplug.a
+/fcplug.h
+/rust/fcplug-rclib/build.sh
+/demo/demo

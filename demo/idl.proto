@@ -1,0 +1,10 @@
+//! https://github.com/stepancheg/rust-protobuf
+//! protoc --rust_out . abi.proto
+
+syntax = "proto3";
+package tests;
+option go_package = "go_gen";
+
+message Echo {
+  string msg = 1;
+}

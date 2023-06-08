@@ -1,0 +1,16 @@
+[package]
+name = "fcplug-build"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
+documentation.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cbindgen = { workspace = true }
+protoc-rust = { workspace = true }
