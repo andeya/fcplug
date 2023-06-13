@@ -6,6 +6,7 @@ use flatbuffers::{Follow, InvalidFlatbuffer, Verifiable};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+#[cfg(debug_assertions)]
 use tracing::error;
 
 pub struct FbRequest<'a, T> {
@@ -24,9 +25,9 @@ impl<'a, T> FbRequest<'a, T> where T: 'a {
         where T: 'a + Follow<'a, Inner=T> + Verifiable,
     {
         Self::try_from_bytes(req.read().unwrap_or_default())
-            .map_err(|err| {
+            .map_err(|_err| {
                 #[cfg(debug_assertions)]{
-                    error!("{:?}", err);
+                    error!("{:?}", _err);
                 }
                 ResultCode::Decode
             })

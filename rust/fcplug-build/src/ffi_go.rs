@@ -59,14 +59,27 @@ ${fn_list}
 
 pub(crate) const PB_FN_TPL: &'static str = r##########"
 //go:inline
-func C_${c_fn_name}[T gocall.PbMessage](req gocall.PbMessage) *gocall.ABIResult[T] {
+func C_${c_fn_name}_bytes(req []byte) (res gocall.ABIResult[[]byte], free func()) {
+	r := C.${c_fn_name}(bytesToBuffer(req))
+	if code := toResultCode(r.code); code != gocall.CodeNoError {
+		return gocall.ABIResult[[]byte]{
+			Code: code,
+		}, func() {}
+	}
+	return gocall.ABIResult[[]byte]{
+		Data: bufferToBytes(r.data.buffer),
+	}, func() { C.free_buffer(r.data.free_type, r.data.free_ptr) }
+}
+
+//go:inline
+func C_${c_fn_name}[T gocall.PbMessage](req gocall.PbMessage) gocall.ABIResult[T] {
 	b, code := gocall.PbMarshal(req)
 	if code.IsErr() {
-		return &gocall.ABIResult[T]{Code: code}
+		return gocall.ABIResult[T]{Code: code}
 	}
 	r := C.${c_fn_name}(bytesToBuffer(b))
 	if code := toResultCode(r.code); code != gocall.CodeNoError {
-		return &gocall.ABIResult[T]{
+		return gocall.ABIResult[T]{
 			Code: code,
 		}
 	}
@@ -78,8 +91,8 @@ func C_${c_fn_name}[T gocall.PbMessage](req gocall.PbMessage) *gocall.ABIResult[
 
 pub(crate) const FB_FN_TPL: &'static str = r##########"
 //go:inline
-func C_${c_fn_name}(req []byte) (resp *gocall.ABIResult[[]byte], free func()) {
-	resp = &gocall.ABIResult[[]byte]{}
+func C_${c_fn_name}_bytes(req []byte) (resp gocall.ABIResult[[]byte], free func()) {
+	resp = gocall.ABIResult[[]byte]{}
 	r := C.${c_fn_name}(bytesToBuffer(req))
 	resp.Code = toResultCode(r.code)
 	if resp.Code != gocall.CodeNoError {

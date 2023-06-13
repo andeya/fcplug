@@ -23,7 +23,7 @@ exclude = []
 
 [workspace.package]
 edition = "2021"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Aoleah <aoleahlee@outlook.com>"]
 description = "Foreign Clang Plugin solution"
 repository = "https://github.com/andeya/fcplug"
@@ -34,8 +34,8 @@ documentation = "https://github.com/andeya/fcplug/blob/main/README.md"
 
 [workspace.dependencies]
 fcplug-rclib = { path = "rust/fcplug-rclib" }
-fcplug-macros = "0.1.0"
-fcplug-build = "0.1.0"
+fcplug-macros = "0.2.0"
+fcplug-build = "0.2.0"
 
 syn = { version = "1.0", features = ["full"] }
 quote = "1.0"

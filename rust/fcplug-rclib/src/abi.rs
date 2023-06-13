@@ -2,6 +2,7 @@ use std::convert::Infallible;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::FromResidual;
 use flatbuffers::FlatBufferBuilder;
+#[cfg(debug_assertions)]
 use tracing::{error};
 
 #[no_mangle]
@@ -165,9 +166,9 @@ impl FFIResult {
     pub fn ok(data: LeakBuffer) -> Self {
         Self { code: ResultCode::NoError, data }
     }
-    pub(crate) fn err<E: Debug>(code: ResultCode, err: Option<E>) -> Self {
+    pub(crate) fn err<E: Debug>(code: ResultCode, _err: Option<E>) -> Self {
         #[cfg(debug_assertions)]{
-            if let Some(err) = err {
+            if let Some(err) = _err {
                 error!("{:?}", err);
             }
         }
@@ -194,9 +195,9 @@ impl<'a, T: ABIRequest<'a>> From<&'a FFIResult> for ABIResult<T> {
         match value.code {
             ResultCode::NoError => {
                 ABIRequest::try_from_bytes(value.data.read().unwrap_or_default())
-                    .map_err(|err| {
+                    .map_err(|_err| {
                         #[cfg(debug_assertions)]{
-                            error!("{:?}", err);
+                            error!("{:?}", _err);
                         }
                         ResultCode::Decode
                     })

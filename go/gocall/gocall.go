@@ -66,18 +66,18 @@ func PbMarshal(m proto.Message) ([]byte, ResultCode) {
 	return b, CodeNoError
 }
 
-func PbUnmarshal[T proto.Message](b []byte) *ABIResult[T] {
+func PbUnmarshal[T proto.Message](b []byte) ABIResult[T] {
 	var m T
 	if t := reflect.TypeOf(m); t.Kind() == reflect.Ptr {
 		m = reflect.New(t.Elem()).Interface().(T)
 	}
 	err := proto.Unmarshal(b, m)
 	if err != nil {
-		return &ABIResult[T]{
+		return ABIResult[T]{
 			Code: CodeUnmarshal,
 		}
 	}
-	return &ABIResult[T]{
+	return ABIResult[T]{
 		Data: m,
 	}
 }

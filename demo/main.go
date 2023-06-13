@@ -23,7 +23,7 @@ func C_ffi_fb_echo(req string) *gocall.ABIResult[string] {
 	go_gen.EchoRequestAddData(fbb, data)
 	fbb.Finish(go_gen.EchoRequestEnd(fbb))
 
-	res, free := go_gen.C_ffi_fb_echo(fbb.FinishedBytes())
+	res, free := go_gen.C_ffi_fb_echo_bytes(fbb.FinishedBytes())
 	defer free()
 	var x gocall.ABIResult[string]
 	if res.IsErr() {
