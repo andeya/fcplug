@@ -8,74 +8,76 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-type ABIResult[T proto.Message] struct {
-	Code ABICode `json:"code,omitempty"`
-	Msg  string  `json:"msg,omitempty"`
-	Data T       `json:"data,omitempty"`
+type PbMessage = proto.Message
+
+type ABIResult[T any] struct {
+	Code ResultCode `json:"code,omitempty"`
+	Data T          `json:"data,omitempty"`
 }
 
 func (a *ABIResult[T]) IsErr() bool {
-	return a != nil && a.Code != 0
+	return a != nil && a.Code.IsErr()
 }
 
 func (a *ABIResult[T]) ToErr() error {
 	if a == nil {
-		return errors.New("<nil>")
+		return nil
 	}
-	if a.Code != 0 {
-		return errors.New(a.Msg)
-	}
-	return nil
+	return a.Code.Error()
 }
 
-type ABICode int32
+type ResultCode int32
 
 const (
-	OkCode             ABICode = 0
-	ErrorCodeMarshal   ABICode = -1
-	ErrorCodeUnmarshal ABICode = -2
+	CodeNoError   ResultCode = 0
+	CodeDecode    ResultCode = 1
+	CodeEncode    ResultCode = 2
+	CodeUnknown   ResultCode = -1
+	CodeUnmarshal ResultCode = -2
+	CodeMarshal   ResultCode = -3
 )
 
-func Marshal[T proto.Message](m proto.Message) ([]byte, *ABIResult[T]) {
-	b, err := proto.Marshal(m)
-	if err != nil {
-		return nil, &ABIResult[T]{
-			Code: ErrorCodeMarshal,
-			Msg:  err.Error(),
-		}
-	}
-	return b, nil
+func (r ResultCode) IsErr() bool {
+	return r != CodeNoError
 }
 
-func Unmarshal[T proto.Message](b []byte) *ABIResult[T] {
-	var res FFIResult
-	err := proto.Unmarshal(b, &res)
+func (r ResultCode) Error() error {
+	switch r {
+	case CodeNoError:
+		return nil
+	case CodeDecode:
+		return errors.New("decode error")
+	case CodeEncode:
+		return errors.New("encode error")
+	case CodeUnmarshal:
+		return errors.New("unmarshal error")
+	case CodeMarshal:
+		return errors.New("marshal error")
+	default:
+		return fmt.Errorf("unknown ResultCode=%d", r)
+	}
+}
+
+func PbMarshal(m proto.Message) ([]byte, ResultCode) {
+	b, err := proto.Marshal(m)
 	if err != nil {
-		return &ABIResult[T]{
-			Code: ErrorCodeUnmarshal,
-			Msg:  err.Error(),
-		}
+		return nil, CodeMarshal
 	}
-	if res.Code != 0 {
-		return &ABIResult[T]{
-			Code: ABICode(res.Code),
-			Msg:  err.Error(),
-		}
-	}
+	return b, CodeNoError
+}
+
+func PbUnmarshal[T proto.Message](b []byte) *ABIResult[T] {
 	var m T
 	if t := reflect.TypeOf(m); t.Kind() == reflect.Ptr {
 		m = reflect.New(t.Elem()).Interface().(T)
 	}
-	err = proto.Unmarshal(res.GetData().GetValue(), m)
+	err := proto.Unmarshal(b, m)
 	if err != nil {
 		return &ABIResult[T]{
-			Code: ErrorCodeUnmarshal,
-			Msg:  fmt.Sprintf("unmarshal: data=%s, error=%s", res.GetData().String(), err.Error()),
+			Code: CodeUnmarshal,
 		}
 	}
 	return &ABIResult[T]{
-		Code: ABICode(res.Code),
-		Msg:  res.Msg,
 		Data: m,
 	}
 }

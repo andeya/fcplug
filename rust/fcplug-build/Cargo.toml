@@ -16,3 +16,4 @@ cbindgen = { workspace = true }
 protoc-rust = { workspace = true }
 lazy_static = { workspace = true }
 regex = { workspace = true }
+flatc-rust = { workspace = true }

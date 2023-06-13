@@ -1,15 +1,24 @@
-use fcplug_build::{build_files, GoProtoCodeConfig, RustProtoCodeConfig};
-
 fn main() {
-    build_files(vec![
-        RustProtoCodeConfig {
-            out_dir: "src".into(),
-            inputs: vec!["idl.proto".into()],
-            include: None,
-            customize: None,
-        }
-    ], GoProtoCodeConfig {
-        out_dir: "go_gen".to_string(),
-        filename: "idl.proto".to_string(),
-    });
+    use fcplug_build::{FbConfig, FbConfigs, PbGoConfig, BuildConfig, PbRustConfig};
+    fcplug_build::build_files(BuildConfig {
+        go_out_dir: "go_gen".into(),
+        rust_out_dir: "src".into(),
+        pb_rust_configs: vec![
+            PbRustConfig {
+                inputs: vec!["idl.proto".into()],
+                include: None,
+                customize: None,
+            }
+        ],
+        pb_go_config: Some(PbGoConfig {
+            filename: "idl.proto".to_string(),
+        }),
+        fb_configs: FbConfigs {
+            inputs: vec!["idl.fbs".into()],
+            configs: vec![
+                FbConfig::Rust,
+                FbConfig::Go,
+            ],
+        },
+    })
 }
