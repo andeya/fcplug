@@ -17,6 +17,7 @@ crate-type = ["rlib", "staticlib"]
 [dependencies]
 protobuf = { workspace = true }
 fcplug-rclib = { workspace = true }
+flatbuffers = { workspace = true }
 
 [build-dependencies]
 fcplug-build = { workspace = true }
