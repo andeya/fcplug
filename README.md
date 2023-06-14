@@ -4,10 +4,10 @@ Foreign Clang Plugin solution.
 
 ## Features
 
-| caller⇊ \| callee ⇉ | Go | Rust |
-|---------------------|:--:|:----:|
-|         Go          | -  |  ✅   |
-|        Rust         | -  |  ❌   |
+| ⇊Caller \ Callee⇉ | Go | Rust |
+|-------------------|:--:|:----:|
+| Go                | -  |  ✅   |
+| Rust              | -  |  ❌   |
 
 
 ## Usage
