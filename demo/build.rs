@@ -1,5 +1,5 @@
 fn main() {
-    use fcplug_build::{FbConfig, FbConfigs, PbGoConfig, BuildConfig, PbRustConfig};
+    use fcplug_build::{BuildConfig, FbConfig, FbConfigs, PbGoConfig, PbRustConfig};
     fcplug_build::build_files(BuildConfig {
         go_out_dir: "go_gen".into(),
         rust_out_dir: "src".into(),

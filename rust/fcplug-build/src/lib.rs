@@ -1,16 +1,16 @@
-mod ffi_go;
-
-use flatc_rust;
-use protoc_rust::{Codegen, Customize};
 use std::{env, fs};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, MAIN_SEPARATOR_STR, Path, PathBuf};
 
 use cbindgen::Language;
+use flatc_rust;
+use protoc_rust::{Codegen, Customize};
+
 use crate::ffi_go::gen_go_code;
 pub use crate::ffi_go::PbGoConfig;
 
+mod ffi_go;
 
 pub struct BuildConfig {
     pub go_out_dir: PathBuf,

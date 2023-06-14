@@ -1,9 +1,11 @@
-use crate::{BuildConfig, Report};
+use std::{env, fs, str};
+use std::path::PathBuf;
+use std::process::Command;
+
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{env, fs, str};
-use std::path::{PathBuf};
-use std::process::Command;
+
+use crate::{BuildConfig, Report};
 
 pub(crate) const FILE_NAME: &'static str = "ffi.c.go";
 
@@ -57,6 +59,21 @@ func toResultCode(code C.enum_ResultCode) gocall.ResultCode {
 ${fn_list}
 "##########;
 
+pub(crate) const RAW_FN_TPL: &'static str = r##########"
+//go:inline
+func C_${c_fn_name}(req []byte) (res gocall.ABIResult[[]byte], free func()) {
+	r := C.${c_fn_name}(bytesToBuffer(req))
+	if code := toResultCode(r.code); code != gocall.CodeNoError {
+		return gocall.ABIResult[[]byte]{
+			Code: code,
+		}, func() {}
+	}
+	return gocall.ABIResult[[]byte]{
+		Data: bufferToBytes(r.data.buffer),
+	}, func() { C.free_buffer(r.data.free_type, r.data.free_ptr) }
+}
+"##########;
+
 pub(crate) const PB_FN_TPL: &'static str = r##########"
 //go:inline
 func C_${c_fn_name}_bytes(req []byte) (res gocall.ABIResult[[]byte], free func()) {
@@ -87,7 +104,6 @@ func C_${c_fn_name}[T gocall.PbMessage](req gocall.PbMessage) gocall.ABIResult[T
 	return gocall.PbUnmarshal[T](bufferToBytes(r.data.buffer))
 }
 "##########;
-
 
 pub(crate) const FB_FN_TPL: &'static str = r##########"
 //go:inline
@@ -123,26 +139,39 @@ pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
                 .arg("/c")
                 .arg(format!(
                     "protoc --proto_path={} --go_out {} {}",
-                    PathBuf::from(&pb_go_config.filename).parent().unwrap().to_str().unwrap(),
+                    PathBuf::from(&pb_go_config.filename)
+                        .parent()
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
                     go_out_dir,
                     pb_go_config.filename,
-                )).output().unwrap();
+                ))
+                .output()
+                .unwrap();
         } else {
             Command::new("sh")
                 .arg("-c")
                 .arg(format!(
                     "protoc --proto_path={} --go_out {} {}",
-                    PathBuf::from(&pb_go_config.filename).parent().unwrap().to_str().unwrap(),
+                    PathBuf::from(&pb_go_config.filename)
+                        .parent()
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
                     go_out_dir,
                     pb_go_config.filename,
-                )).output().unwrap();
+                ))
+                .output()
+                .unwrap();
         }
     }
 
     // caller code
 
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"FFIResult (?P<c_fn_name>[A-Z_a-z0-9]+)\(Buffer req\);").unwrap();
+        static ref RE: Regex =
+            Regex::new(r"FFIResult (?P<c_fn_name>[A-Z_a-z0-9]+)\(Buffer req\);").unwrap();
     }
     let header = fs::read(&report.c_header_filename);
     if header.is_err() {
@@ -150,20 +179,25 @@ pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
         return;
     }
     let header = header.unwrap();
-    let fn_list = RE.captures_iter(str::from_utf8(&header).unwrap()).map(|cap| {
-        cap["c_fn_name"].to_string()
-    }).collect::<Vec<String>>();
+    let fn_list = RE
+        .captures_iter(str::from_utf8(&header).unwrap())
+        .map(|cap| cap["c_fn_name"].to_string())
+        .collect::<Vec<String>>();
 
     println!("fn_list: {:?}", fn_list);
 
     let fn_list = fn_list
         .iter()
         .map(|c_fn_name| {
-            if c_fn_name.starts_with("ffi_pb_") {
+            if c_fn_name.starts_with("ffi_raw_") {
+                RAW_FN_TPL.replace("${c_fn_name}", c_fn_name)
+            } else if c_fn_name.starts_with("ffi_pb_") {
                 PB_FN_TPL.replace("${c_fn_name}", c_fn_name)
             } else if c_fn_name.starts_with("ffi_fb_") {
                 FB_FN_TPL.replace("${c_fn_name}", c_fn_name)
-            } else { String::new() }
+            } else {
+                String::new()
+            }
         })
         .collect::<Vec<String>>()
         .join("\n");

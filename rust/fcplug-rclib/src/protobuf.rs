@@ -1,30 +1,18 @@
-use std::fmt::{Debug};
+use std::fmt::Debug;
+
 use protobuf::{Message, ProtobufError};
-use crate::abi::{ABIMessage, ABIRequest, ABIResponse, LeakBuffer};
-use crate::{ABIResult, Buffer, FFIResult, ResultCode};
 
-pub fn callback<A, R, F: Fn(A) -> ABIResult<R>>(_ffi_method_name: &str, f: F, args: &Buffer) -> FFIResult
+use crate::{abi, ABIResult, Buffer, FFIResult};
+use crate::abi::{ABIMessage, ABIRequest, ABIResponse, LeakBuffer, OriginType};
+
+#[inline]
+pub fn callback<'a, A, R, F>(_ffi_method_name: &'static str, f: F, args: &'a Buffer) -> FFIResult
     where A: Message,
-          R: Message {
-    let args_obj: PbMessage<A> = match ABIRequest::try_from_bytes(args.read().unwrap_or_default()) {
-        Ok(args_obj) => args_obj,
-        Err(err) => return FFIResult::err(ResultCode::Decode, Some(err)),
-    };
-
-    #[cfg(debug_assertions)]
-        let txt = format!("invoking method={}, args_bytes={:?}, args_obj={:?}", _ffi_method_name, args.read(), args_obj);
-
-    let res_obj: ABIResult<PbMessage<R>> = f(args_obj.0).map(PbMessage);
-
-    #[cfg(debug_assertions)]
-        let txt = format!("{}, abi_result={:?}", txt, res_obj);
-
-    let res = FFIResult::from(res_obj);
-
-    #[cfg(debug_assertions)]
-    println!("{}, ffi_result={:?}", txt, res);
-
-    res
+          R: Message,
+          F: Fn(A) -> ABIResult<R> {
+    abi::callback::<'a, PbMessage<A>, PbMessage<R>, _>(_ffi_method_name, |req| {
+        f(req.0).map(PbMessage)
+    }, args)
 }
 
 #[derive(Debug)]
@@ -46,6 +34,7 @@ impl<'a, T: Message> ABIRequest<'a> for PbMessage<T> {
 
 impl<T: Message> ABIResponse for PbMessage<T> {
     type EncodeError = ProtobufError;
+    const ORIGIN_TYPE_FOR_FREE: OriginType = OriginType::Vec;
 
     fn try_into_buffer(self) -> Result<LeakBuffer, Self::EncodeError> {
         self.0.write_to_bytes().map(|v| LeakBuffer::from_vec(v))

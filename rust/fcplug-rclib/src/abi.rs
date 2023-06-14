@@ -1,9 +1,10 @@
 use std::convert::Infallible;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::FromResidual;
+
 use flatbuffers::FlatBufferBuilder;
 #[cfg(debug_assertions)]
-use tracing::{error};
+use tracing::error;
 
 #[no_mangle]
 pub extern "C" fn no_mangle_types(_: Buffer, _: FFIResult) {
@@ -32,6 +33,31 @@ pub extern "C" fn free_buffer(free_type: OriginType, free_ptr: usize) {
             }
         };
     }
+}
+
+pub fn callback<'a, Request, Response, F>(_ffi_method_name: &'static str, method_fn: F, args: &'a Buffer) -> FFIResult
+    where Request: ABIRequest<'a>,
+          Response: ABIResponse,
+          F: Fn(Request) -> ABIResult<Response> {
+    let args_obj = match Request::try_from_bytes(args.read().unwrap_or_default()) {
+        Ok(args_obj) => args_obj,
+        Err(err) => return FFIResult::err(ResultCode::Decode, Some(err)),
+    };
+
+    #[cfg(debug_assertions)]
+        let txt = format!("invoking method={}, args_bytes={:?}, args_obj={:?}", _ffi_method_name, args.read(), args_obj);
+
+    let res_obj: ABIResult<Response> = method_fn(args_obj);
+
+    #[cfg(debug_assertions)]
+        let txt = format!("{}, abi_result={:?}", txt, res_obj);
+
+    let res = FFIResult::from(res_obj);
+
+    #[cfg(debug_assertions)]
+    println!("{}, ffi_result={:?}", txt, res);
+
+    res
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -216,6 +242,7 @@ pub trait ABIRequest<'a>: Debug {
 
 pub trait ABIResponse: Debug {
     type EncodeError: Debug;
+    const ORIGIN_TYPE_FOR_FREE: OriginType;
     fn try_into_buffer(self) -> Result<LeakBuffer, Self::EncodeError>;
 }
 

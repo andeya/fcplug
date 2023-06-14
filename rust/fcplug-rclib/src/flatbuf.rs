@@ -1,13 +1,15 @@
 use std::convert::Infallible;
-use crate::abi::{ABIRequest, ABIResponse, LeakBuffer, OriginType};
-use crate::{ABIResult, Buffer, ResultCode};
-pub use flatbuffers::{FlatBufferBuilder, WIPOffset};
-use flatbuffers::{Follow, InvalidFlatbuffer, Verifiable};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+
+pub use flatbuffers::{FlatBufferBuilder, WIPOffset};
+use flatbuffers::{Follow, InvalidFlatbuffer, Verifiable};
 #[cfg(debug_assertions)]
 use tracing::error;
+
+use crate::{ABIResult, Buffer, ResultCode};
+use crate::abi::{ABIRequest, ABIResponse, LeakBuffer, OriginType};
 
 pub struct FbRequest<'a, T> {
     request: T,
@@ -93,6 +95,7 @@ impl<T> Debug for FbResponseWriter<T> {
 
 impl<T> ABIResponse for FbResponseWriter<T> {
     type EncodeError = Infallible;
+    const ORIGIN_TYPE_FOR_FREE: OriginType = OriginType::FlatBuffer;
 
     fn try_into_buffer(mut self) -> Result<LeakBuffer, Self::EncodeError> {
         let b = self.mut_finished_buffer();

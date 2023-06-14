@@ -8,6 +8,10 @@ import (
 )
 
 func main() {
+	res, free := go_gen.C_ffi_raw_echo([]byte("hello raw"))
+	_, _ = spew.Printf("C_ffi_raw_echo: code=%d, data=%q\n", res.Code, res.Data)
+	free()
+
 	pbRes := go_gen.C_ffi_pb_echo[*go_gen.Echo](&go_gen.Echo{
 		Msg: "hello protobuf",
 	})
