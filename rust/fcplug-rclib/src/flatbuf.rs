@@ -23,10 +23,10 @@ impl<'a, T> FbRequest<'a, T> where T: 'a {
     pub fn new_response_writer<U>(&self) -> FbResponseWriter<U> {
         FbResponseWriter { fbb: Box::new(FlatBufferBuilder::new()), _phantom: Default::default() }
     }
-    pub fn try_from_buffer(req: &'a Buffer) -> ABIResult<Self>
+    pub fn try_from_buffer(req: &'a mut Buffer) -> ABIResult<Self>
         where T: 'a + Follow<'a, Inner=T> + Verifiable,
     {
-        Self::try_from_bytes(req.read().unwrap_or_default())
+        Self::try_from_bytes(req.read_mut().unwrap_or_default())
             .map_err(|_err| {
                 #[cfg(debug_assertions)]{
                     error!("{:?}", _err);
@@ -54,7 +54,7 @@ impl<'a, T> ABIRequest<'a> for FbRequest<'a, T> where
     T: 'a + Follow<'a, Inner=T> + Verifiable {
     type DecodeError = InvalidFlatbuffer;
 
-    fn try_from_bytes(buf: &'a [u8]) -> Result<Self, Self::DecodeError> where Self: Sized {
+    fn try_from_bytes(buf: &'a mut [u8]) -> Result<Self, Self::DecodeError> where Self: Sized {
         flatbuffers::root::<T>(buf).map(|v| Self::new(v))
     }
 }

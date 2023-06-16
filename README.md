@@ -9,7 +9,6 @@ Foreign Clang Plugin solution.
 | Go                |  -   |  ✅   |
 | Rust              | TODO |  -   |
 
-
 ## Usage
 
 See the [demo](./demo)

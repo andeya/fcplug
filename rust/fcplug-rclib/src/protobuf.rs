@@ -6,7 +6,7 @@ use crate::{abi, ABIResult, Buffer, FFIResult};
 use crate::abi::{ABIMessage, ABIRequest, ABIResponse, LeakBuffer, OriginType};
 
 #[inline]
-pub fn callback<'a, A, R, F>(_ffi_method_name: &'static str, f: F, args: &'a Buffer) -> FFIResult
+pub fn callback<'a, A, R, F>(_ffi_method_name: &'static str, f: F, args: &'a mut Buffer) -> FFIResult
     where A: Message,
           R: Message,
           F: Fn(A) -> ABIResult<R> {
@@ -27,7 +27,7 @@ impl<T: Message> PbMessage<T> {
 impl<'a, T: Message> ABIRequest<'a> for PbMessage<T> {
     type DecodeError = ProtobufError;
 
-    fn try_from_bytes(buf: &'a [u8]) -> Result<Self, Self::DecodeError> where Self: Sized {
+    fn try_from_bytes(buf: &'a mut [u8]) -> Result<Self, Self::DecodeError> where Self: Sized {
         T::parse_from_bytes(buf).map(PbMessage)
     }
 }

@@ -35,17 +35,17 @@ pub extern "C" fn free_buffer(free_type: OriginType, free_ptr: usize) {
     }
 }
 
-pub fn callback<'a, Request, Response, F>(_ffi_method_name: &'static str, method_fn: F, args: &'a Buffer) -> FFIResult
+pub fn callback<'a, Request, Response, F>(_ffi_method_name: &'static str, method_fn: F, args: &'a mut Buffer) -> FFIResult
     where Request: ABIRequest<'a>,
           Response: ABIResponse,
           F: Fn(Request) -> ABIResult<Response> {
-    let args_obj = match Request::try_from_bytes(args.read().unwrap_or_default()) {
+    let args_obj = match Request::try_from_bytes(args.read_mut().unwrap_or_default()) {
         Ok(args_obj) => args_obj,
         Err(err) => return FFIResult::err(ResultCode::Decode, Some(err)),
     };
 
     #[cfg(debug_assertions)]
-        let txt = format!("invoking method={}, args_bytes={:?}, args_obj={:?}", _ffi_method_name, args.read(), args_obj);
+        let txt = format!("invoking method={}, args_obj={:?}", _ffi_method_name, args_obj);
 
     let res_obj: ABIResult<Response> = method_fn(args_obj);
 
@@ -91,6 +91,17 @@ impl Buffer {
             None
         } else {
             unsafe { Some(std::slice::from_raw_parts(self.ptr, self.len)) }
+        }
+    }
+
+    /// read_mut provides a reference to the included data to be parsed or copied elsewhere
+    /// data is only guaranteed to live as long as the Buffer
+    /// (or the scope of the extern "C" call it came from)
+    pub fn read_mut(&mut self) -> Option<&mut [u8]> {
+        if self.is_empty() {
+            None
+        } else {
+            unsafe { Some(std::slice::from_raw_parts_mut(self.ptr, self.len)) }
         }
     }
 
@@ -145,6 +156,13 @@ impl LeakBuffer {
             None
         } else {
             unsafe { Some(std::slice::from_raw_parts(self.buffer.ptr, self.buffer.len)) }
+        }
+    }
+    pub fn read_mut(&mut self) -> Option<&mut [u8]> {
+        if self.is_empty() {
+            None
+        } else {
+            unsafe { Some(std::slice::from_raw_parts_mut(self.buffer.ptr, self.buffer.len)) }
         }
     }
     // pub(crate) fn consume_vec(self) -> Vec<u8> {
@@ -216,11 +234,11 @@ impl<T: ABIResponse> From<ABIResult<T>> for FFIResult {
     }
 }
 
-impl<'a, T: ABIRequest<'a>> From<&'a FFIResult> for ABIResult<T> {
-    fn from(value: &'a FFIResult) -> Self {
+impl<'a, T: ABIRequest<'a>> From<&'a mut FFIResult> for ABIResult<T> {
+    fn from(value: &'a mut FFIResult) -> Self {
         match value.code {
             ResultCode::NoError => {
-                ABIRequest::try_from_bytes(value.data.read().unwrap_or_default())
+                ABIRequest::try_from_bytes(value.data.read_mut().unwrap_or_default())
                     .map_err(|_err| {
                         #[cfg(debug_assertions)]{
                             error!("{:?}", _err);
@@ -237,7 +255,7 @@ pub trait ABIMessage<'a>: ABIRequest<'a> + ABIResponse {}
 
 pub trait ABIRequest<'a>: Debug {
     type DecodeError: Debug;
-    fn try_from_bytes(buf: &'a [u8]) -> Result<Self, Self::DecodeError> where Self: Sized;
+    fn try_from_bytes(buf: &'a mut [u8]) -> Result<Self, Self::DecodeError> where Self: Sized;
 }
 
 pub trait ABIResponse: Debug {

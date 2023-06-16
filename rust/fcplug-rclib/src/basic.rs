@@ -8,7 +8,7 @@ use crate::abi::{LeakBuffer, OriginType};
 impl ABIRequest<'_> for Vec<u8> {
     type DecodeError = Infallible;
 
-    fn try_from_bytes(buf: &'_ [u8]) -> Result<Self, Self::DecodeError>
+    fn try_from_bytes(buf: &'_ mut [u8]) -> Result<Self, Self::DecodeError>
         where
             Self: Sized,
     {
@@ -20,7 +20,7 @@ impl ABIRequest<'_> for Vec<u8> {
 impl<'a> ABIRequest<'a> for &'a [u8] {
     type DecodeError = Infallible;
 
-    fn try_from_bytes(buf: &'a [u8]) -> Result<Self, Self::DecodeError>
+    fn try_from_bytes(buf: &'a mut [u8]) -> Result<Self, Self::DecodeError>
         where
             Self: Sized,
     {
@@ -31,11 +31,34 @@ impl<'a> ABIRequest<'a> for &'a [u8] {
 impl<'a> ABIRequest<'a> for &'a str {
     type DecodeError = Infallible;
 
-    fn try_from_bytes(buf: &'a [u8]) -> Result<Self, Self::DecodeError>
+    fn try_from_bytes(buf: &'a mut [u8]) -> Result<Self, Self::DecodeError>
         where
             Self: Sized,
     {
         Ok(unsafe { std::str::from_utf8_unchecked(buf) })
+    }
+}
+
+
+impl<'a> ABIRequest<'a> for &'a mut [u8] {
+    type DecodeError = Infallible;
+
+    fn try_from_bytes(buf: &'a mut [u8]) -> Result<Self, Self::DecodeError>
+        where
+            Self: Sized,
+    {
+        Ok(buf)
+    }
+}
+
+impl<'a> ABIRequest<'a> for &'a mut str {
+    type DecodeError = Infallible;
+
+    fn try_from_bytes(buf: &'a mut [u8]) -> Result<Self, Self::DecodeError>
+        where
+            Self: Sized,
+    {
+        Ok(unsafe { std::str::from_utf8_unchecked_mut(buf) })
     }
 }
 

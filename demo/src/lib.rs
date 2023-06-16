@@ -41,12 +41,12 @@ fn echo<'a>(
 fn test_echo() {
     use fcplug_rclib::*;
     let req = "andeya".to_string().try_into_buffer().unwrap();
-    let r: FFIResult = ffi_raw_echo(req.buffer());
+    let mut r: FFIResult = ffi_raw_echo(req.buffer());
     unsafe { req.mem_free() };
     println!("FFIResult={:?}", r);
 
     println!("ABIResult={:?}", if let ResultCode::NoError = r.code {
-        <&str>::try_from_bytes(r.data.read().unwrap_or_default()).map_err(|_e| ResultCode::Decode)
+        <&str>::try_from_bytes(r.data.read_mut().unwrap_or_default()).map_err(|_e| ResultCode::Decode)
     } else {
         Err::<&str, ResultCode>(r.code)
     });
