@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/andeya/fcplug/demo/go_gen"
-	"github.com/andeya/fcplug/go/gocall"
+	"github.com/andeya/fcplug/go/caller"
 	"github.com/andeya/gust"
 	"github.com/andeya/gust/valconv"
 	"github.com/golang/protobuf/proto"
@@ -85,7 +85,7 @@ func BenchmarkEcho_Fcplug_fb(b *testing.B) {
 	}
 }
 
-func C_ffi_fb_echo(req string) (gocall.ABIResult[string], func()) {
+func C_ffi_fb_echo(req string) (caller.ABIResult[string], func()) {
 	fbb := flatbuffers.NewBuilder(128)
 	data := fbb.CreateString(req)
 	go_gen.EchoRequestStart(fbb)
@@ -93,7 +93,7 @@ func C_ffi_fb_echo(req string) (gocall.ABIResult[string], func()) {
 	fbb.Finish(go_gen.EchoRequestEnd(fbb))
 
 	res, free := go_gen.C_ffi_fb_echo_bytes(fbb.FinishedBytes())
-	var x gocall.ABIResult[string]
+	var x caller.ABIResult[string]
 	if res.IsErr() {
 		x.Code = res.Code
 	} else {
@@ -108,7 +108,7 @@ func echo_go_raw(args string) string {
 	return "input is: " + args
 }
 
-func echo_go_pb(args *go_gen.Echo) *gocall.ABIResult[*go_gen.Echo] {
+func echo_go_pb(args *go_gen.Echo) *caller.ABIResult[*go_gen.Echo] {
 	var a go_gen.Echo
 	proto.Unmarshal([]byte(args.String()), &a)
 	var b go_gen.Echo
@@ -116,7 +116,7 @@ func echo_go_pb(args *go_gen.Echo) *gocall.ABIResult[*go_gen.Echo] {
 	var c go_gen.Echo
 
 	proto.Unmarshal([]byte(b.String()), &c)
-	return &gocall.ABIResult[*go_gen.Echo]{
+	return &caller.ABIResult[*go_gen.Echo]{
 		Code: 0,
 		Data: &c,
 	}

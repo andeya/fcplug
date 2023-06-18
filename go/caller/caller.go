@@ -1,4 +1,4 @@
-package gocall
+package caller
 
 import (
 	"errors"

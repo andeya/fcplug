@@ -14,7 +14,7 @@ rpath = false
 resolver = "2"
 members = [
     "rust/fcplug",
-    "rust/fcplug-rclib",
+    "rust/fcplug-callee",
     "rust/fcplug-macros",
     "rust/fcplug-build",
     "demo",
@@ -23,7 +23,7 @@ exclude = []
 
 [workspace.package]
 edition = "2021"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Aoleah <aoleahlee@outlook.com>"]
 description = "Foreign Clang Plugin solution"
 repository = "https://github.com/andeya/fcplug"
@@ -33,7 +33,7 @@ readme = "README.md"
 documentation = "https://github.com/andeya/fcplug/blob/main/README.md"
 
 [workspace.dependencies]
-fcplug-rclib = { path = "rust/fcplug-rclib" }
+fcplug-callee = { path = "rust/fcplug-callee" }
 fcplug-macros = "0.2.1"
 fcplug-build = "0.2.1"
 

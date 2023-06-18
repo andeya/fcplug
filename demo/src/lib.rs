@@ -1,5 +1,5 @@
-use fcplug_rclib::ABIResult;
-use fcplug_rclib::flatbuf::{FbRequest, FbResponseWriter};
+use fcplug_callee::ABIResult;
+use fcplug_callee::flatbuf::{FbRequest, FbResponseWriter};
 
 use crate::idl::Echo;
 use crate::idl_generated::{EchoRequest, EchoResponse, EchoResponseArgs};
@@ -8,20 +8,20 @@ mod idl;
 #[allow(unused_imports, dead_code)]
 mod idl_generated;
 
-#[fcplug_rclib::ffi_raw_method]
+#[fcplug_callee::ffi_raw_method]
 fn echo(args: &str) -> ABIResult<String> {
     Ok("input is: ".to_string() + args)
 }
 
 
-#[fcplug_rclib::ffi_pb_method]
+#[fcplug_callee::ffi_pb_method]
 fn echo(args: Echo) -> ABIResult<Echo> {
     let mut r = Echo::new();
     r.set_msg("input is: ".to_string() + args.get_msg());
     Ok(r)
 }
 
-#[fcplug_rclib::ffi_fb_method]
+#[fcplug_callee::ffi_fb_method]
 fn echo<'a>(
     req: FbRequest<'a, EchoRequest<'a>>,
 ) -> (EchoResponseArgs<'a>, FbResponseWriter<EchoResponse<'a>>) {
@@ -39,7 +39,7 @@ fn echo<'a>(
 
 #[test]
 fn test_echo() {
-    use fcplug_rclib::*;
+    use fcplug_callee::*;
     let req = "andeya".to_string().try_into_buffer().unwrap();
     let mut r: FFIResult = ffi_raw_echo(req.buffer());
     unsafe { req.mem_free() };

@@ -1,5 +1,5 @@
 [package]
-name = "fcplug-rclib"
+name = "fcplug-callee"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
@@ -27,4 +27,4 @@ flatbuffers = { workspace = true }
 fcplug-build = { workspace = true }
 
 [dev-dependencies]
-fcplug-rclib = { workspace = true }
+fcplug-callee = { workspace = true }

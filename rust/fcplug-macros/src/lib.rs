@@ -20,9 +20,9 @@ pub fn ffi_raw_method(_args: TokenStream, item: TokenStream) -> TokenStream {
     let new_item = quote! {
         #[inline]
         #[no_mangle]
-        pub extern "C" fn #new_ident(mut req: ::fcplug_rclib::Buffer) -> ::fcplug_rclib::FFIResult {
+        pub extern "C" fn #new_ident(mut req: ::fcplug_callee::Buffer) -> ::fcplug_callee::FFIResult {
             #raw_item
-            ::fcplug_rclib::callback(::std::stringify!(#new_ident), #raw_ident, &mut req)
+            ::fcplug_callee::callback(::std::stringify!(#new_ident), #raw_ident, &mut req)
         }
     };
     TokenStream::from(new_item)
@@ -42,9 +42,9 @@ pub fn ffi_pb_method(_args: TokenStream, item: TokenStream) -> TokenStream {
     let new_item = quote! {
         #[inline]
         #[no_mangle]
-        pub extern "C" fn #new_ident(mut req: ::fcplug_rclib::Buffer) -> ::fcplug_rclib::FFIResult {
+        pub extern "C" fn #new_ident(mut req: ::fcplug_callee::Buffer) -> ::fcplug_callee::FFIResult {
             #raw_item
-            ::fcplug_rclib::protobuf::callback(::std::stringify!(#new_ident), #raw_ident, &mut req)
+            ::fcplug_callee::protobuf::callback(::std::stringify!(#new_ident), #raw_ident, &mut req)
         }
     };
     TokenStream::from(new_item)
@@ -84,12 +84,12 @@ pub fn ffi_fb_method(_args: TokenStream, item: TokenStream) -> TokenStream {
     let new_item = quote! {
         #[inline]
         #[no_mangle]
-        pub extern "C" fn #new_ident(mut req: ::fcplug_rclib::Buffer) -> ::fcplug_rclib::FFIResult {
+        pub extern "C" fn #new_ident(mut req: ::fcplug_callee::Buffer) -> ::fcplug_callee::FFIResult {
             #raw_item
-            let (_resp_, mut _w_) = #raw_ident(::fcplug_rclib::flatbuf::FbRequest::try_from_buffer(&mut req)?);
+            let (_resp_, mut _w_) = #raw_ident(::fcplug_callee::flatbuf::FbRequest::try_from_buffer(&mut req)?);
             let _resp_ = #resp_type::create(&mut _w_, &_resp_);
             _w_.finish_minimal(_resp_);
-            ::fcplug_rclib::FFIResult::ok(::fcplug_rclib::ABIResponse::try_into_buffer(_w_).unwrap())
+            ::fcplug_callee::FFIResult::ok(::fcplug_callee::ABIResponse::try_into_buffer(_w_).unwrap())
         }
     };
     TokenStream::from(new_item)

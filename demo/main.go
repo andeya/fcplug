@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/andeya/fcplug/demo/go_gen"
-	"github.com/andeya/fcplug/go/gocall"
+	"github.com/andeya/fcplug/go/caller"
 	"github.com/davecgh/go-spew/spew"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
@@ -20,7 +20,7 @@ func main() {
 	_, _ = spew.Printf("C_ffi_fb_echo: %#v\n", fbRes)
 }
 
-func C_ffi_fb_echo(req string) *gocall.ABIResult[string] {
+func C_ffi_fb_echo(req string) *caller.ABIResult[string] {
 	fbb := flatbuffers.NewBuilder(128)
 	data := fbb.CreateString(req)
 	go_gen.EchoRequestStart(fbb)
@@ -29,7 +29,7 @@ func C_ffi_fb_echo(req string) *gocall.ABIResult[string] {
 
 	res, free := go_gen.C_ffi_fb_echo_bytes(fbb.FinishedBytes())
 	defer free()
-	var x gocall.ABIResult[string]
+	var x caller.ABIResult[string]
 	if res.IsErr() {
 		x.Code = res.Code
 	} else {

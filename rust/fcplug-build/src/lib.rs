@@ -79,7 +79,7 @@ pub fn gen_c_header() -> Report {
         .with_crate(crate_dir)
         .with_language(Language::C)
         .with_parse_expand(&[cargo_pkg_name.as_str()])
-        .with_after_include(if cargo_pkg_name != "fcplug-rclib" {
+        .with_after_include(if cargo_pkg_name != "fcplug-callee" {
             r#"
 typedef enum OriginType {
   Vec = 0,

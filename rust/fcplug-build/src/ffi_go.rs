@@ -24,7 +24,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/andeya/fcplug/go/gocall"
+	"github.com/andeya/fcplug/go/caller"
 )
 
 func bytesToBuffer(b []byte) C.struct_Buffer {
@@ -43,16 +43,16 @@ func bufferToBytes(buf C.struct_Buffer) []byte {
 	}))
 }
 
-func toResultCode(code C.enum_ResultCode) gocall.ResultCode {
+func toResultCode(code C.enum_ResultCode) caller.ResultCode {
 	switch code {
 	case C.NoError:
-		return gocall.CodeNoError
+		return caller.CodeNoError
 	case C.Decode:
-		return gocall.CodeDecode
+		return caller.CodeDecode
 	case C.Encode:
-		return gocall.CodeEncode
+		return caller.CodeEncode
 	default:
-		return gocall.CodeUnknown
+		return caller.CodeUnknown
 	}
 }
 
@@ -61,14 +61,14 @@ ${fn_list}
 
 pub(crate) const RAW_FN_TPL: &'static str = r##########"
 //go:inline
-func C_${c_fn_name}(req []byte) (res gocall.ABIResult[[]byte], free func()) {
+func C_${c_fn_name}(req []byte) (res caller.ABIResult[[]byte], free func()) {
 	r := C.${c_fn_name}(bytesToBuffer(req))
-	if code := toResultCode(r.code); code != gocall.CodeNoError {
-		return gocall.ABIResult[[]byte]{
+	if code := toResultCode(r.code); code != caller.CodeNoError {
+		return caller.ABIResult[[]byte]{
 			Code: code,
 		}, func() {}
 	}
-	return gocall.ABIResult[[]byte]{
+	return caller.ABIResult[[]byte]{
 		Data: bufferToBytes(r.data.buffer),
 	}, func() { C.free_buffer(r.data.free_type, r.data.free_ptr) }
 }
@@ -76,42 +76,42 @@ func C_${c_fn_name}(req []byte) (res gocall.ABIResult[[]byte], free func()) {
 
 pub(crate) const PB_FN_TPL: &'static str = r##########"
 //go:inline
-func C_${c_fn_name}_bytes(req []byte) (res gocall.ABIResult[[]byte], free func()) {
+func C_${c_fn_name}_bytes(req []byte) (res caller.ABIResult[[]byte], free func()) {
 	r := C.${c_fn_name}(bytesToBuffer(req))
-	if code := toResultCode(r.code); code != gocall.CodeNoError {
-		return gocall.ABIResult[[]byte]{
+	if code := toResultCode(r.code); code != caller.CodeNoError {
+		return caller.ABIResult[[]byte]{
 			Code: code,
 		}, func() {}
 	}
-	return gocall.ABIResult[[]byte]{
+	return caller.ABIResult[[]byte]{
 		Data: bufferToBytes(r.data.buffer),
 	}, func() { C.free_buffer(r.data.free_type, r.data.free_ptr) }
 }
 
 //go:inline
-func C_${c_fn_name}[T gocall.PbMessage](req gocall.PbMessage) gocall.ABIResult[T] {
-	b, code := gocall.PbMarshal(req)
+func C_${c_fn_name}[T caller.PbMessage](req caller.PbMessage) caller.ABIResult[T] {
+	b, code := caller.PbMarshal(req)
 	if code.IsErr() {
-		return gocall.ABIResult[T]{Code: code}
+		return caller.ABIResult[T]{Code: code}
 	}
 	r := C.${c_fn_name}(bytesToBuffer(b))
-	if code := toResultCode(r.code); code != gocall.CodeNoError {
-		return gocall.ABIResult[T]{
+	if code := toResultCode(r.code); code != caller.CodeNoError {
+		return caller.ABIResult[T]{
 			Code: code,
 		}
 	}
 	defer C.free_buffer(r.data.free_type, r.data.free_ptr)
-	return gocall.PbUnmarshal[T](bufferToBytes(r.data.buffer))
+	return caller.PbUnmarshal[T](bufferToBytes(r.data.buffer))
 }
 "##########;
 
 pub(crate) const FB_FN_TPL: &'static str = r##########"
 //go:inline
-func C_${c_fn_name}_bytes(req []byte) (resp gocall.ABIResult[[]byte], free func()) {
-	resp = gocall.ABIResult[[]byte]{}
+func C_${c_fn_name}_bytes(req []byte) (resp caller.ABIResult[[]byte], free func()) {
+	resp = caller.ABIResult[[]byte]{}
 	r := C.${c_fn_name}(bytesToBuffer(req))
 	resp.Code = toResultCode(r.code)
-	if resp.Code != gocall.CodeNoError {
+	if resp.Code != caller.CodeNoError {
 		return resp, func() {}
 	}
 	resp.Data = bufferToBytes(r.data.buffer)
@@ -126,7 +126,7 @@ pub struct PbGoConfig {
 }
 
 pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
-    if env::var("CARGO_PKG_NAME").unwrap() == "fcplug-rclib" {
+    if env::var("CARGO_PKG_NAME").unwrap() == "fcplug-callee" {
         return;
     }
 
