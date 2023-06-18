@@ -1,0 +1,5 @@
+use (
+	./demo
+	./go/caller
+	./go/callee
+)
