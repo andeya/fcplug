@@ -176,10 +176,6 @@ func C_${c_fn_name}[T caller.FlatBuffer](req *caller.FlatBuilder, newRespData fu
 }
 "##########;
 
-pub struct PbGoConfig {
-    pub filename: String,
-}
-
 pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
     if env::var("CARGO_PKG_NAME").unwrap() == "fcplug-callee" {
         return;
@@ -188,39 +184,27 @@ pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
     let go_out_dir = config.go_out_dir.to_str().unwrap();
 
     // protobuf code
-    if let Some(pb_go_config) = &config.pb_go_config {
-        if cfg!(target_os = "windows") {
-            Command::new("cmd")
-                .arg("/c")
-                .arg(format!(
-                    "protoc --proto_path={} --go_out {} {}",
-                    PathBuf::from(&pb_go_config.filename)
-                        .parent()
-                        .unwrap()
-                        .to_str()
-                        .unwrap(),
-                    go_out_dir,
-                    pb_go_config.filename,
-                ))
-                .output()
-                .unwrap();
-        } else {
-            Command::new("sh")
-                .arg("-c")
-                .arg(format!(
-                    "protoc --proto_path={} --go_out {} {}",
-                    PathBuf::from(&pb_go_config.filename)
-                        .parent()
-                        .unwrap()
-                        .to_str()
-                        .unwrap(),
-                    go_out_dir,
-                    pb_go_config.filename,
-                ))
-                .output()
-                .unwrap();
-        }
+    let mut param = ("sh", "-c");
+    if cfg!(target_os = "windows") {
+        param.0 = "cmd";
+        param.1 = "/c";
     }
+    Command::new(param.0).arg(param.1)
+        .arg(format!(
+            "protoc{} --go_out {} {}",
+            config.pb_configs.includes
+                .iter()
+                .map(|i| " --proto_path=".to_string() + i.to_str().unwrap())
+                .collect::<String>(),
+            go_out_dir,
+            config.pb_configs.inputs
+                .iter()
+                .map(|i| i.to_str().unwrap())
+                .collect::<Vec<&str>>()
+                .join(" "),
+        ))
+        .output()
+        .unwrap();
 
     // caller code
 

@@ -8,26 +8,33 @@ use flatc_rust;
 use protoc_rust::{Codegen, Customize};
 
 use crate::ffi_go::gen_go_code;
-pub use crate::ffi_go::PbGoConfig;
 
 mod ffi_go;
 
 pub struct BuildConfig {
     pub go_out_dir: PathBuf,
     pub rust_out_dir: PathBuf,
-    pub pb_rust_configs: Vec<PbRustConfig>,
-    pub pb_go_config: Option<PbGoConfig>,
+    pub pb_configs: PbConfigs,
     pub fb_configs: FbConfigs,
 }
 
-pub type PbCustomize = Customize;
+pub type PbRustCustomize = Customize;
 
-pub struct PbRustConfig {
+pub struct PbConfigs {
     pub inputs: Vec<PathBuf>,
-    pub include: Option<PathBuf>,
-    pub customize: Option<PbCustomize>,
+    pub includes: Vec<PathBuf>,
+    pub rust_customize: Option<PbRustCustomize>,
 }
 
+pub enum FbConfig {
+    Rust,
+    Go,
+}
+
+pub struct FbConfigs {
+    pub inputs: Vec<PathBuf>,
+    pub configs: Vec<FbConfig>,
+}
 
 #[derive(Debug)]
 pub struct Report {
@@ -48,19 +55,17 @@ pub fn build_files(config: BuildConfig) {
 
 
 fn gen_rust_protobuf(config: &BuildConfig) {
-    config.pb_rust_configs.iter().for_each(|pb_conf| {
-        Codegen::new()
-            .out_dir(&config.rust_out_dir)
-            .include(pb_conf.include.clone().unwrap_or("./".into()))
-            .inputs(&pb_conf.inputs)
-            .customize(pb_conf.customize.as_ref().unwrap_or(&Customize {
-                carllerche_bytes_for_bytes: Some(true),
-                generate_accessors: Some(true),
-                ..Default::default()
-            }).clone())
-            .run()
-            .expect("Unable to generate proto file");
-    });
+    Codegen::new()
+        .out_dir(&config.rust_out_dir)
+        .includes(&config.pb_configs.includes)
+        .inputs(&config.pb_configs.inputs)
+        .customize(config.pb_configs.rust_customize.as_ref().unwrap_or(&Customize {
+            carllerche_bytes_for_bytes: Some(true),
+            generate_accessors: Some(true),
+            ..Default::default()
+        }).clone())
+        .run()
+        .expect("Unable to generate proto file");
 }
 
 pub fn gen_c_header() -> Report {
@@ -147,15 +152,6 @@ fn target_profile_dir() -> PathBuf {
     p
 }
 
-pub enum FbConfig {
-    Rust,
-    Go,
-}
-
-pub struct FbConfigs {
-    pub inputs: Vec<PathBuf>,
-    pub configs: Vec<FbConfig>,
-}
 
 fn gen_flatbuf(config: &BuildConfig) {
     let inputs = config.fb_configs.inputs.iter().map(|v| v.as_path()).collect::<Vec<&Path>>();

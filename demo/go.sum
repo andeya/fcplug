@@ -1,5 +1,5 @@
-github.com/andeya/fcplug/go/caller v0.2.3 h1:yz1rWo9viwuvmVay6MD3nWIhdXlUCDrSgr+eRz2Ajvk=
-github.com/andeya/fcplug/go/caller v0.2.3/go.mod h1:vm9ZdDgyuRabWuMEWwGZBgeunfzgqNcaAM2dyXhfh4k=
+github.com/andeya/fcplug/go/caller v0.2.4 h1:+aw4J71CJYy3mMgGn+Y+c0vIXTfao/AOmMN9TcVLnno=
+github.com/andeya/fcplug/go/caller v0.2.4/go.mod h1:vm9ZdDgyuRabWuMEWwGZBgeunfzgqNcaAM2dyXhfh4k=
 github.com/andeya/gust v1.5.2 h1:P4YMq2i3H1dYU+zvnV4FAaec5y1EwJHsTXqWz5dlWUM=
 github.com/andeya/gust v1.5.2/go.mod h1:910l9GDrzc5ZdqJgA7D9qzfIQRE6XGmGBHJuf+eqNvM=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
