@@ -157,8 +157,7 @@ pub(crate) const FB_FN_TPL: &'static str = r##########"
 //go:inline
 func C_${c_fn_name}_bytes(req []byte) gust.EnumResult[CBytes, caller.ResultCode] {
 	r := C.${c_fn_name}(bytesToBuffer(req))
-	code := toResultCode(r.code)
-	if code != caller.CodeNoError {
+	if code := toResultCode(r.code); code != caller.CodeNoError {
 		return gust.EnumErr[CBytes, caller.ResultCode](code)
 	}
 	return gust.EnumOk[CBytes, caller.ResultCode](CBytes{r.data})
@@ -167,8 +166,7 @@ func C_${c_fn_name}_bytes(req []byte) gust.EnumResult[CBytes, caller.ResultCode]
 //go:inline
 func C_${c_fn_name}[T caller.FlatBuffer](req *caller.FlatBuilder, newRespData func([]byte, caller.FlatUOffsetT) T) gust.EnumResult[CFlatData[T], caller.ResultCode] {
 	r := C.${c_fn_name}(bytesToBuffer(req.FinishedBytes()))
-	code := toResultCode(r.code)
-	if code != caller.CodeNoError {
+	if code := toResultCode(r.code); code != caller.CodeNoError {
 		return gust.EnumErr[CFlatData[T], caller.ResultCode](code)
 	}
 	return gust.EnumOk[CFlatData[T], caller.ResultCode](CFlatData[T]{
