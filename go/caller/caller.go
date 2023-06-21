@@ -5,26 +5,20 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/andeya/gust"
 	"github.com/golang/protobuf/proto"
+	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type PbMessage = proto.Message
+type (
+	FlatBuffer   = flatbuffers.FlatBuffer
+	FlatBuilder  = flatbuffers.Builder
+	FlatUOffsetT = flatbuffers.UOffsetT
+)
 
-type ABIResult[T any] struct {
-	Code ResultCode `json:"code,omitempty"`
-	Data T          `json:"data,omitempty"`
-}
-
-func (a *ABIResult[T]) IsErr() bool {
-	return a != nil && a.Code.IsErr()
-}
-
-func (a *ABIResult[T]) ToErr() error {
-	if a == nil {
-		return nil
-	}
-	return a.Code.Error()
-}
+type (
+	PbMessage = proto.Message
+)
 
 type ResultCode int32
 
@@ -58,26 +52,22 @@ func (r ResultCode) Error() error {
 	}
 }
 
-func PbMarshal(m proto.Message) ([]byte, ResultCode) {
+func PbMarshal(m proto.Message) gust.EnumResult[[]byte, ResultCode] {
 	b, err := proto.Marshal(m)
 	if err != nil {
-		return nil, CodeMarshal
+		return gust.EnumErr[[]byte, ResultCode](CodeMarshal)
 	}
-	return b, CodeNoError
+	return gust.EnumOk[[]byte, ResultCode](b)
 }
 
-func PbUnmarshal[T proto.Message](b []byte) ABIResult[T] {
+func PbUnmarshal[T proto.Message](b []byte) gust.EnumResult[T, ResultCode] {
 	var m T
 	if t := reflect.TypeOf(m); t.Kind() == reflect.Ptr {
 		m = reflect.New(t.Elem()).Interface().(T)
 	}
 	err := proto.Unmarshal(b, m)
 	if err != nil {
-		return ABIResult[T]{
-			Code: CodeUnmarshal,
-		}
+		return gust.EnumErr[T, ResultCode](CodeUnmarshal)
 	}
-	return ABIResult[T]{
-		Data: m,
-	}
+	return gust.EnumOk[T, ResultCode](m)
 }

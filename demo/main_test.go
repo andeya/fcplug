@@ -35,12 +35,10 @@ func BenchmarkEcho_Fcplug_raw(b *testing.B) {
 	content := lazyContent.TryGetValue().Unwrap()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		res, free := go_gen.C_ffi_raw_echo(valconv.StringToReadonlyBytes(content))
-		if !res.IsErr() {
-			r := valconv.BytesToString[string](res.Data)
-			_ = r
-		}
-		free()
+		res := go_gen.C_ffi_raw_echo(valconv.StringToReadonlyBytes(content)).Unwrap()
+		r := res.AsString()
+		_ = r
+		res.Free()
 	}
 }
 
@@ -50,11 +48,9 @@ func BenchmarkEcho_Go_pb(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		res := echo_go_pb(&go_gen.Echo{
 			Msg: content,
-		})
-		if !res.IsErr() {
-			r := res.Data.GetMsg()
-			_ = r
-		}
+		}).Unwrap()
+		r := res.GetMsg()
+		_ = r
 	}
 }
 
@@ -64,11 +60,9 @@ func BenchmarkEcho_Fcplug_pb(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		res := go_gen.C_ffi_pb_echo[*go_gen.Echo](&go_gen.Echo{
 			Msg: content,
-		})
-		if !res.IsErr() {
-			r := res.Data.GetMsg()
-			_ = r
-		}
+		}).Unwrap()
+		r := res.GetMsg()
+		_ = r
 	}
 }
 
@@ -76,48 +70,37 @@ func BenchmarkEcho_Fcplug_fb(b *testing.B) {
 	content := lazyContent.TryGetValue().Unwrap()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		res, free := C_ffi_fb_echo(content)
-		if !res.IsErr() {
-			r := res.Data
-			_ = r
-		}
-		free()
+		res := C_ffi_fb_echo(content).Unwrap()
+		r := valconv.BytesToString[string](res.AsData().Data())
+		_ = r
+		res.Free()
 	}
 }
 
-func C_ffi_fb_echo(req string) (caller.ABIResult[string], func()) {
+func C_ffi_fb_echo(req string) gust.EnumResult[go_gen.CFlatData[*go_gen.EchoResponse], caller.ResultCode] {
 	fbb := flatbuffers.NewBuilder(128)
 	data := fbb.CreateString(req)
 	go_gen.EchoRequestStart(fbb)
 	go_gen.EchoRequestAddData(fbb, data)
 	fbb.Finish(go_gen.EchoRequestEnd(fbb))
-
-	res, free := go_gen.C_ffi_fb_echo_bytes(fbb.FinishedBytes())
-	var x caller.ABIResult[string]
-	if res.IsErr() {
-		x.Code = res.Code
-	} else {
-		var r go_gen.EchoResponse
-		flatbuffers.GetRootAs(res.Data, 0, &r)
-		x.Data = valconv.BytesToString[string](r.Data())
-	}
-	return x, free
+	return go_gen.C_ffi_fb_echo[*go_gen.EchoResponse](fbb, go_gen.GetRootAsEchoResponse)
 }
 
 func echo_go_raw(args string) string {
 	return "input is: " + args
 }
 
-func echo_go_pb(args *go_gen.Echo) *caller.ABIResult[*go_gen.Echo] {
+func echo_go_pb(args *go_gen.Echo) gust.Result[*go_gen.Echo] {
 	var a go_gen.Echo
-	proto.Unmarshal([]byte(args.String()), &a)
+	bytes, _ := proto.Marshal(args)
+	err := proto.Unmarshal(bytes, &a)
+	if err != nil {
+		return gust.Err[*go_gen.Echo](err)
+	}
 	var b go_gen.Echo
 	b.Msg = "input is: " + a.GetMsg()
 	var c go_gen.Echo
-
-	proto.Unmarshal([]byte(b.String()), &c)
-	return &caller.ABIResult[*go_gen.Echo]{
-		Code: 0,
-		Data: &c,
-	}
+	bytes, _ = proto.Marshal(&b)
+	err = proto.Unmarshal(bytes, &c)
+	return gust.Ret[*go_gen.Echo](&c, err)
 }

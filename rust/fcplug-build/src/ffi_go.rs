@@ -21,11 +21,16 @@ package ${package}
 */
 import "C"
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"unsafe"
 
+	"github.com/andeya/gust"
 	"github.com/andeya/fcplug/go/caller"
 )
+
+var _ gust.EnumResult[any,any]
 
 func bytesToBuffer(b []byte) C.struct_Buffer {
 	return C.struct_Buffer{
@@ -41,6 +46,59 @@ func bufferToBytes(buf C.struct_Buffer) []byte {
 		Len:  int(buf.len),
 		Cap:  int(buf.cap),
 	}))
+}
+
+type CBytes struct {
+	leakBuffer C.struct_LeakBuffer
+}
+
+func (c *CBytes) Free() {
+	if c.leakBuffer.free_ptr > 0 {
+		C.free_buffer(c.leakBuffer.free_type, c.leakBuffer.free_ptr)
+	}
+}
+
+//go:inline
+func (c *CBytes) AsBytes() []byte {
+	return bufferToBytes(c.leakBuffer.buffer)
+}
+
+func (c *CBytes) AsString() string {
+	return *(*string)(unsafe.Pointer(&reflect.StringHeader{
+		Data: uintptr(unsafe.Pointer(c.leakBuffer.buffer.ptr)),
+		Len:  int(c.leakBuffer.buffer.len),
+	}))
+}
+
+func (c CBytes) String() string {
+	return c.AsString()
+}
+
+func (c CBytes) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.AsString())
+}
+
+type CFlatData[T caller.FlatBuffer] struct {
+	newRespData func([]byte, caller.FlatUOffsetT) T
+	leakBuffer  C.struct_LeakBuffer
+}
+
+func (c *CFlatData[T]) Free() {
+	if c.leakBuffer.free_ptr > 0 {
+		C.free_buffer(c.leakBuffer.free_type, c.leakBuffer.free_ptr)
+	}
+}
+
+func (c *CFlatData[T]) AsData() T {
+	return c.newRespData(bufferToBytes(c.leakBuffer.buffer), 0)
+}
+
+func (c CFlatData[T]) String() string {
+	return fmt.Sprintf("%v", c.AsData())
+}
+
+func (c CFlatData[T]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.AsData())
 }
 
 func toResultCode(code C.enum_ResultCode) caller.ResultCode {
@@ -61,44 +119,34 @@ ${fn_list}
 
 pub(crate) const RAW_FN_TPL: &'static str = r##########"
 //go:inline
-func C_${c_fn_name}(req []byte) (res caller.ABIResult[[]byte], free func()) {
+func C_${c_fn_name}(req []byte) gust.EnumResult[CBytes, caller.ResultCode] {
 	r := C.${c_fn_name}(bytesToBuffer(req))
 	if code := toResultCode(r.code); code != caller.CodeNoError {
-		return caller.ABIResult[[]byte]{
-			Code: code,
-		}, func() {}
+		return gust.EnumErr[CBytes, caller.ResultCode](code)
 	}
-	return caller.ABIResult[[]byte]{
-		Data: bufferToBytes(r.data.buffer),
-	}, func() { C.free_buffer(r.data.free_type, r.data.free_ptr) }
+	return gust.EnumOk[CBytes, caller.ResultCode](CBytes{r.data})
 }
 "##########;
 
 pub(crate) const PB_FN_TPL: &'static str = r##########"
 //go:inline
-func C_${c_fn_name}_bytes(req []byte) (res caller.ABIResult[[]byte], free func()) {
+func C_${c_fn_name}_bytes(req []byte) gust.EnumResult[CBytes, caller.ResultCode] {
 	r := C.${c_fn_name}(bytesToBuffer(req))
 	if code := toResultCode(r.code); code != caller.CodeNoError {
-		return caller.ABIResult[[]byte]{
-			Code: code,
-		}, func() {}
+		return gust.EnumErr[CBytes, caller.ResultCode](code)
 	}
-	return caller.ABIResult[[]byte]{
-		Data: bufferToBytes(r.data.buffer),
-	}, func() { C.free_buffer(r.data.free_type, r.data.free_ptr) }
+	return gust.EnumOk[CBytes, caller.ResultCode](CBytes{r.data})
 }
 
 //go:inline
-func C_${c_fn_name}[T caller.PbMessage](req caller.PbMessage) caller.ABIResult[T] {
-	b, code := caller.PbMarshal(req)
-	if code.IsErr() {
-		return caller.ABIResult[T]{Code: code}
+func C_${c_fn_name}[T caller.PbMessage](req caller.PbMessage) gust.EnumResult[T, caller.ResultCode] {
+	_req := caller.PbMarshal(req)
+	if _req.IsErr() {
+		return gust.EnumErr[T, caller.ResultCode](_req.UnwrapErr())
 	}
-	r := C.${c_fn_name}(bytesToBuffer(b))
+	r := C.${c_fn_name}(bytesToBuffer(_req.Unwrap()))
 	if code := toResultCode(r.code); code != caller.CodeNoError {
-		return caller.ABIResult[T]{
-			Code: code,
-		}
+		return gust.EnumErr[T, caller.ResultCode](code)
 	}
 	defer C.free_buffer(r.data.free_type, r.data.free_ptr)
 	return caller.PbUnmarshal[T](bufferToBytes(r.data.buffer))
@@ -107,17 +155,26 @@ func C_${c_fn_name}[T caller.PbMessage](req caller.PbMessage) caller.ABIResult[T
 
 pub(crate) const FB_FN_TPL: &'static str = r##########"
 //go:inline
-func C_${c_fn_name}_bytes(req []byte) (resp caller.ABIResult[[]byte], free func()) {
-	resp = caller.ABIResult[[]byte]{}
+func C_${c_fn_name}_bytes(req []byte) gust.EnumResult[CBytes, caller.ResultCode] {
 	r := C.${c_fn_name}(bytesToBuffer(req))
-	resp.Code = toResultCode(r.code)
-	if resp.Code != caller.CodeNoError {
-		return resp, func() {}
+	code := toResultCode(r.code)
+	if code != caller.CodeNoError {
+		return gust.EnumErr[CBytes, caller.ResultCode](code)
 	}
-	resp.Data = bufferToBytes(r.data.buffer)
-	return resp, func() {
-		C.free_buffer(r.data.free_type, r.data.free_ptr)
+	return gust.EnumOk[CBytes, caller.ResultCode](CBytes{r.data})
+}
+
+//go:inline
+func C_${c_fn_name}[T caller.FlatBuffer](req *caller.FlatBuilder, newRespData func([]byte, caller.FlatUOffsetT) T) gust.EnumResult[CFlatData[T], caller.ResultCode] {
+	r := C.${c_fn_name}(bytesToBuffer(req.FinishedBytes()))
+	code := toResultCode(r.code)
+	if code != caller.CodeNoError {
+		return gust.EnumErr[CFlatData[T], caller.ResultCode](code)
 	}
+	return gust.EnumOk[CFlatData[T], caller.ResultCode](CFlatData[T]{
+		newRespData: newRespData,
+		leakBuffer:  r.data,
+	})
 }
 "##########;
 
