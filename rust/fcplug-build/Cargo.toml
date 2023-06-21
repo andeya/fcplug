@@ -13,6 +13,7 @@ documentation.workspace = true
 
 [dependencies]
 cbindgen = { workspace = true }
+bindgen = { workspace = true }
 protoc-rust = { workspace = true }
 lazy_static = { workspace = true }
 regex = { workspace = true }

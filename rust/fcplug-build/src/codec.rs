@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
-use crate::BuildConfig;
+use crate::{BuildConfig, new_cmd};
 
 pub type PbRustCustomize = protoc_rust::Customize;
 
@@ -62,12 +61,7 @@ pub(crate) fn gen_protobuf_code(config: &BuildConfig) {
 
     let go_out_dir = config.go_out_dir.to_str().unwrap();
 
-    let mut param = ("sh", "-c");
-    if cfg!(target_os = "windows") {
-        param.0 = "cmd";
-        param.1 = "/c";
-    }
-    Command::new(param.0).arg(param.1)
+    let output = new_cmd()
         .arg(format!(
             "protoc{} --go_out {} {}",
             config.pb_configs.includes
@@ -83,4 +77,7 @@ pub(crate) fn gen_protobuf_code(config: &BuildConfig) {
         ))
         .output()
         .unwrap();
+    if !output.status.success() {
+        eprintln!("gen_protobuf_code: {:?}", output)
+    }
 }

@@ -42,7 +42,7 @@ quote = "1.0"
 proc-macro2 = "1.0.7"
 protobuf = "2.28.0"
 protoc-rust = "2.28.0"
-cbindgen = "0.24.3"
+cbindgen = "0.24.5"
 lazy_static = "1.4.0"
 regex = "1"
 defer-lite = "1.0.0"
@@ -51,6 +51,7 @@ tracing-appender = "0.2"
 tracing-subscriber = "0.3"
 flatbuffers = "23.5.26"
 flatc-rust = "0.2.0"
+bindgen = "0.66.1"
 
 [patch.crates-io]
 fcplug-macros = { path = "rust/fcplug-macros" }

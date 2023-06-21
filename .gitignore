@@ -11,3 +11,4 @@
 ffi.c.go
 /demo/go_gen/
 gen.sh
+/demo/src/go_ffi.rs
