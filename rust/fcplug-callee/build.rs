@@ -1,3 +1,3 @@
 fn main() {
-    // fcplug_build::gen_c_header();
+    // fcplug_build::gen_rust_callee_code();
 }

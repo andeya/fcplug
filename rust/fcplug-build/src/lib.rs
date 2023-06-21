@@ -1,15 +1,15 @@
-use std::{env, fs};
+use std::fs;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Component, MAIN_SEPARATOR_STR, Path, PathBuf};
+use std::path::PathBuf;
 
-use cbindgen::Language;
-use flatc_rust;
-use protoc_rust::{Codegen, Customize};
+pub use rust_callee::gen_rust_callee_code;
 
-use crate::ffi_go::gen_go_code;
+pub use crate::codec::{FbConfig, FbConfigs, PbConfigs};
 
-mod ffi_go;
+mod go_caller;
+mod codec;
+mod rust_callee;
 
 pub struct BuildConfig {
     pub go_out_dir: PathBuf,
@@ -18,109 +18,22 @@ pub struct BuildConfig {
     pub fb_configs: FbConfigs,
 }
 
-pub type PbRustCustomize = Customize;
-
-pub struct PbConfigs {
-    pub inputs: Vec<PathBuf>,
-    pub includes: Vec<PathBuf>,
-    pub rust_customize: Option<PbRustCustomize>,
-}
-
-pub enum FbConfig {
-    Rust,
-    Go,
-}
-
-pub struct FbConfigs {
-    pub inputs: Vec<PathBuf>,
-    pub configs: Vec<FbConfig>,
-}
 
 #[derive(Debug)]
 pub struct Report {
-    pub c_header_filename: String,
-    pub c_lib_filename: String,
+    pub rust_c_header_filename: String,
+    pub rust_c_lib_filename: String,
 }
 
 
 pub fn build_files(config: BuildConfig) {
     fs::create_dir_all(&config.go_out_dir).unwrap();
     fs::create_dir_all(&config.rust_out_dir).unwrap();
-    let report = gen_c_header();
-    gen_rust_protobuf(&config);
-    gen_flatbuf(&config);
-    gen_go_code(&config, &report);
+    codec::gen_flatbuf_code(&config);
+    codec::gen_protobuf_code(&config);
+    let report = rust_callee::gen_rust_callee_code();
+    go_caller::gen_go_caller_code(&config, &report);
     gen_gen_sh(&config, &report);
-}
-
-
-fn gen_rust_protobuf(config: &BuildConfig) {
-    Codegen::new()
-        .out_dir(&config.rust_out_dir)
-        .includes(&config.pb_configs.includes)
-        .inputs(&config.pb_configs.inputs)
-        .customize(config.pb_configs.rust_customize.as_ref().unwrap_or(&Customize {
-            carllerche_bytes_for_bytes: Some(true),
-            generate_accessors: Some(true),
-            ..Default::default()
-        }).clone())
-        .run()
-        .expect("Unable to generate proto file");
-}
-
-pub fn gen_c_header() -> Report {
-    let base = target_profile_dir().as_os_str()
-        .to_str()
-        .unwrap()
-        .to_string();
-    let cargo_pkg_name = env::var("CARGO_PKG_NAME").unwrap();
-    let report = Report {
-        c_header_filename: base.clone() + MAIN_SEPARATOR_STR + &cargo_pkg_name.replace("-", "_") + ".h",
-        c_lib_filename: base + MAIN_SEPARATOR_STR + "lib" + &cargo_pkg_name.replace("-", "_") + ".a",
-    };
-    println!("build-log: {:?}", report);
-    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    cbindgen::Builder::new()
-        .with_crate(crate_dir)
-        .with_language(Language::C)
-        .with_parse_expand(&[cargo_pkg_name.as_str()])
-        .with_after_include(if cargo_pkg_name != "fcplug-callee" {
-            r#"
-typedef enum OriginType {
-  Vec = 0,
-  FlatBuffer = 1,
-} OriginType;
-
-typedef enum ResultCode {
-  NoError = 0,
-  Decode = 1,
-  Encode = 2,
-} ResultCode;
-
-typedef struct Buffer {
-  uint8_t *ptr;
-  uintptr_t len;
-  uintptr_t cap;
-} Buffer;
-
-typedef struct LeakBuffer {
-  enum OriginType free_type;
-  uintptr_t free_ptr;
-  struct Buffer buffer;
-} LeakBuffer;
-
-typedef struct FFIResult {
-  enum ResultCode code;
-  struct LeakBuffer data;
-} FFIResult;
-
-void free_buffer(enum OriginType free_type, uintptr_t free_ptr);
-"#
-        } else { "" })
-        .generate()
-        .expect("Unable to generate C header file")
-        .write_to_file(&report.c_header_filename);
-    report
 }
 
 
@@ -129,8 +42,8 @@ fn gen_gen_sh(config: &BuildConfig, report: &Report) {
     let mut f = fs::File::create("gen.sh").expect("Couldn't create gen.sh");
     f.write("#!/bin/bash\n\n".as_bytes()).unwrap();
     f.write(format!("mkdir -p {}\n", go_out_dir).as_bytes()).unwrap();
-    f.write(format!("cp -rf {} {}\n", report.c_header_filename, go_out_dir).as_bytes()).unwrap();
-    f.write(format!("cp -rf {} {}\n", report.c_lib_filename, go_out_dir).as_bytes()).unwrap();
+    f.write(format!("cp -rf {} {}\n", report.rust_c_header_filename, go_out_dir).as_bytes()).unwrap();
+    f.write(format!("cp -rf {} {}\n", report.rust_c_lib_filename, go_out_dir).as_bytes()).unwrap();
     f.flush().unwrap();
     let mut permissions = f.metadata().unwrap().permissions();
     permissions.set_mode(0o777);
@@ -139,45 +52,6 @@ fn gen_gen_sh(config: &BuildConfig, report: &Report) {
     }
 }
 
-fn target_profile_dir() -> PathBuf {
-    let mut p = PathBuf::new();
-    PathBuf::from(&std::env::var("OUT_DIR").unwrap())
-        .components()
-        .rev()
-        .skip(3)
-        .collect::<Vec<Component>>()
-        .into_iter()
-        .rev()
-        .for_each(|c| p.push(c.as_os_str()));
-    p
-}
-
-
-fn gen_flatbuf(config: &BuildConfig) {
-    let inputs = config.fb_configs.inputs.iter().map(|v| v.as_path()).collect::<Vec<&Path>>();
-    for conf in &config.fb_configs.configs {
-        match conf {
-            FbConfig::Rust => {
-                flatc_rust::run(flatc_rust::Args {
-                    lang: "rust",
-                    inputs: &inputs,
-                    out_dir: config.rust_out_dir.as_path(),
-                    ..Default::default()
-                }).expect("failed to generate flatbuf rust code");
-            }
-            FbConfig::Go => {
-                let out_dir = config.go_out_dir.canonicalize().unwrap();
-                flatc_rust::run(flatc_rust::Args {
-                    lang: "go",
-                    inputs: &inputs,
-                    out_dir: out_dir.parent().unwrap(),
-                    extra: &["--go-namespace", out_dir.file_name().unwrap().to_str().unwrap()],
-                    ..Default::default()
-                }).expect("failed to generate flatbuf go code");
-            }
-        }
-    }
-}
 
 #[test]
 fn test() {
@@ -185,5 +59,5 @@ fn test() {
     env::set_var("CARGO_MANIFEST_DIR", "/Users/henrylee2cn/rust/fcplug/demo");
     env::set_var("OUT_DIR", "/Users/henrylee2cn/rust/fcplug/target/debug/build/demo-f8ee84ac19343019/out");
 
-    let _ = gen_c_header();
+    let _ = rust_callee::gen_rust_callee_code();
 }

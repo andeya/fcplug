@@ -1,6 +1,5 @@
 use std::{env, fs, str};
 use std::path::PathBuf;
-use std::process::Command;
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -176,35 +175,10 @@ func C_${c_fn_name}[T caller.FlatBuffer](req *caller.FlatBuilder, newRespData fu
 }
 "##########;
 
-pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
+pub(crate) fn gen_go_caller_code(config: &BuildConfig, report: &Report) {
     if env::var("CARGO_PKG_NAME").unwrap() == "fcplug-callee" {
         return;
     }
-
-    let go_out_dir = config.go_out_dir.to_str().unwrap();
-
-    // protobuf code
-    let mut param = ("sh", "-c");
-    if cfg!(target_os = "windows") {
-        param.0 = "cmd";
-        param.1 = "/c";
-    }
-    Command::new(param.0).arg(param.1)
-        .arg(format!(
-            "protoc{} --go_out {} {}",
-            config.pb_configs.includes
-                .iter()
-                .map(|i| " --proto_path=".to_string() + i.to_str().unwrap())
-                .collect::<String>(),
-            go_out_dir,
-            config.pb_configs.inputs
-                .iter()
-                .map(|i| i.to_str().unwrap())
-                .collect::<Vec<&str>>()
-                .join(" "),
-        ))
-        .output()
-        .unwrap();
 
     // caller code
 
@@ -212,7 +186,7 @@ pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
         static ref RE: Regex =
             Regex::new(r"FFIResult (?P<c_fn_name>[A-Z_a-z0-9]+)\(Buffer req\);").unwrap();
     }
-    let header = fs::read(&report.c_header_filename);
+    let header = fs::read(&report.rust_c_header_filename);
     if header.is_err() {
         println!("{}", header.err().unwrap());
         return;
@@ -244,7 +218,7 @@ pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
     let file_txt = FILE_TPL
         .replace(
             "${package}",
-            PathBuf::from(&go_out_dir)
+            config.go_out_dir
                 .canonicalize()
                 .unwrap()
                 .file_name()
@@ -254,7 +228,7 @@ pub(crate) fn gen_go_code(config: &BuildConfig, report: &Report) {
         )
         .replace(
             "${c_header_name_base}",
-            PathBuf::from(&report.c_header_filename)
+            PathBuf::from(&report.rust_c_header_filename)
                 .file_name()
                 .unwrap()
                 .to_str()
