@@ -11,7 +11,7 @@ pub(crate) fn gen_code(config: &BuildConfig) {
     gen_go_caller_code(config, &report);
 }
 
-fn gen_rust_callee_code() -> Report {
+pub(crate) fn gen_rust_callee_code() -> Report {
     let base = target_profile_dir().as_os_str()
         .to_str()
         .unwrap()
