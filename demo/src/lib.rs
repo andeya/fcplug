@@ -7,7 +7,8 @@ use crate::idl_generated::{EchoRequest, EchoResponse, EchoResponseArgs};
 mod idl;
 #[allow(unused_imports, dead_code)]
 mod idl_generated;
-// mod go_ffi;
+#[cfg(test)]
+mod go_ffi;
 
 #[fcplug_callee::ffi_raw_method]
 fn echo(args: &str) -> ABIResult<String> {
@@ -40,6 +41,7 @@ fn echo<'a>(
 
 #[cfg(test)]
 mod tests {
+    use crate::ffi_raw_echo;
     use crate::go_ffi::{Buffer, helloString};
 
     #[test]
@@ -58,6 +60,7 @@ mod tests {
     }
 
     #[test]
+    #[inline]
     fn test_call_go() {
         let mut s = String::from("hello world");
         unsafe {

@@ -16,6 +16,7 @@ fn gen_go_callee_code(config: &BuildConfig) {
     }
 }
 
+#[allow(dead_code)]
 fn gen_rust_caller_code(config: &BuildConfig) {
     // Tell cargo to look for shared libraries in the specified directory
     // println!("cargo:rustc-link-search={}", config.rust_out_dir.canonicalize().unwrap().to_str().unwrap());
