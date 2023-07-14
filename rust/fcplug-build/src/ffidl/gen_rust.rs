@@ -5,18 +5,23 @@ use pilota_build::{codegen, CodegenBackend, Context, DefId, IdentName, MakeBacke
 use pilota_build::rir::{Message, Method, Service};
 use pilota_build::ty::{CodegenTy, TyKind};
 
-pub(crate) struct RustMakeBackend;
+use crate::ffidl::Config;
+
+pub(crate) struct RustMakeBackend {
+    pub(crate) config: Config,
+}
 
 impl MakeBackend for RustMakeBackend {
     type Target = RustCodegenBackend;
 
     fn make_backend(self, context: Context) -> Self::Target {
-        RustCodegenBackend { context, non_stack_messages: RefCell::new(vec![]) }
+        RustCodegenBackend { config: self.config, context, non_stack_messages: RefCell::new(vec![]) }
     }
 }
 
 #[derive(Clone)]
 pub(crate) struct RustCodegenBackend {
+    config: Config,
     context: Context,
     non_stack_messages: RefCell<Vec<DefId>>,
 }
@@ -30,8 +35,8 @@ impl CodegenBackend for RustCodegenBackend {
         let args = self.codegen_method_args(service_def_id, method);
         let ret = self.codegen_method_ret(service_def_id, method);
         match self.context.rust_name(service_def_id).to_lowercase().as_str() {
-            "rustffi" => format!("fn {name}(&self, {args}) -> {ret} {{ unimplemented!() }}"),
-            "goffi" => format!("unsafe fn {name}(&self, {args}) -> {ret};"),
+            "rustffi" => format!("fn {name}({args}) -> {ret};"),
+            "goffi" => format!("unsafe fn {name}({args}) -> {ret};"),
             _ => { String::new() }
         }
     }
@@ -270,14 +275,24 @@ impl RustCodegenBackend {
     }
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
-        let name_upper = name.to_uppercase();
         let name_lower = name.to_lowercase();
-        stream.push_str(&format!(r###"struct Unimplemented{name};
-        impl {name} for Unimplemented{name} {{}}
-        static mut IMPL_{name_upper}_SINGLETON: &'static dyn {name} = &Unimplemented{name};
-        pub fn impl_{name_lower}<T: {name}>(t: &'static T) {{
-            unsafe {{ IMPL_{name_upper}_SINGLETON = t }};
-        }}"###));
+        let ust = if let Some(ust) = self.config.impl_rustffi_for_unit_struct {
+            ust.to_string()
+        } else {
+            let methods = s.methods.iter().map(|method| {
+                let name = (&**method.name).fn_ident();
+                let args = self.codegen_method_args(def_id, method);
+                let ret = self.codegen_method_ret(def_id, method);
+                format!("fn {name}({args}) -> {ret} {{ unimplemented!() }}")
+            }).collect::<Vec<String>>()
+                .join("\n");
+            let ust = format!("Unimplemented{name}");
+            stream.push_str(&format!(r###"struct {ust};
+            impl {name} for {ust} {{
+                {methods}
+            }}"###));
+            ust
+        };
 
         stream.push_str(&s.methods.iter().map(|method| {
             let fn_name = (&**method.name).fn_ident();
@@ -299,14 +314,14 @@ impl RustCodegenBackend {
                 format!(r###"#[no_mangle]
                 #[inline]
                 pub extern "C" fn {name_lower}_{fn_name}({args}) -> {ret_c_ty} {{
-                    unsafe{{IMPL_{name_upper}_SINGLETON}}.{fn_name}({args_to_rust})
+                    <{ust} as {name}>::{fn_name}({args_to_rust})
                 }}
                 "###)
             } else {
                 format!(r###"#[no_mangle]
                 #[inline]
                 pub extern "C" fn {name_lower}_{fn_name}({args}) -> *mut {ret_c_ty} {{
-                    ::std::boxed::Box::into_raw(::std::boxed::Box::new(<{ret_rs_ty} as ::fcplug::ctypes::ConvReprC>::into_repr_c(unsafe{{IMPL_{name_upper}_SINGLETON}}.{fn_name}({args_to_rust}))))
+                    ::std::boxed::Box::into_raw(::std::boxed::Box::new(<{ret_rs_ty} as ::fcplug::ctypes::ConvReprC>::into_repr_c(<{ust} as {name}>::{fn_name}({args_to_rust}))))
                 }}
                 #[no_mangle]
                 #[inline]
@@ -395,7 +410,7 @@ impl RustCodegenBackend {
                     })
                     .collect::<Vec<String>>()
                     .join("\n");
-                format!(r###"unsafe fn {name}(&self, {args}) -> {ret} {{
+                format!(r###"unsafe fn {name}({args}) -> {ret} {{
                     {args_into_repr_c}
                     let ret__ = {name_lower}_{name}({c_args});
                     {free_args}
@@ -415,7 +430,7 @@ impl RustCodegenBackend {
                 }
                 let raw_ret_ty = self.codegen_item_ty(&method.ret.kind);
                 let goffi_free_name = self.goffi_free_name(def_id, method);
-                format!(r###"unsafe fn {name}(&self, {args}) -> {ret} {{
+                format!(r###"unsafe fn {name}({args}) -> {ret} {{
                     {args_into_repr_c}
                     let c_ret__ = {name_lower}_{name}({c_args});
                     let ret__ = <{raw_ret_ty} as ::fcplug::ctypes::ConvReprC>::from_repr_c(*::std::boxed::Box::from_raw(c_ret__));
@@ -452,6 +467,8 @@ mod tests {
                 .into(),
             rust_out_path:
             "/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen/ffidl.rs".into(),
+            // impl_rustffi_for_unit_struct: None,
+            impl_rustffi_for_unit_struct: Some("crate::gen::MyImplRustFfi"),
         })
             .unwrap();
     }

@@ -82,31 +82,17 @@ pub struct C {
 }
 pub type C_C = C;
 pub trait RustFfi {
-    fn get_user(&self, req: &GetUserRequest, shuffle: &bool) -> GetUserResponse {
-        unimplemented!()
-    }
-    fn get_user2(&self) -> GetUserResponse {
-        unimplemented!()
-    }
-    fn test4(&self, shuffle: &bool) -> i8 {
-        unimplemented!()
-    }
-    fn test5(&self, shuffle: &bool) -> B {
-        unimplemented!()
-    }
-}
-struct UnimplementedRustFfi;
-impl RustFfi for UnimplementedRustFfi {}
-static mut IMPL_RUSTFFI_SINGLETON: &'static dyn RustFfi = &UnimplementedRustFfi;
-pub fn impl_rustffi<T: RustFfi>(t: &'static T) {
-    unsafe { IMPL_RUSTFFI_SINGLETON = t };
+    fn get_user(req: &GetUserRequest, shuffle: &bool) -> GetUserResponse;
+    fn get_user2() -> GetUserResponse;
+    fn test4(shuffle: &bool) -> i8;
+    fn test5(shuffle: &bool) -> B;
 }
 #[no_mangle]
 #[inline]
 pub extern "C" fn rustffi_get_user(req: C_GetUserRequest, shuffle: bool) -> *mut C_GetUserResponse {
     ::std::boxed::Box::into_raw(::std::boxed::Box::new(
         <GetUserResponse as ::fcplug::ctypes::ConvReprC>::into_repr_c(
-            unsafe { IMPL_RUSTFFI_SINGLETON }.get_user(
+            <crate::gen::MyImplRustFfi as RustFfi>::get_user(
                 &<GetUserRequest as ::fcplug::ctypes::ConvReprC>::from_repr_c(req),
                 &<bool as ::fcplug::ctypes::ConvReprC>::from_repr_c(shuffle),
             ),
@@ -128,7 +114,7 @@ pub extern "C" fn rustffi_get_user_free_ret(ret_ptr: *mut C_GetUserResponse) {
 pub extern "C" fn rustffi_get_user2() -> *mut C_GetUserResponse {
     ::std::boxed::Box::into_raw(::std::boxed::Box::new(
         <GetUserResponse as ::fcplug::ctypes::ConvReprC>::into_repr_c(
-            unsafe { IMPL_RUSTFFI_SINGLETON }.get_user2(),
+            <crate::gen::MyImplRustFfi as RustFfi>::get_user2(),
         ),
     ))
 }
@@ -145,15 +131,17 @@ pub extern "C" fn rustffi_get_user2_free_ret(ret_ptr: *mut C_GetUserResponse) {
 #[no_mangle]
 #[inline]
 pub extern "C" fn rustffi_test4(shuffle: bool) -> i8 {
-    unsafe { IMPL_RUSTFFI_SINGLETON }
-        .test4(&<bool as ::fcplug::ctypes::ConvReprC>::from_repr_c(shuffle))
+    <crate::gen::MyImplRustFfi as RustFfi>::test4(
+        &<bool as ::fcplug::ctypes::ConvReprC>::from_repr_c(shuffle),
+    )
 }
 
 #[no_mangle]
 #[inline]
 pub extern "C" fn rustffi_test5(shuffle: bool) -> C_B {
-    unsafe { IMPL_RUSTFFI_SINGLETON }
-        .test5(&<bool as ::fcplug::ctypes::ConvReprC>::from_repr_c(shuffle))
+    <crate::gen::MyImplRustFfi as RustFfi>::test5(
+        &<bool as ::fcplug::ctypes::ConvReprC>::from_repr_c(shuffle),
+    )
 }
 #[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
 pub struct GetUserRequest {
@@ -218,18 +206,15 @@ pub struct B {
 pub type C_B = B;
 pub trait GoFfi {
     unsafe fn get_user(
-        &self,
         req: GetUserRequest,
         shuffle: bool,
     ) -> ::fcplug::ctypes::GoFfiResult<GetUserResponse, GetUserRequest>;
     unsafe fn get_user2(
-        &self,
         req: GetUserRequest,
     ) -> ::fcplug::ctypes::GoFfiResult<GetUserResponse, GetUserRequest>;
-    unsafe fn get_user3(&self, shuffle: bool)
-        -> ::fcplug::ctypes::GoFfiResult<GetUserResponse, ()>;
-    unsafe fn test4(&self, shuffle: bool) -> i8;
-    unsafe fn test5(&self, shuffle: bool) -> B;
+    unsafe fn get_user3(shuffle: bool) -> ::fcplug::ctypes::GoFfiResult<GetUserResponse, ()>;
+    unsafe fn test4(shuffle: bool) -> i8;
+    unsafe fn test5(shuffle: bool) -> B;
 }
 extern "C" {
     fn goffi_get_user(req: *mut C_GetUserRequest, shuffle: bool) -> *mut C_GetUserResponse;
@@ -247,7 +232,6 @@ extern "C" {
 pub struct ImplGoFfi;
 impl GoFfi for ImplGoFfi {
     unsafe fn get_user(
-        &self,
         req: GetUserRequest,
         shuffle: bool,
     ) -> ::fcplug::ctypes::GoFfiResult<GetUserResponse, GetUserRequest> {
@@ -261,7 +245,6 @@ impl GoFfi for ImplGoFfi {
         ::fcplug::ctypes::GoFfiResult::new(ret__, req, c_ret__ as usize, goffi_get_user_free_ret)
     }
     unsafe fn get_user2(
-        &self,
         req: GetUserRequest,
     ) -> ::fcplug::ctypes::GoFfiResult<GetUserResponse, GetUserRequest> {
         let req = ::std::boxed::Box::into_raw(::std::boxed::Box::new(
@@ -273,10 +256,7 @@ impl GoFfi for ImplGoFfi {
         );
         ::fcplug::ctypes::GoFfiResult::new(ret__, req, c_ret__ as usize, goffi_get_user2_free_ret)
     }
-    unsafe fn get_user3(
-        &self,
-        shuffle: bool,
-    ) -> ::fcplug::ctypes::GoFfiResult<GetUserResponse, ()> {
+    unsafe fn get_user3(shuffle: bool) -> ::fcplug::ctypes::GoFfiResult<GetUserResponse, ()> {
         let c_ret__ = goffi_get_user3(shuffle);
         let ret__ = <GetUserResponse as ::fcplug::ctypes::ConvReprC>::from_repr_c(
             *::std::boxed::Box::from_raw(c_ret__),
@@ -288,12 +268,12 @@ impl GoFfi for ImplGoFfi {
             goffi_get_user3_free_ret,
         )
     }
-    unsafe fn test4(&self, shuffle: bool) -> i8 {
+    unsafe fn test4(shuffle: bool) -> i8 {
         let ret__ = goffi_test4(shuffle);
 
         ret__
     }
-    unsafe fn test5(&self, shuffle: bool) -> B {
+    unsafe fn test5(shuffle: bool) -> B {
         let ret__ = goffi_test5(shuffle);
 
         ret__

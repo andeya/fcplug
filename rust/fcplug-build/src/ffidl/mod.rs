@@ -9,10 +9,11 @@ use crate::ffidl::gen_rust::RustMakeBackend;
 
 mod gen_rust;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Config {
     pub file_path: PathBuf,
     pub rust_out_path: PathBuf,
+    pub impl_rustffi_for_unit_struct: Option<&'static str>,
 }
 
 #[derive(Debug)]
@@ -42,7 +43,7 @@ impl FFIDL {
     }
     fn gen_rust(self) -> anyhow::Result<Self> {
         fs::create_dir_all(&self.config.rust_out_path.parent().unwrap())?;
-        pilota_build::Builder::thrift_with_backend(RustMakeBackend)
+        pilota_build::Builder::thrift_with_backend(RustMakeBackend { config: self.config.clone() })
             .ignore_unused(true)
             .compile(
                 [&self.config.file_path],
