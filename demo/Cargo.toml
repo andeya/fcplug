@@ -16,9 +16,9 @@ crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 protobuf = { workspace = true }
-fcplug-callee = { workspace = true }
+fcplug = { workspace = true }
 flatbuffers = { workspace = true }
 cbindgen = { workspace = true }
-
+goffi_gen = { path = "goffi_gen" }
 [build-dependencies]
 fcplug-build = { workspace = true }

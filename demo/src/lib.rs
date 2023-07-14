@@ -1,29 +1,22 @@
-use fcplug_callee::ABIResult;
-use fcplug_callee::flatbuf::{FbRequest, FbResponseWriter};
+use fcplug::callee::ABIResult;
+use fcplug::callee::flatbuf::{FbRequest, FbResponseWriter};
+use goffi_gen::idl::Echo;
+use goffi_gen::idl_generated::{EchoRequest, EchoResponse, EchoResponseArgs};
 
-use crate::idl::Echo;
-use crate::idl_generated::{EchoRequest, EchoResponse, EchoResponseArgs};
-
-mod idl;
-#[allow(unused_imports, dead_code)]
-mod idl_generated;
-#[cfg(test)]
-mod go_ffi;
-
-#[fcplug_callee::ffi_raw_method]
+#[fcplug::callee::ffi_raw_callee]
 fn echo(args: &str) -> ABIResult<String> {
     Ok("input is: ".to_string() + args)
 }
 
 
-#[fcplug_callee::ffi_pb_method]
+#[fcplug::callee::ffi_pb_callee]
 fn echo(args: Echo) -> ABIResult<Echo> {
     let mut r = Echo::new();
     r.set_msg("input is: ".to_string() + args.get_msg());
     Ok(r)
 }
 
-#[fcplug_callee::ffi_fb_method]
+#[fcplug::callee::ffi_fb_callee]
 fn echo<'a>(
     req: FbRequest<'a, EchoRequest<'a>>,
 ) -> (EchoResponseArgs<'a>, FbResponseWriter<EchoResponse<'a>>) {
@@ -42,11 +35,11 @@ fn echo<'a>(
 #[cfg(test)]
 mod tests {
     use crate::ffi_raw_echo;
-    use crate::go_ffi::{Buffer, helloString};
+    use goffi_gen::go_ffi::{Buffer, helloString};
 
     #[test]
     fn test_echo() {
-        use fcplug_callee::*;
+        use fcplug::callee::*;
         let req = "andeya".to_string().try_into_buffer().unwrap();
         let mut r: FFIResult = ffi_raw_echo(req.buffer());
         unsafe { req.mem_free() };

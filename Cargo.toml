@@ -14,34 +14,36 @@ rpath = false
 resolver = "2"
 members = [
     "rust/fcplug",
-    "rust/fcplug-callee",
     "rust/fcplug-macros",
     "rust/fcplug-build",
-    "demo",
+    #    "demo",
+        "ffidl_demo",
+    #    "feasibility",
 ]
 exclude = []
 
 [workspace.package]
 edition = "2021"
 version = "0.2.4"
-authors = ["Aoleah <aoleahlee@outlook.com>"]
+authors = ["Andeya <andeyalee@outlook.com>"]
 description = "Foreign Clang Plugin solution"
 repository = "https://github.com/andeya/fcplug"
 license = "MIT"
 license-file = "LICENSE"
 readme = "README.md"
-documentation = "https://github.com/andeya/fcplug/blob/main/README.md"
+documentation = "https://docs.rs/fcplug"
 
 [workspace.dependencies]
-fcplug-callee = { path = "rust/fcplug-callee" }
+fcplug = { path = "rust/fcplug" }
 fcplug-macros = "0.2.4"
 fcplug-build = "0.2.4"
 
-syn = { version = "1.0", features = ["full"] }
-quote = "1.0"
-proc-macro2 = "1.0.7"
-protobuf = "2.28.0"
-protoc-rust = "2.28.0"
+syn = { version = "1.0.109", features = ["full"] }
+quote = "1.0.29"
+proc-macro2 = "1.0.63"
+protobuf = "3.2.0"
+protobuf-parse = "3.2.0"
+protobuf-codegen = "3.2.0"
 cbindgen = "0.24.5"
 lazy_static = "1.4.0"
 regex = "1"
@@ -52,7 +54,11 @@ tracing-subscriber = "0.3"
 flatbuffers = "23.5.26"
 flatc-rust = "0.2.0"
 bindgen = "0.66.1"
+anyhow = "1"
+pilota-build = "0.7.7"
 
 [patch.crates-io]
+pilota-build = { path = "rust/fcplug-build/pilota-build" }
 fcplug-macros = { path = "rust/fcplug-macros" }
 fcplug-build = { path = "rust/fcplug-build" }
+fcplug = { path = "rust/fcplug" }

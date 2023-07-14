@@ -14,7 +14,14 @@ documentation.workspace = true
 [dependencies]
 cbindgen = { workspace = true }
 bindgen = { workspace = true }
-protoc-rust = { workspace = true }
+protobuf = { workspace = true }
+protobuf-parse = { workspace = true }
+protobuf-codegen = { workspace = true }
 lazy_static = { workspace = true }
 regex = { workspace = true }
 flatc-rust = { workspace = true }
+defer-lite = { workspace = true }
+anyhow = { workspace = true }
+pilota-build = { workspace = true }
+pilota-thrift-parser = "0.4.2"
+itertools= "0.10"

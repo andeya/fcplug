@@ -1,14 +1,26 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+#![feature(try_trait_v2)]
+#![feature(new_uninit)]
+
+pub mod callee;
+pub mod caller;
+pub mod ctypes;
+
+
+#[test]
+fn it_works() {
+    assert_eq!(4, 2 + 2);
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[macro_export]
+// macro_rules! include_gen_file {
+//     ($gen_file: tt) => {
+//         include!(concat!(env!("OUT_DIR"), concat!("/", $gen_file)));
+//     };
+// }
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[macro_export]
+macro_rules! include_goffi_gen {
+    () => {
+        include!(concat!(env!("OUT_DIR"), concat!("/", "goffi_gen.rs")));
+    };
 }

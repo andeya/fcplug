@@ -3,8 +3,12 @@
 
 syntax = "proto3";
 package tests;
-option go_package = "go_gen";
+option go_package = "rsffi_gen";
 
 message Echo {
   string msg = 1;
 }
+
+//service X {
+//    rpc Search(string) returns (SearchResponse);
+//}

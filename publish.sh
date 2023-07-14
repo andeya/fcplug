@@ -1,6 +1,5 @@
 #!/bin/bash
 
-cargo publish -p fcplug
 cargo publish -p fcplug-build
 cargo publish -p fcplug-macros
-cargo publish -p fcplug-callee
+cargo publish -p fcplug

@@ -1,5 +1,5 @@
 use std::{env, fs, str};
-use std::path::{Component, MAIN_SEPARATOR_STR, PathBuf};
+use std::path::{MAIN_SEPARATOR_STR, PathBuf};
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -27,7 +27,7 @@ pub(crate) fn gen_rust_callee_code() -> Report {
         .with_crate(crate_dir)
         .with_language(cbindgen::Language::C)
         .with_parse_expand(&[cargo_pkg_name.as_str()])
-        .with_after_include(if cargo_pkg_name != "fcplug-callee" {
+        .with_after_include(if cargo_pkg_name != "fcplug" {
             r#"
 typedef enum OriginType {
   Vec = 0,
@@ -66,17 +66,30 @@ void free_buffer(enum OriginType free_type, uintptr_t free_ptr);
     report
 }
 
+#[cfg(not(debug_assertions))]
+const MODE: &'static str = "release";
+#[cfg(debug_assertions)]
+const MODE: &'static str = "release";
+
 fn target_profile_dir() -> PathBuf {
-    let mut p = PathBuf::new();
-    PathBuf::from(&env::var("OUT_DIR").unwrap())
-        .components()
-        .rev()
-        .skip(3)
-        .collect::<Vec<Component>>()
-        .into_iter()
-        .rev()
-        .for_each(|c| p.push(c.as_os_str()));
-    p
+    env::var("CARGO_TARGET_DIR").map_or_else(
+        |_|
+            PathBuf::from(env::var("CARGO_WORKSPACE_DIR")
+                .unwrap_or(env::var("CARGO_MANIFEST_DIR").unwrap_or_default())
+            ).join("target"),
+        PathBuf::from,
+    )
+        .join(MODE)
+    // let mut p = PathBuf::new();
+    // PathBuf::from(&env::var("OUT_DIR").unwrap())
+    //     .components()
+    //     .rev()
+    //     .skip(3)
+    //     .collect::<Vec<Component>>()
+    //     .into_iter()
+    //     .rev()
+    //     .for_each(|c| p.push(c.as_os_str()));
+    // p
 }
 
 pub(crate) const FILE_NAME: &'static str = "rust_ffi.go";
@@ -249,7 +262,7 @@ func C_${c_fn_name}[T caller.FlatBuffer](req *caller.FlatBuilder, newRespData fu
 "##########;
 
 fn gen_go_caller_code(config: &BuildConfig, report: &Report) {
-    if env::var("CARGO_PKG_NAME").unwrap() == "fcplug-callee" {
+    if env::var("CARGO_PKG_NAME").unwrap() == "fcplug" {
         return;
     }
 
@@ -291,9 +304,7 @@ fn gen_go_caller_code(config: &BuildConfig, report: &Report) {
     let file_txt = FILE_TPL
         .replace(
             "${package}",
-            config.go_out_dir
-                .canonicalize()
-                .unwrap()
+            config.go_out_dir()
                 .file_name()
                 .unwrap()
                 .to_str()
@@ -317,5 +328,5 @@ fn gen_go_caller_code(config: &BuildConfig, report: &Report) {
     )
         .replace("${fn_list}", &fn_list);
 
-    fs::write(config.go_out_dir.join(&FILE_NAME), file_txt.as_bytes()).unwrap();
+    fs::write(config.go_out_dir().join(&FILE_NAME), file_txt.as_bytes()).unwrap();
 }

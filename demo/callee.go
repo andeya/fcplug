@@ -33,3 +33,8 @@ func bufferToBytes(buf C.struct_Buffer) []byte {
 func helloString(buf C.struct_Buffer) {
 	fmt.Println("input:", string(bufferToBytes(buf)))
 }
+
+//export helloString
+func helloString2(buf C.struct_Buffer) C.Slice {
+	fmt.Println("input:", string(bufferToBytes(buf)))
+}

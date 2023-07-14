@@ -1,9 +1,10 @@
 use std::path::{Path, PathBuf};
 
-use crate::{BuildConfig, new_cmd};
+use crate::{BuildConfig, GenRustForLang, new_cmd};
 
-pub type PbRustCustomize = protoc_rust::Customize;
+pub type PbRustCustomize = protobuf_codegen::Customize;
 
+#[derive(Default)]
 pub struct PbConfigs {
     pub inputs: Vec<PathBuf>,
     pub includes: Vec<PathBuf>,
@@ -15,6 +16,7 @@ pub enum FbConfig {
     Go,
 }
 
+#[derive(Default)]
 pub struct FbConfigs {
     pub inputs: Vec<PathBuf>,
     pub configs: Vec<FbConfig>,
@@ -28,17 +30,17 @@ pub(crate) fn gen_flatbuf_code(config: &BuildConfig) {
                 flatc_rust::run(flatc_rust::Args {
                     lang: "rust",
                     inputs: &inputs,
-                    out_dir: config.rust_out_dir.as_path(),
+                    out_dir: config.rust_out_dir(GenRustForLang::Go).as_path(),
                     ..Default::default()
                 }).expect("failed to generate flatbuf rust code");
             }
             FbConfig::Go => {
-                let out_dir = config.go_out_dir.canonicalize().unwrap();
+                let go_out_dir = config.go_out_dir();
                 flatc_rust::run(flatc_rust::Args {
                     lang: "go",
                     inputs: &inputs,
-                    out_dir: out_dir.parent().unwrap(),
-                    extra: &["--go-namespace", out_dir.file_name().unwrap().to_str().unwrap()],
+                    out_dir: go_out_dir.parent().unwrap(),
+                    extra: &["--go-namespace", go_out_dir.file_name().unwrap().to_str().unwrap()],
                     ..Default::default()
                 }).expect("failed to generate flatbuf go code");
             }
@@ -47,19 +49,18 @@ pub(crate) fn gen_flatbuf_code(config: &BuildConfig) {
 }
 
 pub(crate) fn gen_protobuf_code(config: &BuildConfig) {
-    protoc_rust::Codegen::new()
-        .out_dir(&config.rust_out_dir)
+    protobuf_codegen::Codegen::new()
+        .protoc()
+        .out_dir(&config.rust_out_dir(GenRustForLang::Go))
         .includes(&config.pb_configs.includes)
         .inputs(&config.pb_configs.inputs)
-        .customize(config.pb_configs.rust_customize.as_ref().unwrap_or(&PbRustCustomize {
-            carllerche_bytes_for_bytes: Some(true),
-            generate_accessors: Some(true),
-            ..Default::default()
-        }).clone())
+        .customize(config.pb_configs.rust_customize
+            .clone().unwrap_or_default()
+            .gen_mod_rs(false)
+            .generate_accessors(true)
+        )
         .run()
         .expect("Unable to generate proto file");
-
-    let go_out_dir = config.go_out_dir.to_str().unwrap();
 
     let output = new_cmd()
         .arg(format!(
@@ -68,7 +69,7 @@ pub(crate) fn gen_protobuf_code(config: &BuildConfig) {
                 .iter()
                 .map(|i| " --proto_path=".to_string() + i.to_str().unwrap())
                 .collect::<String>(),
-            go_out_dir,
+            config.go_out_dir().to_str().unwrap(),
             config.pb_configs.inputs
                 .iter()
                 .map(|i| i.to_str().unwrap())
