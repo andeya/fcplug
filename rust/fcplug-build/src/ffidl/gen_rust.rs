@@ -455,32 +455,3 @@ impl RustCodegenBackend {
         format!("{name_lower}_{fn_name}_free_ret")
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::ffidl::{Config, FFIDL};
-
-    #[test]
-    fn test_thriftast() {
-        FFIDL::generate(Config {
-            file_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/ffidl.thrift"
-                .into(),
-            rust_out_path:
-            "/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen/ffidl.rs".into(),
-            // impl_rustffi_for_unit_struct: None,
-            impl_rustffi_for_unit_struct: Some("crate::gen::MyImplRustFfi"),
-        })
-            .unwrap();
-    }
-
-    #[test]
-    fn test_gen_header() {
-        cbindgen::Builder::new()
-            .with_crate("/Users/henrylee2cn/rust/fcplug/ffidl_demo")
-            .with_src("/Users/henrylee2cn/rust/fcplug/rust/fcplug/src/ctypes.rs")
-            .with_language(cbindgen::Language::C)
-            .generate()
-            .unwrap()
-            .write_to_file("/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen/ffidl.h");
-    }
-}
