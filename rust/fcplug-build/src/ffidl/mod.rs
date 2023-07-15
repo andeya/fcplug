@@ -1,5 +1,8 @@
+use std::cell::RefCell;
 use std::fs;
+use std::ops::DerefMut;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -16,17 +19,25 @@ mod gen_go;
 pub(crate) struct Config {
     pub file_path: PathBuf,
     pub rust_out_path: PathBuf,
-    pub impl_rustffi_for_unit_struct: Option<&'static str>,
+    pub go_out_path: PathBuf,
+    pub go_root_path: Option<PathBuf>,
+    pub impl_rustffi_for_unit_struct: Option<UnitLikeStructPath>,
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct UnitLikeStructPath(pub &'static str);
 
 #[derive(Debug, Clone)]
 pub struct FFIDL {
     config: Arc<Config>,
+    go_code: Arc<RefCell<String>>,
 }
+
+unsafe impl Send for FFIDL {}
 
 impl FFIDL {
     fn generate(config: Config) -> anyhow::Result<()> {
-        Self { config: Arc::new(config) }
+        Self { config: Arc::new(config), go_code: Arc::new(RefCell::new(String::new())) }
             .check_idl()?
             .gen_rust_and_go()
     }
@@ -62,12 +73,27 @@ impl FFIDL {
     }
     fn gen_rust_and_go(self) -> anyhow::Result<()> {
         fs::create_dir_all(&self.config.rust_out_path.parent().unwrap())?;
+
+        self.go_code.borrow_mut().push_str(&format!(
+            "package {}\n",
+            self.config.go_out_path.parent().unwrap().file_name().unwrap().to_str().unwrap()));
+
         pilota_build::Builder::thrift_with_backend(self.clone())
             .ignore_unused(true)
             .compile(
                 [&self.config.file_path],
                 Output::File(self.config.rust_out_path.clone()),
             );
+
+        fs::write(&self.config.go_out_path, self.go_code.borrow().as_str())?;
+
+        let output = Command::new(self.config.go_root_path.as_ref().map_or("gofmt".to_string(), |p| p.join("gofmt").to_str().unwrap().to_string()))
+            .arg("-l").arg("-w").arg(self.config.go_out_path.to_str().unwrap())
+            .output()
+            .unwrap();
+        if !output.status.success() {
+            eprintln!("{:?}", output);
+        }
         Ok(())
     }
 }
@@ -83,6 +109,7 @@ impl MakeBackend for FFIDL {
             go: GoCodegenBackend { config: self.config.clone(), context: context.clone() },
             config: self.config,
             context,
+            go_code: self.go_code,
         }
     }
 }
@@ -93,6 +120,7 @@ pub struct FFIDLBackend {
     context: Arc<Context>,
     rust: RustCodegenBackend,
     go: GoCodegenBackend,
+    go_code: Arc<RefCell<String>>,
 }
 
 unsafe impl Send for FFIDLBackend {}
@@ -103,11 +131,11 @@ impl CodegenBackend for FFIDLBackend {
     }
     fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         self.rust.codegen_struct_impl(def_id, stream, s);
-        self.go.codegen_struct_impl(def_id, stream, s);
+        self.go.codegen_struct_impl(def_id, self.go_code.borrow_mut().deref_mut(), s);
     }
     fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         self.rust.codegen_service_impl(def_id, stream, s);
-        self.go.codegen_service_impl(def_id, stream, s);
+        self.go.codegen_service_impl(def_id, self.go_code.borrow_mut().deref_mut(), s);
     }
     fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
         self.rust.codegen_service_method(service_def_id, method)
@@ -119,17 +147,17 @@ impl CodegenBackend for FFIDLBackend {
 
 #[cfg(test)]
 mod tests {
-    use crate::ffidl::{Config, FFIDL};
+    use crate::ffidl::{Config, FFIDL, UnitLikeStructPath};
 
     #[test]
     fn test_thriftast() {
         FFIDL::generate(Config {
-            file_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/ffidl.thrift"
-                .into(),
-            rust_out_path:
-            "/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen/ffidl.rs".into(),
+            file_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/ffidl.thrift".into(),
+            rust_out_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen/ffidl.rs".into(),
+            go_out_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen/ffidl.go".into(),
             // impl_rustffi_for_unit_struct: None,
-            impl_rustffi_for_unit_struct: Some("crate::gen::MyImplRustFfi"),
+            go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
+            impl_rustffi_for_unit_struct: Some(UnitLikeStructPath("crate::gen::MyImplRustFfi")),
         })
             .unwrap();
     }

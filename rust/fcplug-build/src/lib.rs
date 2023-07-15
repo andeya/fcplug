@@ -1,7 +1,7 @@
 #![feature(fs_try_exists)]
 
-use std::cell::RefCell;
 use std::fs;
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::Command;
 

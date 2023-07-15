@@ -261,7 +261,7 @@ impl RustCodegenBackend {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
         let ust = if let Some(ust) = self.config.impl_rustffi_for_unit_struct {
-            ust.to_string()
+            ust.0.to_string()
         } else {
             let methods = s.methods.iter().map(|method| {
                 let name = (&**method.name).fn_ident();
