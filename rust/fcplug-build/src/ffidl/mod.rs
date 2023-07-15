@@ -1,13 +1,16 @@
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::anyhow;
-use pilota_build::Output;
+use pilota_build::{CodegenBackend, Context, DefId, MakeBackend, Output, rir::Enum, rir::Message, rir::Method, rir::NewType, rir::Service};
 use pilota_thrift_parser::{File, Item, parser::Parser};
 
-use crate::ffidl::gen_rust::RustMakeBackend;
+use crate::ffidl::gen_go::GoCodegenBackend;
+use crate::ffidl::gen_rust::RustCodegenBackend;
 
 mod gen_rust;
+mod gen_go;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Config {
@@ -16,27 +19,20 @@ pub(crate) struct Config {
     pub impl_rustffi_for_unit_struct: Option<&'static str>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FFIDL {
-    config: Config,
-    file_source: *mut str,
-}
-
-impl Drop for FFIDL {
-    fn drop(&mut self) {
-        let _ = String::from(unsafe { &mut *self.file_source });
-    }
+    config: Arc<Config>,
 }
 
 impl FFIDL {
     fn generate(config: Config) -> anyhow::Result<()> {
-        Self { file_source: fs::read_to_string(&config.file_path)?.leak(), config }
+        Self { config: Arc::new(config) }
             .check_idl()?
-            .gen_rust_and_go()?;
-        Ok(())
+            .gen_rust_and_go()
     }
     fn check_idl(self) -> anyhow::Result<Self> {
-        let (_, file) = <File as Parser>::parse(unsafe { &*self.file_source })?;
+        let file_source = fs::read_to_string(&self.config.file_path)?.leak();
+        let (_, file) = <File as Parser>::parse(file_source)?;
         for item in file.items {
             match item {
                 Item::Struct(_) => {}
@@ -64,17 +60,62 @@ impl FFIDL {
         }
         Ok(self)
     }
-    fn gen_rust_and_go(self) -> anyhow::Result<Self> {
+    fn gen_rust_and_go(self) -> anyhow::Result<()> {
         fs::create_dir_all(&self.config.rust_out_path.parent().unwrap())?;
-        pilota_build::Builder::thrift_with_backend(RustMakeBackend { config: self.config.clone() })
+        pilota_build::Builder::thrift_with_backend(self.clone())
             .ignore_unused(true)
             .compile(
                 [&self.config.file_path],
                 Output::File(self.config.rust_out_path.clone()),
             );
-        Ok(self)
+        Ok(())
     }
 }
+
+
+impl MakeBackend for FFIDL {
+    type Target = FFIDLBackend;
+
+    fn make_backend(self, context: Context) -> Self::Target {
+        let context = Arc::new(context);
+        FFIDLBackend {
+            rust: RustCodegenBackend { config: self.config.clone(), context: context.clone() },
+            go: GoCodegenBackend { config: self.config.clone(), context: context.clone() },
+            config: self.config,
+            context,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct FFIDLBackend {
+    config: Arc<Config>,
+    context: Arc<Context>,
+    rust: RustCodegenBackend,
+    go: GoCodegenBackend,
+}
+
+unsafe impl Send for FFIDLBackend {}
+
+impl CodegenBackend for FFIDLBackend {
+    fn cx(&self) -> &Context {
+        self.context.as_ref()
+    }
+    fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
+        self.rust.codegen_struct_impl(def_id, stream, s);
+        self.go.codegen_struct_impl(def_id, stream, s);
+    }
+    fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
+        self.rust.codegen_service_impl(def_id, stream, s);
+        self.go.codegen_service_impl(def_id, stream, s);
+    }
+    fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
+        self.rust.codegen_service_method(service_def_id, method)
+    }
+    fn codegen_enum_impl(&self, _def_id: DefId, _stream: &mut String, _e: &Enum) {}
+    fn codegen_newtype_impl(&self, _def_id: DefId, _stream: &mut String, _t: &NewType) {}
+}
+
 
 #[cfg(test)]
 mod tests {

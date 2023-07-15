@@ -1,36 +1,23 @@
-use std::cell::RefCell;
+use std::sync::Arc;
 
 use itertools::Itertools;
-use pilota_build::{codegen, CodegenBackend, Context, DefId, IdentName, MakeBackend};
+use pilota_build::{codegen, Context, DefId, IdentName};
 use pilota_build::rir::{Message, Method, Service};
 use pilota_build::ty::{CodegenTy, TyKind};
 
 use crate::ffidl::Config;
 
-pub(crate) struct RustMakeBackend {
-    pub(crate) config: Config,
-}
-
-impl MakeBackend for RustMakeBackend {
-    type Target = RustCodegenBackend;
-
-    fn make_backend(self, context: Context) -> Self::Target {
-        RustCodegenBackend { config: self.config, context, non_stack_messages: RefCell::new(vec![]) }
-    }
-}
-
 #[derive(Clone)]
 pub(crate) struct RustCodegenBackend {
-    config: Config,
-    context: Context,
-    non_stack_messages: RefCell<Vec<DefId>>,
+    pub(crate) config: Arc<Config>,
+    pub(crate) context: Arc<Context>,
 }
 
-impl CodegenBackend for RustCodegenBackend {
+impl RustCodegenBackend {
     fn cx(&self) -> &Context {
-        &self.context
+        self.context.as_ref()
     }
-    fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
+    pub(crate) fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
         let name = (&**method.name).fn_ident();
         let args = self.codegen_method_args(service_def_id, method);
         let ret = self.codegen_method_ret(service_def_id, method);
@@ -40,14 +27,11 @@ impl CodegenBackend for RustCodegenBackend {
             _ => { String::new() }
         }
     }
-    fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
-        if !s.is_all_in_stack() {
-            self.non_stack_messages.borrow_mut().push(def_id)
-        }
+    pub(crate) fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         self.codegen_c_struct(def_id, stream, s);
         self.codegen_conv_repr_c_impl(def_id, stream, s);
     }
-    fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
+    pub(crate) fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         match s.name.to_string().to_lowercase().as_str() {
             "rustffi" => self.codegen_rustffi_service_impl(def_id, stream, s),
             "goffi" => self.codegen_goffi_service_impl(def_id, stream, s),
