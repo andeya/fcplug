@@ -15,22 +15,6 @@ type C_DynArray[T any] struct {
 	Cap int
 }
 
-func Null[T any]() C_DynArray[T] {
-	return C_DynArray[T]{}
-}
-
-//go:inline
-//go:nosplit
-func FromVec[T any](a []T) C_DynArray[T] {
-	if len(a) == 0 {
-		return C_DynArray[T]{}
-	}
-	vec := *(*C_DynArray[T])(unsafe.Pointer(&a))
-	escapeGC.Store(vec.Ptr, a)
-	runtime.KeepAlive(a)
-	return vec
-}
-
 //go:inline
 //go:nosplit
 func (c *C_DynArray[T]) IsEmpty() bool {
@@ -50,7 +34,7 @@ func (c *C_DynArray[T]) FreeGC() {
 
 //go:inline
 //go:nosplit
-func (c *C_DynArray[T]) IntoVec() []T {
+func (c *C_DynArray[T]) IntoSlice() []T {
 	if c != nil {
 		a := *(*[]T)(unsafe.Pointer(c))
 		c.FreeGC()
@@ -61,27 +45,81 @@ func (c *C_DynArray[T]) IntoVec() []T {
 
 //go:inline
 //go:nosplit
-func FromString[STRING ~string](s STRING) C_DynArray[byte] {
-	if len(s) == 0 {
-		return C_DynArray[byte]{}
+func Null[T any]() C_DynArray[T] {
+	return C_DynArray[T]{}
+}
+
+//go:inline
+//go:nosplit
+func SliceReprGoToC[G any, C any](gslice []G, convElemFunc func(G) C) C_DynArray[C] {
+	if len(gslice) == 0 {
+		return C_DynArray[C]{}
 	}
-	vec := *(*C_DynArray[byte])(unsafe.Pointer(&struct {
-		string
-		Cap int
-	}{*(*string)(unsafe.Pointer(&s)), len(s)}))
-	escapeGC.Store(vec.Ptr, s)
-	runtime.KeepAlive(s)
+	if convElemFunc == nil {
+		cslice := *(*C_DynArray[C])(unsafe.Pointer(&gslice))
+		escapeGC.Store(cslice.Ptr, gslice)
+		runtime.KeepAlive(gslice)
+		return cslice
+	}
+	cslice := make([]C, len(gslice))
+	for i, t := range gslice {
+		cslice[i] = convElemFunc(t)
+	}
+	vec := *(*C_DynArray[C])(unsafe.Pointer(&cslice))
+	escapeGC.Store(vec.Ptr, cslice)
+	runtime.KeepAlive(cslice)
 	return vec
 }
 
 //go:inline
 //go:nosplit
-func IntoString[STRING ~string](c *C_DynArray[byte]) STRING {
-	a := c.IntoVec()
-	if len(a) == 0 {
+func SliceReprCToGo[C any, G any](cslice *C_DynArray[C], convElemFunc func(*C) G) []G {
+	if cslice.IsEmpty() {
+		return nil
+	}
+	if convElemFunc == nil {
+		gslice := *(*[]G)(unsafe.Pointer(cslice))
+		cslice.FreeGC()
+		return gslice
+	}
+	a := *(*[]C)(unsafe.Pointer(cslice))
+	cslice.FreeGC()
+	gslice := make([]G, len(a))
+	for i, t := range a {
+		gslice[i] = convElemFunc(&t)
+	}
+	return gslice
+}
+
+type C_String C_DynArray[byte]
+
+func (c *C_String) Downcast() *C_DynArray[byte] {
+	return (*C_DynArray[byte])(c)
+}
+
+//go:inline
+//go:nosplit
+func StringReprCToGo[STRING ~string](cstr *C_String) STRING {
+	gslice := SliceReprCToGo[byte, byte](cstr.Downcast(), nil)
+	if len(gslice) == 0 {
 		return ""
 	}
-	return *(*STRING)(unsafe.Pointer(&a))
+	return *(*STRING)(unsafe.Pointer(&gslice))
+}
+
+//go:inline
+//go:nosplit
+func StringReprGoToC[STRING ~string](gstr STRING) C_String {
+	if len(gstr) == 0 {
+		return C_String{}
+	}
+	cslice := *(*C_DynArray[byte])(unsafe.Pointer(&struct {
+		string
+		Cap int
+	}{*(*string)(unsafe.Pointer(&gstr)), len(gstr)}))
+	escapeGC.Store(cslice.Ptr, gstr)
+	runtime.KeepAlive(gstr)
+	return C_String(cslice)
 }
 
 type MapEntry[K comparable, V any] struct {
@@ -92,69 +130,56 @@ type MapEntry[K comparable, V any] struct {
 type Map[K comparable, V any] []MapEntry[K, V]
 type C_Map[K comparable, V any] C_DynArray[MapEntry[K, V]]
 
-//go:inline
-//go:nosplit
-func FromMap[K comparable, V any](m map[K]V) C_DynArray[MapEntry[K, V]] {
-	if len(m) == 0 {
-		return C_DynArray[MapEntry[K, V]]{}
-	}
-	a := make([]MapEntry[K, V], 0, len(m))
-	for k, v := range m {
-		a = append(a, MapEntry[K, V]{Key: k, Value: v})
-	}
-	return FromVec(a)
+func (c *C_Map[K, V]) Downcast() *C_DynArray[MapEntry[K, V]] {
+	return (*C_DynArray[MapEntry[K, V]])(c)
 }
 
 //go:inline
 //go:nosplit
-func FromMap2[K comparable, V any](m map[K]V) C_Map[K, V] {
-	return C_Map[K, V](FromMap(m))
-}
-
-//go:inline
-//go:nosplit
-func IntoMap[K comparable, V any](c *C_DynArray[MapEntry[K, V]]) map[K]V {
-	a := c.IntoVec()
+func MapReprCToGo[CK comparable, CV any, GK comparable, GV any](cmap *C_Map[CK, CV], convK func(*CK) GK, convV func(*CV) GV) map[GK]GV {
+	a := SliceReprCToGo[MapEntry[CK, CV], MapEntry[CK, CV]](cmap.Downcast(), nil)
 	if len(a) == 0 {
 		return nil
 	}
-	m := make(map[K]V, len(a))
-	for _, b := range a {
-		m[b.Key] = b.Value
+	if convK == nil {
+		convK = func(ck *CK) GK {
+			return *(*GK)(unsafe.Pointer(ck))
+		}
 	}
-	return m
+	if convV == nil {
+		convV = func(cv *CV) GV {
+			return *(*GV)(unsafe.Pointer(cv))
+		}
+	}
+	gmap := make(map[GK]GV, len(a))
+	for _, entry := range a {
+		gmap[convK(&entry.Key)] = convV(&entry.Value)
+	}
+	return gmap
 }
 
 //go:inline
 //go:nosplit
-func IntoMap2[K comparable, V any](c *C_Map[K, V]) map[K]V {
-	return IntoMap((*C_DynArray[MapEntry[K, V]])(c))
-}
-
-type ConvReprGo[ReprC any, ReprGo any] interface {
-	FromReprGo(cObject ReprGo)
-	IntoReprGo() ReprGo
-}
-
-var _ ConvReprGo[C_Map[string, string], map[string]string] = &C_Map[string, string]{}
-
-func (c *C_Map[K, V]) FromReprGo(cObject map[K]V) {
-	if c == nil || cObject == nil {
-		return
+func MapReprGoToC[GK comparable, GV any, CK comparable, CV any](gmap map[GK]GV, convK func(GK) CK, convV func(GV) CV) C_Map[CK, CV] {
+	if len(gmap) == 0 {
+		return C_Map[CK, CV]{}
 	}
-	// TODO implement me
-	panic("implement me")
-}
-
-func (c C_Map[K, V]) IntoReprGo() map[K]V {
-	// TODO implement me
-	panic("implement me")
-}
-
-func IntoReprC[ReprGo any, ReprC any](goObject ReprGo) ReprC {
-	panic(nil)
-}
-
-func FromReprC[ReprGo any, ReprC any](cObject ReprC) ReprGo {
-	panic(nil)
+	if convK == nil {
+		convK = func(gk GK) CK {
+			return *(*CK)(unsafe.Pointer(&gk))
+		}
+	}
+	if convV == nil {
+		convV = func(gv GV) CV {
+			return *(*CV)(unsafe.Pointer(&gv))
+		}
+	}
+	cmap := make([]MapEntry[CK, CV], 0, len(gmap))
+	for k, v := range gmap {
+		cmap = append(cmap, MapEntry[CK, CV]{
+			Key:   convK(k),
+			Value: convV(v),
+		})
+	}
+	return C_Map[CK, CV](SliceReprGoToC[MapEntry[CK, CV], MapEntry[CK, CV]](cmap, nil))
 }
