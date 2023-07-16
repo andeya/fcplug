@@ -1,6 +1,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
+use std::any::{Any, TypeId};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 
@@ -263,21 +264,66 @@ impl ConvReprC for String {
 }
 
 
-impl<ReprRust> ConvReprC for Vec<ReprRust> where ReprRust: ConvReprC {
+impl<ReprRust> ConvReprC for Vec<ReprRust> where ReprRust: ConvReprC + Any {
     type ReprC = C_DynArray<ReprRust::ReprC>;
 
     #[inline]
     fn into_repr_c(self) -> Self::ReprC {
-        Self::ReprC::from_vec(self.into_iter()
-            .map(|v| v.into_repr_c())
-            .collect::<Vec<ReprRust::ReprC>>()
-        )
+        if TypeId::of::<ReprRust>() == TypeId::of::<ReprRust::ReprC>() {
+            C_DynArray {
+                len: self.len(),
+                cap: self.capacity(),
+                ptr: self.leak().as_mut_ptr() as *mut ReprRust::ReprC,
+            }
+        } else {
+            Self::ReprC::from_vec(self.into_iter()
+                .map(|v| v.into_repr_c())
+                .collect::<Vec<ReprRust::ReprC>>()
+            )
+        }
     }
     #[inline]
     fn from_repr_c(c: Self::ReprC) -> Self {
-        c.into_vec().into_iter().map(|v| ReprRust::from_repr_c(v)).collect()
+        if TypeId::of::<ReprRust>() == TypeId::of::<ReprRust::ReprC>() {
+            if c.is_empty() {
+                return Vec::new();
+            }
+            let mut v = unsafe { Vec::from_raw_parts(c.ptr as *mut ReprRust, c.len, c.cap) };
+            v.shrink_to_fit();
+            v
+        } else {
+            c.into_vec().into_iter().map(|v| ReprRust::from_repr_c(v)).collect()
+        }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::any::TypeId;
+    use std::any::Any;
+
+    use crate::ctypes::ConvReprC;
+
+    #[test]
+    fn conv_repr_csame_vec() {
+        let b = vec![5i64].into_repr_c();
+        assert_eq!(vec![5i64], <Vec<i64> as ConvReprC>::from_repr_c(b))
+    }
+
+    fn gty<A: Any, B: Any>() -> bool {
+        return TypeId::of::<A>() == TypeId::of::<B>();
+    }
+
+    #[test]
+    fn test_same_gty() {
+        type S = String;
+        assert!(gty::<i8, i8>());
+        assert!(!gty::<i8, i32>());
+        assert!(!gty::<i8, String>());
+        assert!(gty::<S, String>());
+    }
+}
+
 
 impl<ReprRustK, ReprRustV> ConvReprC for Map<ReprRustK, ReprRustV>
     where
@@ -298,7 +344,6 @@ impl<ReprRustK, ReprRustV> ConvReprC for Map<ReprRustK, ReprRustV>
         Map(c.into_vec().into_iter().map(|kv| MapEntry { key: ReprRustK::from_repr_c(kv.key), value: ReprRustV::from_repr_c(kv.value) }).collect())
     }
 }
-
 
 impl<ReprRustK, ReprRustV> ConvReprC for HashMap<ReprRustK, ReprRustV>
     where

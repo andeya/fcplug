@@ -1,3 +1,4 @@
+#![feature(downcast_unchecked)]
 #![feature(try_trait_v2)]
 #![feature(new_uninit)]
 

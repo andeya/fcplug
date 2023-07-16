@@ -2,7 +2,7 @@ struct A {
     1: required i32 user_id,
     2: required string user_name,
     3: required bool is_male,
-    10: optional map<string, string> extra,
+    10: optional map<string, B> extra,
 }
 
 struct B {
@@ -20,7 +20,7 @@ struct User {
     1: required i32 user_id,
     2: required string user_name,
     3: required bool is_male,
-    4: B pure,
+    4: A pure,
 
     10: optional map<string, string> extra,
 }

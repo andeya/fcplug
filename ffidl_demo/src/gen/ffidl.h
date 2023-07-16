@@ -24,6 +24,26 @@ typedef struct B {
 
 typedef struct B C_B;
 
+typedef struct MapEntry_C_String__C_B {
+  C_String key;
+  C_B value;
+} MapEntry_C_String__C_B;
+
+typedef struct C_DynArray_MapEntry_C_String__C_B {
+  struct MapEntry_C_String__C_B *ptr;
+  uintptr_t len;
+  uintptr_t cap;
+} C_DynArray_MapEntry_C_String__C_B;
+
+typedef struct C_DynArray_MapEntry_C_String__C_B C_Map_C_String__C_B;
+
+typedef struct C_A {
+  int32_t user_id;
+  C_String user_name;
+  bool is_male;
+  C_Map_C_String__C_B *extra;
+} C_A;
+
 typedef struct MapEntry_C_String__C_String {
   C_String key;
   C_String value;
@@ -41,7 +61,7 @@ typedef struct C_User {
   int32_t user_id;
   C_String user_name;
   bool is_male;
-  C_B pure;
+  struct C_A pure;
   C_Map_C_String__C_String *extra;
 } C_User;
 
