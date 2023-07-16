@@ -81,6 +81,18 @@ pub struct C {
     pub is_male: bool,
 }
 pub type C_C = C;
+impl ::fcplug::ctypes::ConvReprC for C {
+    type ReprC = C_C;
+    #[inline(always)]
+    fn into_repr_c(self) -> Self::ReprC {
+        self
+    }
+    #[inline(always)]
+    fn from_repr_c(c: Self::ReprC) -> Self {
+        c
+    }
+}
+
 pub trait RustFfi {
     fn get_user(req: &GetUserRequest, shuffle: &bool) -> GetUserResponse;
     fn get_user2() -> GetUserResponse;
@@ -204,6 +216,18 @@ pub struct B {
     pub c: C,
 }
 pub type C_B = B;
+impl ::fcplug::ctypes::ConvReprC for B {
+    type ReprC = C_B;
+    #[inline(always)]
+    fn into_repr_c(self) -> Self::ReprC {
+        self
+    }
+    #[inline(always)]
+    fn from_repr_c(c: Self::ReprC) -> Self {
+        c
+    }
+}
+
 pub trait GoFfi {
     unsafe fn get_user(
         req: GetUserRequest,

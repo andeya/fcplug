@@ -171,19 +171,19 @@ impl RustCodegenBackend {
     fn codegen_conv_repr_c_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         let name = self.context.rust_name(def_id);
         if s.is_all_in_stack() {
-            // stream.push_str(&format! {r#"
-            //     impl ::fcplug::ctypes::ConvReprC for {name} {{
-            //         type ReprC = C_{name};
-            //         #[inline(always)]
-            //         fn into_repr_c(self) -> Self::ReprC {{
-            //             self
-            //         }}
-            //         #[inline(always)]
-            //         fn from_repr_c(c: Self::ReprC) -> Self {{
-            //             c
-            //         }}
-            //     }}
-            // "#});
+            stream.push_str(&format! {r#"
+                impl ::fcplug::ctypes::ConvReprC for {name} {{
+                    type ReprC = C_{name};
+                    #[inline(always)]
+                    fn into_repr_c(self) -> Self::ReprC {{
+                        self
+                    }}
+                    #[inline(always)]
+                    fn from_repr_c(c: Self::ReprC) -> Self {{
+                        c
+                    }}
+                }}
+            "#});
             return;
         }
         let field_names = s.fields.iter().map(|f| self.context.rust_name(f.did).to_string()).collect::<Vec<String>>().join(",");
