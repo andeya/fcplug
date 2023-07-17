@@ -269,6 +269,9 @@ impl<ReprRust> ConvReprC for Vec<ReprRust> where ReprRust: ConvReprC + Any {
 
     #[inline]
     fn into_repr_c(self) -> Self::ReprC {
+        if self.is_empty() {
+            return Self::ReprC::null();
+        }
         if TypeId::of::<ReprRust>() == TypeId::of::<ReprRust::ReprC>() {
             C_DynArray {
                 len: self.len(),
@@ -284,10 +287,10 @@ impl<ReprRust> ConvReprC for Vec<ReprRust> where ReprRust: ConvReprC + Any {
     }
     #[inline]
     fn from_repr_c(c: Self::ReprC) -> Self {
+        if c.is_empty() {
+            return Vec::new();
+        }
         if TypeId::of::<ReprRust>() == TypeId::of::<ReprRust::ReprC>() {
-            if c.is_empty() {
-                return Vec::new();
-            }
             let mut v = unsafe { Vec::from_raw_parts(c.ptr as *mut ReprRust, c.len, c.cap) };
             v.shrink_to_fit();
             v
@@ -334,6 +337,9 @@ impl<ReprRustK, ReprRustV> ConvReprC for Map<ReprRustK, ReprRustV>
 
     #[inline]
     fn into_repr_c(self) -> Self::ReprC {
+        if self.0.is_empty() {
+            return Self::ReprC::null();
+        }
         Self::ReprC::from_vec(self.0.into_iter()
             .map(|kv| MapEntry { key: kv.key.into_repr_c(), value: kv.value.into_repr_c() })
             .collect::<Vec<MapEntry<ReprRustK::ReprC, ReprRustV::ReprC>>>()
@@ -341,6 +347,9 @@ impl<ReprRustK, ReprRustV> ConvReprC for Map<ReprRustK, ReprRustV>
     }
     #[inline]
     fn from_repr_c(c: Self::ReprC) -> Self {
+        if c.is_empty() {
+            return Map(Vec::new());
+        }
         Map(c.into_vec().into_iter().map(|kv| MapEntry { key: ReprRustK::from_repr_c(kv.key), value: ReprRustV::from_repr_c(kv.value) }).collect())
     }
 }
@@ -354,6 +363,9 @@ impl<ReprRustK, ReprRustV> ConvReprC for HashMap<ReprRustK, ReprRustV>
 
     #[inline]
     fn into_repr_c(self) -> Self::ReprC {
+        if self.is_empty() {
+            return Self::ReprC::null();
+        }
         Self::ReprC::from_vec(self.into_iter()
             .map(|(k, v)| MapEntry { key: k.into_repr_c(), value: v.into_repr_c() })
             .collect::<Vec<MapEntry<ReprRustK::ReprC, ReprRustV::ReprC>>>()
@@ -361,6 +373,9 @@ impl<ReprRustK, ReprRustV> ConvReprC for HashMap<ReprRustK, ReprRustV>
     }
     #[inline]
     fn from_repr_c(c: Self::ReprC) -> Self {
+        if c.is_empty() {
+            return Self::new();
+        }
         Map::<ReprRustK, ReprRustV>(c.into_vec()
             .into_iter()
             .map(|kv| MapEntry { key: ReprRustK::from_repr_c(kv.key), value: ReprRustV::from_repr_c(kv.value) })
@@ -379,6 +394,9 @@ impl<ReprRust> ConvReprC for HashSet<ReprRust>
 
     #[inline]
     fn into_repr_c(self) -> Self::ReprC {
+        if self.is_empty() {
+            return Self::ReprC::null();
+        }
         Self::ReprC::from_vec(self.into_iter()
             .map(|v| v.into_repr_c())
             .collect::<Vec<ReprRust::ReprC>>()
@@ -386,6 +404,9 @@ impl<ReprRust> ConvReprC for HashSet<ReprRust>
     }
     #[inline]
     fn from_repr_c(c: Self::ReprC) -> Self {
+        if c.is_empty() {
+            return Self::new();
+        }
         HashSet::<ReprRust>::from_iter(c.into_vec()
             .into_iter()
             .map(|v| ReprRust::from_repr_c(v)))

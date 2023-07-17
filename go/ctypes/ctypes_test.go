@@ -3,69 +3,91 @@ package ctypes
 import (
 	"runtime"
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
 
+var testKeepAliveTable = NewKeepAliveTable("test")
+
 //go:noinline
-func slice_gc() C_DynArray[string] {
+func slice_gc(keepAliveRow *KeepAliveRow) C_Slice[C_String, String] {
 	s := []string{"abc"}
-	return SliceReprGoToC[string, string](s, nil)
+	return (*(*Slice[String, C_String])(unsafe.Pointer(&s))).ToReprC(keepAliveRow)
 }
 
 //go:noinline
 func TestSlice(t *testing.T) {
-	s := []string{"abc"}
-	cslice := slice_gc()
+	var s = Slice[String, C_String]{"abc"}
+	var keepAliveRow = testKeepAliveTable.NewRow()
+	cslice := slice_gc(keepAliveRow)
+	rowPtr := testKeepAliveTable.KeepRow(keepAliveRow)
 	runtime.GC()
 	t.Log(s, cslice)
 	runtime.GC()
-	s2 := SliceReprCToGo[string, string](&cslice, nil)
+	s2 := cslice.ToReprGo()
+	testKeepAliveTable.FreeRow(rowPtr)
 	runtime.GC()
+	assert.Equal(t, s, s2)
 	t.Log(s, cslice, s2)
-	s3 := SliceReprCToGo[string, string](&cslice, nil)
+	s3 := cslice.ToReprGo()
+	testKeepAliveTable.FreeRow(rowPtr)
 	runtime.GC()
-	assert.Empty(t, s3)
+	assert.Equal(t, s, s3)
 }
 
 //go:noinline
-func string_gc() C_String {
+func string_gc(keepAliveRow *KeepAliveRow) C_String {
 	s := "abc"
-	return StringReprGoToC[string](s)
+	return String(s).ToReprC(keepAliveRow)
 }
 
 //go:noinline
 func TestString(t *testing.T) {
-	s := "abc"
-	cstring := string_gc()
+	s := String("abc")
+	var keepAliveRow = testKeepAliveTable.NewRow()
+	cstring := string_gc(keepAliveRow)
+	runtime.GC()
+	rowPtr := testKeepAliveTable.KeepRow(keepAliveRow)
 	runtime.GC()
 	t.Log(s, cstring)
+	s2 := cstring.ToReprGo()
 	runtime.GC()
-	s2 := StringReprCToGo[string](&cstring)
+	testKeepAliveTable.FreeRow(rowPtr)
 	runtime.GC()
+	assert.Equal(t, s, s2)
 	t.Log(s, cstring, s2)
-	s3 := StringReprCToGo[string](&cstring)
+	s3 := cstring.ToReprGo()
 	runtime.GC()
-	assert.Empty(t, s3)
+	testKeepAliveTable.FreeRow(rowPtr)
+	runtime.GC()
+	assert.Equal(t, s, s3)
 }
 
 //go:noinline
 func TestMap(t *testing.T) {
-	s := map[string]int{"abc": 1}
-	cmap := map_gc()
+	s := Map[String, Int32, C_String, Int32]{"abc": 1}
+	var keepAliveRow = testKeepAliveTable.NewRow()
+	cmap := map_gc(keepAliveRow)
+	runtime.GC()
+	rowPtr := testKeepAliveTable.KeepRow(keepAliveRow)
 	runtime.GC()
 	t.Log(s, cmap)
+	s2 := cmap.ToReprGo()
 	runtime.GC()
-	s2 := MapReprCToGo[C_String, int, string, int](&cmap, StringReprCToGo[string], nil)
+	testKeepAliveTable.FreeRow(rowPtr)
 	runtime.GC()
+	assert.Equal(t, s, s2)
 	t.Log(s, cmap, s2)
-	s3 := MapReprCToGo[C_String, int, string, int](&cmap, StringReprCToGo[string], nil)
+	s3 := cmap.ToReprGo()
 	runtime.GC()
-	assert.Empty(t, s3)
+	testKeepAliveTable.FreeRow(rowPtr)
+	runtime.GC()
+	assert.Equal(t, s, s3)
 }
 
 //go:noinline
-func map_gc() C_Map[C_String, int] {
-	s := map[string]int{"abc": 1}
-	return MapReprGoToC[string, int, C_String, int](s, StringReprGoToC[string], nil)
+func map_gc(keepAliveRow *KeepAliveRow) C_Map[C_String, Int32, String, Int32] {
+	s := map[string]int32{"abc": 1}
+	return (*(*Map[String, Int32, C_String, Int32])(unsafe.Pointer(&s))).ToReprC(keepAliveRow)
 }

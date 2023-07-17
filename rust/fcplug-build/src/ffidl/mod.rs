@@ -75,7 +75,19 @@ impl FFIDL {
         fs::create_dir_all(&self.config.rust_out_path.parent().unwrap())?;
 
         self.go_code.borrow_mut().push_str(&format!(
-            "package {}\n",
+            r###"package {}
+            import (
+                "unsafe"
+
+                "github.com/andeya/fcplug/go/ctypes"
+            )
+
+            var (
+                _ unsafe.Pointer
+                _ ctypes.C_DynArray[any]
+            )
+
+            "###,
             self.config.go_out_path.parent().unwrap().file_name().unwrap().to_str().unwrap()));
 
         pilota_build::Builder::thrift_with_backend(self.clone())
