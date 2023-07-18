@@ -36,6 +36,12 @@ impl TyKind {
             _ => false,
         }
     }
+    pub fn is_bool_kind(&self) -> bool {
+        match self {
+            TyKind::Bool => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -48,6 +54,12 @@ pub struct Ty {
 impl Ty {
     pub fn is_in_stack(&self) -> bool {
         self.in_stack.read().unwrap().unwrap()
+    }
+    pub fn is_bool(&self) -> bool {
+        self.kind.is_bool_kind()
+    }
+    pub fn is_scalar(&self) -> bool {
+        self.kind.is_scalar_kind()
     }
     pub fn setted_in_stack_field(&self) -> bool {
         self.in_stack.read().unwrap().is_some()

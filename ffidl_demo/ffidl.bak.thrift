@@ -33,12 +33,21 @@ struct GetUserRequest {
 
 struct getUserResponse {
     1: list<User> users,
-    3: optional map<string,GetUserRequest> respMap,
+    2: required getUserResponse resp,
+    3: optional map<string,getUserResponse> respMap,
     4: GetUserRequest req,
 }
 
+service goFFI {
+    getUserResponse getUser (1: GetUserRequest req, 2: bool shuffle),
+    getUserResponse getUser2 (1: GetUserRequest req),
+    getUserResponse getUser3 (1: bool shuffle),
+    i8 test4 (1: bool shuffle),
+    B test5 (1: bool shuffle),
+}
+
 service rustFFI {
-    string GetUser (2: string shuffle),
+    getUserResponse GetUser (1: GetUserRequest req, 2: bool shuffle),
     getUserResponse GetUser2 (),
     i8 test4 (1: bool shuffle),
     B test5 (1: bool shuffle),

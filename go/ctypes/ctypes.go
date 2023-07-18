@@ -1,7 +1,5 @@
 package ctypes
 
-// $ CGO_ENABLED=1 go build -buildmode=c-archive -o callee.a
-
 import (
 	"reflect"
 	"runtime"
@@ -41,6 +39,15 @@ func (tab *KeepAliveTable) KeepRow(row *KeepAliveRow) uintptr {
 	}
 	tab.pool.Put(row)
 	return 0
+}
+
+func (tab *KeepAliveTable) KeepRowWithPtr(row *KeepAliveRow, rowPtr unsafe.Pointer) {
+	if len(row.values) > 0 {
+		tab.escapeGcMap.Store(uintptr(rowPtr), row)
+		// runtime.KeepAlive(rowPtr)
+		return
+	}
+	tab.pool.Put(row)
 }
 
 func (tab *KeepAliveTable) FreeRow(rowPtr uintptr) {
@@ -340,9 +347,6 @@ var _ ReprCToGo[Float32] = Float32(0)
 var _ ReprGoToC[Float64] = Float64(0)
 var _ ReprCToGo[Float64] = Float64(0)
 
-var _ ReprGoToC[Void] = Void{}
-var _ ReprCToGo[Void] = Void{}
-
 type Bool bool
 
 //go:inline
@@ -497,16 +501,8 @@ func (f Float64) ToReprC(_ *KeepAliveRow) Float64 {
 	return f
 }
 
-type Void struct{}
-
 //go:inline
 //go:nosplit
-func (v Void) ToReprGo() Void {
-	return v
-}
-
-//go:inline
-//go:nosplit
-func (v Void) ToReprC(_ *KeepAliveRow) Void {
-	return v
+func Ref[T any](v T) *T {
+	return &v
 }

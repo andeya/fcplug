@@ -16,9 +16,7 @@ members = [
     "rust/fcplug",
     "rust/fcplug-macros",
     "rust/fcplug-build",
-    #    "demo",
-        "ffidl_demo",
-    #    "feasibility",
+    "ffidl_demo",
 ]
 exclude = []
 

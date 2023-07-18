@@ -14,9 +14,6 @@ pub(crate) struct RustCodegenBackend {
 }
 
 impl RustCodegenBackend {
-    fn cx(&self) -> &Context {
-        self.context.as_ref()
-    }
     pub(crate) fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
         let name = (&**method.name).fn_ident();
         let args = self.codegen_method_args(service_def_id, method);
@@ -260,7 +257,7 @@ impl RustCodegenBackend {
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
-        let ust = if let Some(ust) = self.config.impl_rustffi_for_unit_struct {
+        let ust = if let Some(ust) = &self.config.rustffi_impl_of_unit_struct {
             ust.0.to_string()
         } else {
             let methods = s.methods.iter().map(|method| {
