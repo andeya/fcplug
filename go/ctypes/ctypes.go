@@ -107,7 +107,7 @@ func SliceReprGoToC[G any, C any](keepAliveRow *KeepAliveRow, gslice []G, convEl
 		return C_DynArray[C]{}
 	}
 	if convElemFunc == nil {
-		cslice := *(*C_DynArray[C])(unsafe.Pointer(&gslice))
+		cslice := *(*C_DynArray[C])(unsafe.Pointer(&gslice[0]))
 		keepAliveRow.AddCell(gslice)
 		runtime.KeepAlive(gslice)
 		return cslice

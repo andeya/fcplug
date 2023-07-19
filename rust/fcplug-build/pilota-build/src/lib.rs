@@ -40,7 +40,7 @@ pub mod db;
 pub(crate) mod errors;
 mod fmt;
 mod index;
-mod ir;
+pub mod ir;
 mod middle;
 pub mod parser;
 mod resolve;
@@ -93,11 +93,11 @@ impl<MkB> Builder<MkB, ThriftParser> {
     }
 }
 
-impl Builder<MkProtobufBackend, ProtobufParser> {
-    pub fn protobuf() -> Self {
+impl <MkB> Builder<MkB, ProtobufParser> {
+    pub fn protobuf_with_backend(mk_backend: MkB)-> Self {
         Builder {
             source_type: SourceType::Protobuf,
-            mk_backend: MkProtobufBackend,
+            mk_backend: mk_backend,
             parser: ProtobufParser::default(),
             plugins: vec![
                 Box::new(WithAttrsPlugin(Arc::from(["#[derive(Debug)]".into()]))),

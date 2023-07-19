@@ -1,368 +1,168 @@
 #![allow(warnings, clippy::all)]
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct A {
-    pub user_id: i32,
+#[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
+pub struct SearchRequest {
+    pub query: ::std::string::String,
 
-    pub user_name: ::std::string::String,
+    pub page_number: i32,
 
-    pub is_male: bool,
-
-    pub extra: ::std::option::Option<::std::collections::HashMap<::std::string::String, B>>,
+    pub result_per_page: i32,
 }
 #[derive(Clone, PartialEq)]
 #[repr(C)]
-pub struct C_A {
-    pub user_id: i32,
+pub struct FfiSearchRequest {
+    pub query: ::fcplug::ctypes::FfiArray<u8>,
 
-    pub user_name: ::fcplug::ctypes::C_String,
+    pub page_number: i32,
 
-    pub is_male: bool,
-
-    pub extra: *mut ::fcplug::ctypes::C_Map<::fcplug::ctypes::C_String, C_B>,
+    pub result_per_page: i32,
 }
-impl ::fcplug::ctypes::ConvReprC for A {
-    type ReprC = C_A;
+impl ::fcplug::ctypes::ConvRepr for SearchRequest {
+    type CRepr = FfiSearchRequest;
     #[inline(always)]
-    fn into_repr_c(self) -> Self::ReprC {
-        let A {
-            user_id,
-            user_name,
-            is_male,
-            extra,
+    fn into_c_repr(self) -> Self::CRepr {
+        let SearchRequest {
+            query,
+            page_number,
+            result_per_page,
         } = self;
-        let user_name = user_name.into_repr_c();
+        let query = query.into_c_repr();
 
-        let extra = if let Some(extra) = extra {
-            ::std::boxed::Box::into_raw(::std::boxed::Box::new(extra.into_repr_c()))
-        } else {
-            ::std::ptr::null_mut()
-        };
-        C_A {
-            user_id,
-            user_name,
-            is_male,
-            extra,
+        FfiSearchRequest {
+            query,
+            page_number,
+            result_per_page,
         }
     }
     #[inline(always)]
-    fn from_repr_c(c: Self::ReprC) -> Self {
-        let C_A {
-            user_id,
-            user_name,
-            is_male,
-            extra,
+    fn from_c_repr(c: Self::CRepr) -> Self {
+        let FfiSearchRequest {
+            query,
+            page_number,
+            result_per_page,
         } = c;
-        let user_name = ::fcplug::ctypes::ConvReprC::from_repr_c(user_name);
+        let query = ::fcplug::ctypes::ConvRepr::from_c_repr(query);
 
-        let extra = if extra.is_null() {
-            ::std::option::Option::None
-        } else {
-            ::std::option::Option::Some(::fcplug::ctypes::ConvReprC::from_repr_c(unsafe {
-                *::std::boxed::Box::from_raw(extra)
-            }))
-        };
-        A {
-            user_id,
-            user_name,
-            is_male,
-            extra,
+        SearchRequest {
+            query,
+            page_number,
+            result_per_page,
         }
     }
 }
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct GetUserResponse {
-    pub users: ::std::vec::Vec<User>,
+pub struct WebSite {
+    pub name: ::std::string::String,
 
-    pub resp_map:
-        ::std::option::Option<::std::collections::HashMap<::std::string::String, GetUserRequest>>,
+    pub link: ::std::string::String,
 
-    pub req: GetUserRequest,
+    pub age: i32,
+
+    pub server: ::std::collections::HashMap<::std::string::String, Server>,
 }
 #[derive(Clone, PartialEq)]
 #[repr(C)]
-pub struct C_GetUserResponse {
-    pub users: ::fcplug::ctypes::C_DynArray<C_User>,
+pub struct FfiWebSite {
+    pub name: ::fcplug::ctypes::FfiArray<u8>,
 
-    pub resp_map: *mut ::fcplug::ctypes::C_Map<::fcplug::ctypes::C_String, C_GetUserRequest>,
+    pub link: ::fcplug::ctypes::FfiArray<u8>,
 
-    pub req: C_GetUserRequest,
+    pub age: i32,
+
+    pub server: ::fcplug::ctypes::FfiArray<
+        ::fcplug::ctypes::MapEntry<::fcplug::ctypes::FfiArray<u8>, FfiServer>,
+    >,
 }
-impl ::fcplug::ctypes::ConvReprC for GetUserResponse {
-    type ReprC = C_GetUserResponse;
+impl ::fcplug::ctypes::ConvRepr for WebSite {
+    type CRepr = FfiWebSite;
     #[inline(always)]
-    fn into_repr_c(self) -> Self::ReprC {
-        let GetUserResponse {
-            users,
-            resp_map,
-            req,
+    fn into_c_repr(self) -> Self::CRepr {
+        let WebSite {
+            name,
+            link,
+            age,
+            server,
         } = self;
-        let users = users.into_repr_c();
-        let resp_map = if let Some(resp_map) = resp_map {
-            ::std::boxed::Box::into_raw(::std::boxed::Box::new(resp_map.into_repr_c()))
-        } else {
-            ::std::ptr::null_mut()
-        };
-        let req = req.into_repr_c();
-        C_GetUserResponse {
-            users,
-            resp_map,
-            req,
-        }
-    }
-    #[inline(always)]
-    fn from_repr_c(c: Self::ReprC) -> Self {
-        let C_GetUserResponse {
-            users,
-            resp_map,
-            req,
-        } = c;
-        let users = ::fcplug::ctypes::ConvReprC::from_repr_c(users);
-        let resp_map = if resp_map.is_null() {
-            ::std::option::Option::None
-        } else {
-            ::std::option::Option::Some(::fcplug::ctypes::ConvReprC::from_repr_c(unsafe {
-                *::std::boxed::Box::from_raw(resp_map)
-            }))
-        };
-        let req = ::fcplug::ctypes::ConvReprC::from_repr_c(req);
-        GetUserResponse {
-            users,
-            resp_map,
-            req,
-        }
-    }
-}
-#[derive(PartialOrd, Hash, Eq, Ord, Debug, Default)]
-#[repr(C)]
-#[derive(Clone, PartialEq)]
-pub struct C {
-    pub user_id: i32,
+        let name = name.into_c_repr();
+        let link = link.into_c_repr();
 
-    pub is_male: bool,
-}
-pub type C_C = C;
-impl ::fcplug::ctypes::ConvReprC for C {
-    type ReprC = C_C;
-    #[inline(always)]
-    fn into_repr_c(self) -> Self::ReprC {
-        self
+        let server = server.into_c_repr();
+        FfiWebSite {
+            name,
+            link,
+            age,
+            server,
+        }
     }
     #[inline(always)]
-    fn from_repr_c(c: Self::ReprC) -> Self {
-        c
+    fn from_c_repr(c: Self::CRepr) -> Self {
+        let FfiWebSite {
+            name,
+            link,
+            age,
+            server,
+        } = c;
+        let name = ::fcplug::ctypes::ConvRepr::from_c_repr(name);
+        let link = ::fcplug::ctypes::ConvRepr::from_c_repr(link);
+
+        let server = ::fcplug::ctypes::ConvRepr::from_c_repr(server);
+        WebSite {
+            name,
+            link,
+            age,
+            server,
+        }
     }
 }
 #[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
-pub struct GetUserRequest {
-    pub user_id: i32,
+pub struct Server {
+    pub hostname: ::std::string::String,
 
-    pub user_name: ::std::string::String,
-
-    pub is_male: bool,
+    pub port: i32,
 }
 #[derive(Clone, PartialEq)]
 #[repr(C)]
-pub struct C_GetUserRequest {
-    pub user_id: i32,
+pub struct FfiServer {
+    pub hostname: ::fcplug::ctypes::FfiArray<u8>,
 
-    pub user_name: ::fcplug::ctypes::C_String,
-
-    pub is_male: bool,
+    pub port: i32,
 }
-impl ::fcplug::ctypes::ConvReprC for GetUserRequest {
-    type ReprC = C_GetUserRequest;
+impl ::fcplug::ctypes::ConvRepr for Server {
+    type CRepr = FfiServer;
     #[inline(always)]
-    fn into_repr_c(self) -> Self::ReprC {
-        let GetUserRequest {
-            user_id,
-            user_name,
-            is_male,
-        } = self;
-        let user_name = user_name.into_repr_c();
+    fn into_c_repr(self) -> Self::CRepr {
+        let Server { hostname, port } = self;
+        let hostname = hostname.into_c_repr();
 
-        C_GetUserRequest {
-            user_id,
-            user_name,
-            is_male,
-        }
+        FfiServer { hostname, port }
     }
     #[inline(always)]
-    fn from_repr_c(c: Self::ReprC) -> Self {
-        let C_GetUserRequest {
-            user_id,
-            user_name,
-            is_male,
-        } = c;
-        let user_name = ::fcplug::ctypes::ConvReprC::from_repr_c(user_name);
+    fn from_c_repr(c: Self::CRepr) -> Self {
+        let FfiServer { hostname, port } = c;
+        let hostname = ::fcplug::ctypes::ConvRepr::from_c_repr(hostname);
 
-        GetUserRequest {
-            user_id,
-            user_name,
-            is_male,
-        }
+        Server { hostname, port }
     }
 }
-#[derive(PartialOrd, Hash, Eq, Ord, Debug, Default)]
-#[repr(C)]
-#[derive(Clone, PartialEq)]
-pub struct B {
-    pub user_id: i32,
-
-    pub is_male: bool,
-
-    pub c: C,
-}
-pub type C_B = B;
-impl ::fcplug::ctypes::ConvReprC for B {
-    type ReprC = C_B;
-    #[inline(always)]
-    fn into_repr_c(self) -> Self::ReprC {
-        self
-    }
-    #[inline(always)]
-    fn from_repr_c(c: Self::ReprC) -> Self {
-        c
-    }
-}
-
 pub trait RustFfi {
-    fn get_user(shuffle: &::std::string::String) -> ::std::string::String;
-    fn get_user2() -> GetUserResponse;
-    fn test4(shuffle: &bool) -> i8;
-    fn test5(shuffle: &bool) -> B;
+    fn search(req: &SearchRequest) -> WebSite;
 }
 #[no_mangle]
 #[inline]
-pub extern "C" fn rustffi_get_user(
-    shuffle: ::fcplug::ctypes::C_String,
-) -> *mut ::fcplug::ctypes::C_String {
+pub extern "C" fn rustffi_search(req: FfiSearchRequest) -> *mut FfiWebSite {
     ::std::boxed::Box::into_raw(::std::boxed::Box::new(
-        <::std::string::String as ::fcplug::ctypes::ConvReprC>::into_repr_c(
-            <crate::Test as RustFfi>::get_user(
-                &<::std::string::String as ::fcplug::ctypes::ConvReprC>::from_repr_c(shuffle),
+        <WebSite as ::fcplug::ctypes::ConvRepr>::into_c_repr(<crate::Test as RustFfi>::search(
+            &::std::mem::ManuallyDrop::new(
+                <SearchRequest as ::fcplug::ctypes::ConvRepr>::from_c_repr(req),
             ),
-        ),
+        )),
     ))
 }
 #[no_mangle]
 #[inline]
-pub extern "C" fn rustffi_get_user_free_ret(ret_ptr: *mut ::fcplug::ctypes::C_String) {
+pub extern "C" fn rustffi_search_free_ret(ret_ptr: *mut FfiWebSite) {
     if !ret_ptr.is_null() {
-        let _ = <::std::string::String as ::fcplug::ctypes::ConvReprC>::from_repr_c(unsafe {
+        let _ = <WebSite as ::fcplug::ctypes::ConvRepr>::from_c_repr(unsafe {
             *::std::boxed::Box::from_raw(ret_ptr)
         });
-    }
-}
-
-#[no_mangle]
-#[inline]
-pub extern "C" fn rustffi_get_user2() -> *mut C_GetUserResponse {
-    ::std::boxed::Box::into_raw(::std::boxed::Box::new(
-        <GetUserResponse as ::fcplug::ctypes::ConvReprC>::into_repr_c(
-            <crate::Test as RustFfi>::get_user2(),
-        ),
-    ))
-}
-#[no_mangle]
-#[inline]
-pub extern "C" fn rustffi_get_user2_free_ret(ret_ptr: *mut C_GetUserResponse) {
-    if !ret_ptr.is_null() {
-        let _ = <GetUserResponse as ::fcplug::ctypes::ConvReprC>::from_repr_c(unsafe {
-            *::std::boxed::Box::from_raw(ret_ptr)
-        });
-    }
-}
-
-#[no_mangle]
-#[inline]
-pub extern "C" fn rustffi_test4(shuffle: bool) -> i8 {
-    <crate::Test as RustFfi>::test4(&<bool as ::fcplug::ctypes::ConvReprC>::from_repr_c(shuffle))
-}
-
-#[no_mangle]
-#[inline]
-pub extern "C" fn rustffi_test5(shuffle: bool) -> C_B {
-    <crate::Test as RustFfi>::test5(&<bool as ::fcplug::ctypes::ConvReprC>::from_repr_c(shuffle))
-}
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct User {
-    pub user_id: i32,
-
-    pub user_name: ::std::string::String,
-
-    pub is_male: bool,
-
-    pub r#pure: A,
-
-    pub extra: ::std::option::Option<
-        ::std::collections::HashMap<::std::string::String, ::std::string::String>,
-    >,
-}
-#[derive(Clone, PartialEq)]
-#[repr(C)]
-pub struct C_User {
-    pub user_id: i32,
-
-    pub user_name: ::fcplug::ctypes::C_String,
-
-    pub is_male: bool,
-
-    pub r#pure: C_A,
-
-    pub extra: *mut ::fcplug::ctypes::C_Map<::fcplug::ctypes::C_String, ::fcplug::ctypes::C_String>,
-}
-impl ::fcplug::ctypes::ConvReprC for User {
-    type ReprC = C_User;
-    #[inline(always)]
-    fn into_repr_c(self) -> Self::ReprC {
-        let User {
-            user_id,
-            user_name,
-            is_male,
-            r#pure,
-            extra,
-        } = self;
-        let user_name = user_name.into_repr_c();
-
-        let r#pure = r#pure.into_repr_c();
-        let extra = if let Some(extra) = extra {
-            ::std::boxed::Box::into_raw(::std::boxed::Box::new(extra.into_repr_c()))
-        } else {
-            ::std::ptr::null_mut()
-        };
-        C_User {
-            user_id,
-            user_name,
-            is_male,
-            r#pure,
-            extra,
-        }
-    }
-    #[inline(always)]
-    fn from_repr_c(c: Self::ReprC) -> Self {
-        let C_User {
-            user_id,
-            user_name,
-            is_male,
-            r#pure,
-            extra,
-        } = c;
-        let user_name = ::fcplug::ctypes::ConvReprC::from_repr_c(user_name);
-
-        let r#pure = ::fcplug::ctypes::ConvReprC::from_repr_c(r#pure);
-        let extra = if extra.is_null() {
-            ::std::option::Option::None
-        } else {
-            ::std::option::Option::Some(::fcplug::ctypes::ConvReprC::from_repr_c(unsafe {
-                *::std::boxed::Box::from_raw(extra)
-            }))
-        };
-        User {
-            user_id,
-            user_name,
-            is_male,
-            r#pure,
-            extra,
-        }
     }
 }

@@ -7,14 +7,15 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use pilota_build::{CodegenBackend, Context, DefId, MakeBackend, Output, rir::Enum, rir::Message, rir::Method, rir::NewType, rir::Service};
-use pilota_thrift_parser::{File, Item, parser::Parser};
+use pilota_build::ir::ItemKind;
+use pilota_build::parser::{Parser, ParseResult, ProtobufParser};
 
 use crate::ffidl::ctypes_code::write_ctypes_file;
-use crate::ffidl::gen_go::GoCodegenBackend;
+// use crate::ffidl::gen_go::GoCodegenBackend;
 use crate::ffidl::gen_rust::RustCodegenBackend;
 
 mod gen_rust;
-mod gen_go;
+// mod gen_go;
 mod ctypes_code;
 
 #[cfg(not(debug_assertions))]
@@ -78,29 +79,32 @@ impl FFIDL {
             .gen_rust_and_go()
     }
     fn check_idl(self) -> anyhow::Result<Self> {
-        let file_source = fs::read_to_string(&self.config.idl_file_path)?.leak();
-        let (_, file) = <File as Parser>::parse(file_source)?;
-        for item in file.items {
-            match item {
-                Item::Struct(_) => {}
-                Item::Service(service_item) => {
-                    match service_item.name.as_str().to_lowercase().as_str() {
+        let mut parser = ProtobufParser::default();
+        Parser::include_dirs(&mut parser, vec![self.config.idl_file_path.parent().unwrap().to_path_buf()]);
+        Parser::input(&mut parser, &self.config.idl_file_path);
+        let mut ret: ParseResult = Parser::parse(parser);
+        for item in &ret.files.pop().unwrap().items {
+            match &item.kind {
+                ItemKind::Message(_) => {}
+                ItemKind::Service(service_item) => {
+                    match service_item.name.to_lowercase().as_str() {
                         "goffi" | "rustffi" => {}
                         _ => {
                             return Err(anyhow!(
-                                "Thrift Service name can only be: 'GoFFI', 'RustFFI'."
+                                "Protobuf Service name can only be: 'GoFFI', 'RustFFI'."
                             ));
                         }
                     }
                 }
                 _ => {
                     return Err(anyhow!(
-                        "Thrift Item '{}' not supported.",
+                        "Protobuf Item '{}' not supported.",
                         format!("{:?}", item)
-                            .split_once("(")
-                            .unwrap()
-                            .0
-                            .to_lowercase()
+                        .trim_start_matches("Item { kind: ")
+                        .split_once("(")
+                        .unwrap()
+                        .0
+                        .to_lowercase()
                     ));
                 }
             }
@@ -149,7 +153,9 @@ impl FFIDL {
 
             "###));
 
-        pilota_build::Builder::thrift_with_backend(self.clone())
+        pilota_build::Builder::protobuf_with_backend(self.clone())
+        // pilota_build::Builder::thrift_with_backend(self.clone())
+            .include_dirs(vec![self.config.idl_file_path.parent().unwrap().to_path_buf()])
             .ignore_unused(true)
             .compile(
                 [&self.config.idl_file_path],
@@ -210,7 +216,6 @@ impl FFIDL {
     }
 }
 
-
 impl MakeBackend for FFIDL {
     type Target = FFIDLBackend;
 
@@ -218,7 +223,7 @@ impl MakeBackend for FFIDL {
         let context = Arc::new(context);
         FFIDLBackend {
             rust: RustCodegenBackend { config: self.config.clone(), context: context.clone() },
-            go: GoCodegenBackend { config: self.config.clone(), context: context.clone() },
+            // go: GoCodegenBackend { config: self.config.clone(), context: context.clone() },
             config: self.config,
             context,
             go_pkg_code: self.go_pkg_code,
@@ -233,7 +238,7 @@ pub struct FFIDLBackend {
     config: Arc<Config>,
     context: Arc<Context>,
     rust: RustCodegenBackend,
-    go: GoCodegenBackend,
+    // go: GoCodegenBackend,
     go_pkg_code: Arc<RefCell<String>>,
     go_main_code: Arc<RefCell<String>>,
 }
@@ -246,15 +251,15 @@ impl CodegenBackend for FFIDLBackend {
     }
     fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         self.rust.codegen_struct_impl(def_id, stream, s);
-        self.go.codegen_struct_impl(def_id, self.go_pkg_code.borrow_mut().deref_mut(), s);
+        // self.go.codegen_struct_impl(def_id, self.go_pkg_code.borrow_mut().deref_mut(), s);
     }
     fn codegen_service_impl(&self, service_def_id: DefId, stream: &mut String, s: &Service) {
         self.rust.codegen_service_impl(service_def_id, stream, s);
-        self.go.codegen_service_interface(service_def_id, self.go_pkg_code.borrow_mut().deref_mut(), s);
-        match self.context.rust_name(service_def_id).to_lowercase().as_str() {
-            "goffi" => self.go.codegen_service_export(service_def_id, self.go_main_code.borrow_mut().deref_mut(), s),
-            _ => {}
-        }
+        // self.go.codegen_service_interface(service_def_id, self.go_pkg_code.borrow_mut().deref_mut(), s);
+        // match self.context.rust_name(service_def_id).to_lowercase().as_str() {
+        //     "goffi" => self.go.codegen_service_export(service_def_id, self.go_main_code.borrow_mut().deref_mut(), s),
+        //     _ => {}
+        // }
     }
     fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
         self.rust.codegen_service_method(service_def_id, method)
@@ -279,9 +284,9 @@ mod tests {
     use crate::ffidl::{Config, FFIDL, UnitLikeStructPath};
 
     #[test]
-    fn test_thriftast() {
+    fn test_idl() {
         FFIDL::generate(Config {
-            idl_file_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/ffidl.thrift".into(),
+            idl_file_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/ffidl.proto".into(),
             output_dir: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen".into(),
             rustffi_impl_of_unit_struct: Some(UnitLikeStructPath("crate::gen::MyImplRustFfi")),
             go_mod_path: "github.com/andeya/fcplug/ffidl_demo/src/gen",

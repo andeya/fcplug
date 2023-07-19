@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::gen::{A, B, GetUserRequest, GetUserResponse, RustFfi, User};
+use crate::gen::{RustFfi, SearchRequest, Server, WebSite};
 
 mod gen;
 
@@ -20,21 +20,19 @@ mod tests {
 
 struct Test;
 
+
 impl RustFfi for Test {
-    fn get_user(s:&::std::string::String) -> ::std::string::String{
-        println!("get_user: shuffle={s}");
-        s.to_string()+"这是回复"
-    }
-
-    fn get_user2() -> GetUserResponse {
-        todo!()
-    }
-
-    fn test4(shuffle: &bool) -> i8 {
-        todo!()
-    }
-
-    fn test5(shuffle: &bool) -> B {
-        todo!()
+    fn search(req: &SearchRequest) -> WebSite {
+        println!("request: {:?}", req);
+        WebSite{
+            name: "andeya".to_string(),
+            link: "a/b/c".to_string(),
+            age: 40,
+            server: HashMap::from([
+                ("a".to_string(),Server{ hostname: "github.com1".to_string(), port: 801 }),
+                ("b".to_string(),Server{ hostname: "github.com2".to_string(), port: 802 }),
+                ("c".to_string(),Server{ hostname: "github.com3".to_string(), port: 803 }),
+            ]),
+        }
     }
 }

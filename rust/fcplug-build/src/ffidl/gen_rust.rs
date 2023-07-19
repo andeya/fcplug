@@ -26,7 +26,7 @@ impl RustCodegenBackend {
     }
     pub(crate) fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         self.codegen_c_struct(def_id, stream, s);
-        self.codegen_conv_repr_c_impl(def_id, stream, s);
+        self.codegen_conv_repr_impl(def_id, stream, s);
     }
     pub(crate) fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         match s.name.to_string().to_lowercase().as_str() {
@@ -103,20 +103,20 @@ impl RustCodegenBackend {
     #[inline]
     fn codegen_c_item_ty(&self, ty: &TyKind) -> String {
         match &ty {
-            TyKind::String => "::fcplug::ctypes::C_String".to_string(),
+            TyKind::String => "::fcplug::ctypes::FfiArray<u8>".to_string(),
             TyKind::Void => CodegenTy::Void.to_string(),
             TyKind::U8 => CodegenTy::U8.to_string(),
             TyKind::Bool => CodegenTy::Bool.to_string(),
-            TyKind::Bytes => "::fcplug::ctypes::C_Bytes".to_string(),
+            TyKind::Bytes => "::fcplug::ctypes::FfiArray<u8>".to_string(),
             TyKind::I8 => CodegenTy::I8.to_string(),
             TyKind::I16 => CodegenTy::I16.to_string(),
             TyKind::I32 => CodegenTy::I32.to_string(),
             TyKind::I64 => CodegenTy::I64.to_string(),
             TyKind::F64 => CodegenTy::F64.to_string(),
-            TyKind::Vec(ty) => format!("::fcplug::ctypes::C_DynArray<{}>", self.codegen_c_item_ty(&ty.kind)),
-            TyKind::Set(ty) => format!("::fcplug::ctypes::C_DynArray<{}>", self.codegen_c_item_ty(&ty.kind)),
-            TyKind::Map(key, value) => format!("::fcplug::ctypes::C_Map<{}, {}>", self.codegen_c_item_ty(&key.kind), self.codegen_c_item_ty(&value.kind)),
-            TyKind::Path(path) => format!("C_{}", self.context.rust_name(path.did).to_string()),
+            TyKind::Vec(ty) => format!("::fcplug::ctypes::FfiArray<{}>", self.codegen_c_item_ty(&ty.kind)),
+            TyKind::Set(ty) => format!("::fcplug::ctypes::FfiArray<{}>", self.codegen_c_item_ty(&ty.kind)),
+            TyKind::Map(key, value) => format!("::fcplug::ctypes::FfiArray<::fcplug::ctypes::MapEntry<{}, {}>>", self.codegen_c_item_ty(&key.kind), self.codegen_c_item_ty(&value.kind)),
+            TyKind::Path(path) => format!("Ffi{}", self.context.rust_name(path.did).to_string()),
             TyKind::UInt32 => CodegenTy::UInt32.to_string(),
             TyKind::UInt64 => CodegenTy::UInt64.to_string(),
             TyKind::F32 => CodegenTy::F32.to_string(),
@@ -131,7 +131,7 @@ impl RustCodegenBackend {
         let name = self.context.rust_name(def_id);
         if s.is_all_in_stack() {
             stream.push_str(&format! {
-                r#"pub type C_{name}={name};"#
+                r#"pub type Ffi{name}={name};"#
             });
             return;
         }
@@ -160,23 +160,23 @@ impl RustCodegenBackend {
         stream.push_str(&format! {
             r#"#[derive(Clone, PartialEq)]
             #[repr(C)]
-            pub struct C_{name} {{
+            pub struct Ffi{name} {{
                 {fields}
             }}"#
         });
     }
-    fn codegen_conv_repr_c_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
+    fn codegen_conv_repr_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         let name = self.context.rust_name(def_id);
         if s.is_all_in_stack() {
             stream.push_str(&format! {r#"
-                impl ::fcplug::ctypes::ConvReprC for {name} {{
-                    type ReprC = C_{name};
+                impl ::fcplug::ctypes::ConvRepr for {name} {{
+                    type CRepr = Ffi{name};
                     #[inline(always)]
-                    fn into_repr_c(self) -> Self::ReprC {{
+                    fn into_c_repr(self) -> Self::CRepr {{
                         self
                     }}
                     #[inline(always)]
-                    fn from_repr_c(c: Self::ReprC) -> Self {{
+                    fn from_c_repr(c: Self::CRepr) -> Self {{
                         c
                     }}
                 }}
@@ -184,14 +184,14 @@ impl RustCodegenBackend {
             return;
         }
         let field_names = s.fields.iter().map(|f| self.context.rust_name(f.did).to_string()).collect::<Vec<String>>().join(",");
-        let mut into_repr_c_body = format!(
+        let mut into_c_repr_body = format!(
             "let {name}{{ {field_names} }} = self;",
         );
-        let mut from_repr_c_body = format!(
-            "let C_{name}{{ {field_names} }} = c;",
+        let mut from_c_repr_body = format!(
+            "let Ffi{name}{{ {field_names} }} = c;",
         );
 
-        into_repr_c_body.push_str(&s
+        into_c_repr_body.push_str(&s
             .fields
             .iter()
             .map(|f| {
@@ -199,20 +199,20 @@ impl RustCodegenBackend {
                 self.context.with_adjust(f.did, |adjust| {
                     if f.is_optional() && !adjust.map_or(false, |adjust| adjust.boxed()) {
                         format!(r###"let {name} = if let Some({name}) = {name} {{
-                            ::std::boxed::Box::into_raw(::std::boxed::Box::new({name}.into_repr_c()))
+                            ::std::boxed::Box::into_raw(::std::boxed::Box::new({name}.into_c_repr()))
                         }} else {{
                             ::std::ptr::null_mut()
                         }};"###)
                     } else if f.is_in_stack() {
                         String::new()
                     } else {
-                        format!(r###"let {name} = {name}.into_repr_c();"###)
+                        format!(r###"let {name} = {name}.into_c_repr();"###)
                     }
                 })
             })
             .join("\n"));
 
-        from_repr_c_body.push_str(&s
+        from_c_repr_body.push_str(&s
             .fields
             .iter()
             .map(|f| {
@@ -222,34 +222,34 @@ impl RustCodegenBackend {
                         format!(r###"let {name} = if {name}.is_null() {{
                             ::std::option::Option::None
                         }} else {{
-                            ::std::option::Option::Some(::fcplug::ctypes::ConvReprC::from_repr_c(unsafe {{ *::std::boxed::Box::from_raw({name}) }}))
+                            ::std::option::Option::Some(::fcplug::ctypes::ConvRepr::from_c_repr(unsafe {{ *::std::boxed::Box::from_raw({name}) }}))
                         }};"###)
                     } else if f.is_in_stack() {
                         String::new()
                     } else {
-                        format!(r###"let {name} = ::fcplug::ctypes::ConvReprC::from_repr_c({name});"###)
+                        format!(r###"let {name} = ::fcplug::ctypes::ConvRepr::from_c_repr({name});"###)
                     }
                 })
             })
             .join("\n"));
 
-        into_repr_c_body.push_str(&format!(r#"
-        C_{name}{{{field_names}}}
+        into_c_repr_body.push_str(&format!(r#"
+        Ffi{name}{{{field_names}}}
         "#));
-        from_repr_c_body.push_str(&format!(r#"
+        from_c_repr_body.push_str(&format!(r#"
         {name}{{{field_names}}}
         "#));
 
         stream.push_str(&format! {
-            r#"impl ::fcplug::ctypes::ConvReprC for {name} {{
-                type ReprC = C_{name};
+            r#"impl ::fcplug::ctypes::ConvRepr for {name} {{
+                type CRepr = Ffi{name};
                 #[inline(always)]
-                fn into_repr_c(self) -> Self::ReprC {{
-                    {into_repr_c_body}
+                fn into_c_repr(self) -> Self::CRepr {{
+                    {into_c_repr_body}
                 }}
                 #[inline(always)]
-                fn from_repr_c(c: Self::ReprC) -> Self {{
-                    {from_repr_c_body}
+                fn from_c_repr(c: Self::CRepr) -> Self {{
+                    {from_c_repr_body}
                 }}
             }}"#
         });
@@ -284,7 +284,7 @@ impl RustCodegenBackend {
                 .join(", ");
             let args_to_rust = method.args
                 .iter()
-                .map(|arg| format!("&<{} as ::fcplug::ctypes::ConvReprC>::from_repr_c({})",
+                .map(|arg| format!("&::std::mem::ManuallyDrop::new(<{} as ::fcplug::ctypes::ConvRepr>::from_c_repr({}))",
                                    self.codegen_item_ty(&arg.ty.kind), (&**arg.name).snake_ident()))
                 .collect::<Vec<String>>()
                 .join(", ");
@@ -302,13 +302,13 @@ impl RustCodegenBackend {
                 format!(r###"#[no_mangle]
                 #[inline]
                 pub extern "C" fn {name_lower}_{fn_name}({args}) -> *mut {ret_c_ty} {{
-                    ::std::boxed::Box::into_raw(::std::boxed::Box::new(<{ret_rs_ty} as ::fcplug::ctypes::ConvReprC>::into_repr_c(<{ust} as {name}>::{fn_name}({args_to_rust}))))
+                    ::std::boxed::Box::into_raw(::std::boxed::Box::new(<{ret_rs_ty} as ::fcplug::ctypes::ConvRepr>::into_c_repr(<{ust} as {name}>::{fn_name}({args_to_rust}))))
                 }}
                 #[no_mangle]
                 #[inline]
                 pub extern "C" fn {name_lower}_{fn_name}_free_ret(ret_ptr: *mut {ret_c_ty}) {{
                     if !ret_ptr.is_null() {{
-                        let _ = <{ret_rs_ty} as ::fcplug::ctypes::ConvReprC>::from_repr_c(unsafe {{ *::std::boxed::Box::from_raw(ret_ptr) }});
+                        let _ = <{ret_rs_ty} as ::fcplug::ctypes::ConvRepr>::from_c_repr(unsafe {{ *::std::boxed::Box::from_raw(ret_ptr) }});
                     }}
                 }}
                 "###)
@@ -361,12 +361,12 @@ impl RustCodegenBackend {
             let name = (&**method.name).fn_ident();
             let args = self.codegen_method_args(def_id, method);
             let ret = self.codegen_method_ret(def_id, method);
-            let args_into_repr_c = method.args
+            let args_into_c_repr = method.args
                 .iter()
                 .filter(|arg| !arg.ty.is_in_stack())
                 .map(|arg| {
                     let ident = (&**arg.name).snake_ident();
-                    format!("let {ident} = ::std::boxed::Box::into_raw(::std::boxed::Box::new(::fcplug::ctypes::ConvReprC::into_repr_c({ident})));")
+                    format!("let {ident} = ::std::boxed::Box::into_raw(::std::boxed::Box::new(::fcplug::ctypes::ConvRepr::into_c_repr({ident})));")
                 })
                 .collect::<Vec<String>>()
                 .join("\n");
@@ -387,12 +387,12 @@ impl RustCodegenBackend {
                     .map(|arg| {
                         let ident = (&**arg.name).snake_ident();
                         let ty = self.codegen_item_ty(&arg.ty.kind);
-                        format!("let _ = <{ty} as ::fcplug::ctypes::ConvReprC>::from_repr_c(*::std::boxed::Box::from_raw({ident}));")
+                        format!("let _ = <{ty} as ::fcplug::ctypes::ConvRepr>::from_c_repr(*::std::boxed::Box::from_raw({ident}));")
                     })
                     .collect::<Vec<String>>()
                     .join("\n");
                 format!(r###"unsafe fn {name}({args}) -> {ret} {{
-                    {args_into_repr_c}
+                    {args_into_c_repr}
                     let ret__ = {name_lower}_{name}({c_args});
                     {free_args}
                     ret__
@@ -412,9 +412,9 @@ impl RustCodegenBackend {
                 let raw_ret_ty = self.codegen_item_ty(&method.ret.kind);
                 let goffi_free_name = self.goffi_free_name(def_id, method);
                 format!(r###"unsafe fn {name}({args}) -> {ret} {{
-                    {args_into_repr_c}
+                    {args_into_c_repr}
                     let c_ret__ = {name_lower}_{name}({c_args});
-                    let ret__ = <{raw_ret_ty} as ::fcplug::ctypes::ConvReprC>::from_repr_c(*::std::boxed::Box::from_raw(c_ret__));
+                    let ret__ = <{raw_ret_ty} as ::fcplug::ctypes::ConvRepr>::from_c_repr(*::std::boxed::Box::from_raw(c_ret__));
                     ::fcplug::ctypes::GoFfiResult::new(
                         ret__,
                         {c_args_tuple},
