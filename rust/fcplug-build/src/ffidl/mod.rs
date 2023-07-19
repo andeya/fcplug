@@ -1,6 +1,5 @@
 use std::{env, fs};
 use std::cell::RefCell;
-use std::ops::DerefMut;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -250,16 +249,9 @@ impl CodegenBackend for FFIDLBackend {
         self.context.as_ref()
     }
     fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
-        self.rust.codegen_struct_impl(def_id, stream, s);
-        // self.go.codegen_struct_impl(def_id, self.go_pkg_code.borrow_mut().deref_mut(), s);
     }
     fn codegen_service_impl(&self, service_def_id: DefId, stream: &mut String, s: &Service) {
         self.rust.codegen_service_impl(service_def_id, stream, s);
-        // self.go.codegen_service_interface(service_def_id, self.go_pkg_code.borrow_mut().deref_mut(), s);
-        // match self.context.rust_name(service_def_id).to_lowercase().as_str() {
-        //     "goffi" => self.go.codegen_service_export(service_def_id, self.go_main_code.borrow_mut().deref_mut(), s),
-        //     _ => {}
-        // }
     }
     fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
         self.rust.codegen_service_method(service_def_id, method)
