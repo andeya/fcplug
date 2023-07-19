@@ -148,13 +148,13 @@ impl FFIDL {
 
             var (
                 _ unsafe.Pointer
-                _ ctypes.C_DynArray[any]
+                _ ctypes.FfiArray[any]
             )
 
             "###));
 
         pilota_build::Builder::protobuf_with_backend(self.clone())
-        // pilota_build::Builder::thrift_with_backend(self.clone())
+            // pilota_build::Builder::thrift_with_backend(self.clone())
             .include_dirs(vec![self.config.idl_file_path.parent().unwrap().to_path_buf()])
             .ignore_unused(true)
             .compile(
