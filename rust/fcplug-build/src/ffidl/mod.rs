@@ -148,7 +148,7 @@ impl FFIDL {
 
             var (
                 _ unsafe.Pointer
-                _ ctypes.C_DynArray[any]
+                _ ctypes.FfiArray[any]
             )
 
             "###));
