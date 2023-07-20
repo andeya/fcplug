@@ -27,7 +27,7 @@ const MODE: &'static str = "debug";
 pub struct Config {
     pub idl_file_path: PathBuf,
     pub output_dir: PathBuf,
-    pub rustffi_impl_of_unit_struct: Option<UnitLikeStructPath>,
+    pub impl_ffi_for_unitstruct: Option<UnitLikeStructPath>,
     pub go_root_path: Option<PathBuf>,
     pub go_mod_path: &'static str,
     pub goffi_impl_of_object: Option<GoObjectPath>,
@@ -342,7 +342,7 @@ mod tests {
         FFIDL::generate(Config {
             idl_file_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/ffidl.proto".into(),
             output_dir: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen".into(),
-            rustffi_impl_of_unit_struct: Some(UnitLikeStructPath("crate::gen::MyImplRustFfi")),
+            impl_ffi_for_unitstruct: Some(UnitLikeStructPath("crate::Test")),
             go_mod_path: "github.com/andeya/fcplug/ffidl_demo/src/gen",
             go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
             goffi_impl_of_object: None,
