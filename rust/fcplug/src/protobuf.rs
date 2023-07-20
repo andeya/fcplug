@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 pub use pilota::prost::Message;
 
-use crate::{ABIResult, FromMessage, RC_DECODE, RC_ENCODE, ResultMsg, TryFromBytes, TryIntoBytes};
+use crate::{ABIResult, FromMessage, IntoMessage, RC_DECODE, RC_ENCODE, ResultMsg, TryFromBytes, TryIntoBytes};
 
 #[derive(Debug)]
 pub struct PbMessage<T: Message>(pub T);
@@ -10,6 +10,13 @@ pub struct PbMessage<T: Message>(pub T);
 impl<T: Message + Default> FromMessage<PbMessage<T>> for T {
     fn from_message(value: PbMessage<T>) -> Self {
         value.0
+    }
+}
+
+
+impl<T: Message + Default> IntoMessage<PbMessage<T>> for T {
+    fn into_message(self) -> PbMessage<T> {
+        PbMessage(self)
     }
 }
 

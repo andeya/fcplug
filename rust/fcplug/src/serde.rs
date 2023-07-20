@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ABIResult, FromMessage, RC_DECODE, ResultMsg, TryFromBytes, TryIntoBytes};
+use crate::{ABIResult, FromMessage, IntoMessage, RC_DECODE, ResultMsg, TryFromBytes, TryIntoBytes};
 
 #[derive(Debug)]
 pub struct JsonMessage<T: for<'a> Deserialize<'a> + Serialize + Debug>(pub T);
@@ -13,6 +13,13 @@ impl<T> FromMessage<JsonMessage<T>> for T where T: for<'a> Deserialize<'a> + Ser
         value.0
     }
 }
+
+impl<T> IntoMessage<JsonMessage<T>> for T where T: for<'a> Deserialize<'a> + Serialize + Debug {
+    fn into_message(self) -> JsonMessage<T> {
+        JsonMessage(self)
+    }
+}
+
 
 impl<T> TryFromBytes<'_> for JsonMessage<T> where T: for<'a> Deserialize<'a> + Serialize + Debug {
     fn try_from_bytes(buf: &mut [u8]) -> ABIResult<Self> where Self: Sized {
@@ -26,10 +33,10 @@ impl<T> TryIntoBytes for JsonMessage<T> where T: for<'a> Deserialize<'a> + Seria
     }
 }
 
-fn decode_map_err(e:serde_json::Error)->ResultMsg{
-    ResultMsg{ code: RC_DECODE, msg: e.to_string() }
+fn decode_map_err(e: serde_json::Error) -> ResultMsg {
+    ResultMsg { code: RC_DECODE, msg: e.to_string() }
 }
 
-fn encode_map_err(e:serde_json::Error)->ResultMsg{
-    ResultMsg{ code: RC_DECODE, msg: e.to_string() }
+fn encode_map_err(e: serde_json::Error) -> ResultMsg {
+    ResultMsg { code: RC_DECODE, msg: e.to_string() }
 }

@@ -79,8 +79,10 @@ impl ::pilota::prost::Message for SearchRequest {
 }
 
 pub trait GoFfi {
-    unsafe fn search_client<T: Default>(req: ::std::vec::Vec<u8>) -> ::fcplug::ABIResult<T> {
-        ::fcplug::ABIResult::from(goffi_search_client(::fcplug::Buffer::from_vec(req)))
+    unsafe fn search_client<T: Default>(
+        req: ::fcplug::TBytes<SearchRequest>,
+    ) -> ::fcplug::ABIResult<T> {
+        ::fcplug::ABIResult::from(goffi_search_client(::fcplug::Buffer::from_vec(req.bytes)))
     }
     unsafe fn search_client_set_result(
         go_ret: ::fcplug::RustFfiArg<Client>,
@@ -223,7 +225,9 @@ impl ::pilota::prost::Message for WebSite {
 }
 
 pub trait RustFfi {
-    fn search_web_site(req: ::fcplug::RustFfiArg<SearchRequest>) -> ::fcplug::ABIResult<Vec<u8>>;
+    fn search_web_site(
+        req: ::fcplug::RustFfiArg<SearchRequest>,
+    ) -> ::fcplug::ABIResult<::fcplug::TBytes<WebSite>>;
 }
 #[no_mangle]
 #[inline]

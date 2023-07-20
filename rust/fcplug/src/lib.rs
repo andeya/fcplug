@@ -27,23 +27,22 @@ pub extern "C" fn free_buffer(buf: Buffer) {
     unsafe { buf.mem_free() }
 }
 
-pub trait FromMessage<T: for<'a> TryFromBytes<'a>> {
-    fn from_message(value: T) -> Self;
-    fn try_from_bytes(buf: &mut [u8]) -> ABIResult<Self> where Self: Sized {
-        Ok(Self::from_message(T::try_from_bytes(buf)?))
+pub trait FromMessage<M> {
+    fn from_message(value: M) -> Self;
+    fn try_from_bytes(buf: &mut [u8]) -> ABIResult<Self>
+        where Self: Sized,
+              M: for<'a> TryFromBytes<'a>
+    {
+        Ok(Self::from_message(M::try_from_bytes(buf)?))
     }
 }
 
-impl<T: for<'a> TryFromBytes<'a>> FromMessage<T> for T {
-    #[inline(always)]
-    fn from_message(value: T) -> Self {
-        value
-    }
-}
-
-pub trait IntoMessage<T: TryIntoBytes> {
-    fn into_message(self) -> T;
-    fn try_into_bytes(self) -> ABIResult<Vec<u8>> where Self: Sized {
+pub trait IntoMessage<M> {
+    fn into_message(self) -> M;
+    fn try_into_bytes(self) -> ABIResult<Vec<u8>> where
+        Self: Sized,
+        M: TryIntoBytes,
+    {
         self.into_message().try_into_bytes()
     }
 }
@@ -155,12 +154,53 @@ const RC_ENCODE: ResultCode = -2;
 pub type ABIResult<T> = Result<T, ResultMsg>;
 
 #[derive(Debug)]
+pub struct TBytes<T> {
+    pub bytes: Vec<u8>,
+    _p: std::marker::PhantomData<T>,
+}
+
+impl<T> TBytes<T> {
+    #[inline(always)]
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes, _p: Default::default() }
+    }
+}
+
+impl<T> TBytes<T> {
+    fn try_from<M>(value: T) -> ABIResult<Self> where
+        T: IntoMessage<M>,
+        M: TryIntoBytes,
+    {
+        Ok(TBytes::<T>::new(T::into_message(value).try_into_bytes()?))
+    }
+}
+
+pub trait TryIntoTBytes {
+    fn try_into_tbytes<M>(self) -> ABIResult<TBytes<Self>>
+        where
+            Self: IntoMessage<M> + Sized,
+            for<'a> M: TryIntoBytes,
+    {
+        Ok(TBytes::<Self>::new(self.into_message().try_into_bytes()?))
+    }
+}
+
+impl<T> TryIntoTBytes for T {}
+
+impl<T: Debug> TryIntoBytes for TBytes<T> {
+    fn try_into_bytes(self) -> ABIResult<Vec<u8>> where Self: Sized {
+        Ok(self.bytes)
+    }
+}
+
+#[derive(Debug)]
 pub struct RustFfiArg<T> {
     buf: Buffer,
     _p: std::marker::PhantomData<T>,
 }
 
 impl<T> RustFfiArg<T> {
+    #[inline(always)]
     pub fn from(buf: Buffer) -> Self {
         Self { buf, _p: Default::default() }
     }
@@ -172,37 +212,6 @@ impl<T> RustFfiArg<T> {
         T: FromMessage<U>,
     { Ok(T::from_message(U::try_from_bytes(self.bytes_mut())?)) }
 }
-
-
-#[derive(Debug, Clone)]
-pub enum MidParam<T> {
-    Bytes(Vec<u8>),
-    Object(T),
-}
-
-impl<T> MidParam<T> {
-    pub fn try_into_bytes<U>(self) -> ABIResult<Vec<u8>> where
-        Self: Sized,
-        T: IntoMessage<U>,
-        U: TryIntoBytes,
-    {
-        match self {
-            MidParam::Bytes(b) => { Ok(b) }
-            MidParam::Object(obj) => { obj.try_into_bytes() }
-        }
-    }
-    pub fn try_into_object<U>(self) -> ABIResult<T> where
-        Self: Sized,
-        T: FromMessage<U>,
-        for<'a> U: TryFromBytes<'a>,
-    {
-        match self {
-            MidParam::Bytes(mut b) => { Ok(T::from_message(U::try_from_bytes(&mut b)?)) }
-            MidParam::Object(obj) => { Ok(obj) }
-        }
-    }
-}
-
 
 #[derive(Debug)]
 #[repr(C)]

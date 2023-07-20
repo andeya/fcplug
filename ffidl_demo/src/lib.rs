@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use fcplug::{ABIResult, GoFfiResult, RustFfiArg, TryIntoBytes};
+use ::pilota::prost::Message;
+
+use fcplug::{ABIResult, TBytes, FromMessage, GoFfiResult, IntoMessage, RustFfiArg, TryFromBytes, TryIntoBytes, TryIntoTBytes};
 use fcplug::protobuf::PbMessage;
 
 use crate::gen::{Client, GoFfi, RustFfi, SearchRequest, Server, WebSite};
@@ -26,10 +28,10 @@ struct Test;
 
 
 impl RustFfi for Test {
-    fn search_web_site(mut req: RustFfiArg<SearchRequest>) -> ABIResult<Vec<u8>> {
+    fn search_web_site(mut req: RustFfiArg<SearchRequest>) -> ABIResult<TBytes<WebSite>> {
         let req = req.try_to_object::<fcplug::protobuf::PbMessage<SearchRequest>>();
         println!("request: {:?}", req);
-        fcplug::protobuf::PbMessage(WebSite {
+        WebSite {
             name: "andeya".to_string(),
             link: "a/b/c".to_string(),
             age: 40,
@@ -40,7 +42,7 @@ impl RustFfi for Test {
             ]),
             a: vec![],
             b: vec![],
-        }).try_into_bytes()
+        }.try_into_tbytes::<PbMessage<_>>()
     }
 }
 

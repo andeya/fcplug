@@ -173,7 +173,7 @@ impl RustCodegenBackend {
                     if arg.ty.is_scalar() {
                         format!("{ident}")
                     } else {
-                        format!("::fcplug::Buffer::from_vec({ident})")
+                        format!("::fcplug::Buffer::from_vec({ident}.bytes)")
                     }
                 })
                 .collect::<Vec<String>>()
@@ -203,7 +203,7 @@ impl RustCodegenBackend {
                     if arg.ty.is_scalar() {
                         format!("{ident}: {ty_name}")
                     } else {
-                        format!("{ident}: ::std::vec::Vec<u8>")
+                        format!("{ident}: ::fcplug::TBytes<{ty_name}>")
                     }
                 })
                 .collect::<Vec<String>>()
@@ -217,7 +217,7 @@ impl RustCodegenBackend {
                 if method.ret.is_scalar() {
                     format!("{ty_name}")
                 } else {
-                    format!("::fcplug::ABIResult<Vec<u8>>")
+                    format!("::fcplug::ABIResult<::fcplug::TBytes<{ty_name}>>")
                 }
             }
             ServiceType::GoFfi => {
