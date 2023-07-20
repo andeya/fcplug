@@ -8,6 +8,7 @@ pub mod string {
 
             pub string: ::std::string::String,
         }
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for A {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -44,15 +45,15 @@ pub mod string {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                faststr = Some(protocol.read_faststr()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    faststr = Some(protocol.read_faststr()?);
+                                }
                             Some(2)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                string = Some(protocol.read_string()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    string = Some(protocol.read_string()?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type)?;
                             }
@@ -76,21 +77,21 @@ pub mod string {
                 protocol.read_struct_end()?;
 
                 let Some(faststr) = faststr else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field faststr is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field faststr is required".to_string(),
+                        )
+                    );
+                };
                 let Some(string) = string else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field string is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field string is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { faststr, string };
                 Ok(data)
@@ -114,15 +115,15 @@ pub mod string {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                faststr = Some(protocol.read_faststr().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    faststr = Some(protocol.read_faststr().await?);
+                                }
                             Some(2)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                string = Some(protocol.read_string().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    string = Some(protocol.read_string().await?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type).await?;
                             }
@@ -132,7 +133,7 @@ pub mod string {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -148,21 +149,21 @@ pub mod string {
                 protocol.read_struct_end().await?;
 
                 let Some(faststr) = faststr else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field faststr is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field faststr is required".to_string(),
+                        )
+                    );
+                };
                 let Some(string) = string else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field string is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field string is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { faststr, string };
                 Ok(data)

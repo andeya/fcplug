@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use pilota::{
     prost::bytes::BytesMut,
     thrift::{binary::TBinaryProtocol, Message},
@@ -12,7 +12,7 @@ fn decode(bytes: &[u8]) {
             &mut BytesMut::from(bytes).freeze(),
             false,
         ))
-        .unwrap();
+            .unwrap();
 }
 
 fn codegen(c: &mut Criterion) {

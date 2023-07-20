@@ -8,6 +8,7 @@ pub mod binary_bytes {
 
             pub vec: ::std::vec::Vec<u8>,
         }
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for A {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -44,15 +45,15 @@ pub mod binary_bytes {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                bytes = Some(protocol.read_bytes()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    bytes = Some(protocol.read_bytes()?);
+                                }
                             Some(2)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                vec = Some(protocol.read_bytes_vec()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    vec = Some(protocol.read_bytes_vec()?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type)?;
                             }
@@ -76,21 +77,21 @@ pub mod binary_bytes {
                 protocol.read_struct_end()?;
 
                 let Some(bytes) = bytes else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field bytes is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field bytes is required".to_string(),
+                        )
+                    );
+                };
                 let Some(vec) = vec else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field vec is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field vec is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { bytes, vec };
                 Ok(data)
@@ -114,15 +115,15 @@ pub mod binary_bytes {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                bytes = Some(protocol.read_bytes().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    bytes = Some(protocol.read_bytes().await?);
+                                }
                             Some(2)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                vec = Some(protocol.read_bytes_vec().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    vec = Some(protocol.read_bytes_vec().await?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type).await?;
                             }
@@ -132,7 +133,7 @@ pub mod binary_bytes {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -148,21 +149,21 @@ pub mod binary_bytes {
                 protocol.read_struct_end().await?;
 
                 let Some(bytes) = bytes else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field bytes is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field bytes is required".to_string(),
+                        )
+                    );
+                };
                 let Some(vec) = vec else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field vec is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field vec is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { bytes, vec };
                 Ok(data)

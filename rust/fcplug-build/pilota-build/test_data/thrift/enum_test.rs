@@ -2,7 +2,6 @@ pub mod enum_test {
     #![allow(warnings, clippy::all)]
 
     pub mod enum_test {
-
         impl ::std::convert::From<Index> for i32 {
             fn from(e: Index) -> Self {
                 e as _
@@ -26,6 +25,7 @@ pub mod enum_test {
                 }
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, ::pilota::derivative::Derivative)]
         #[derivative(Default)]
         #[derive(Clone, PartialEq)]

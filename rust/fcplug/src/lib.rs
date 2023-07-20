@@ -10,22 +10,52 @@ use std::ops::FromResidual;
 #[cfg(debug_assertions)]
 use tracing::error;
 
-pub use fcplug_macros::{ffi_fb_callee, ffi_pb_callee, ffi_raw_callee};
+pub use fcplug_macros::{ffi_pb_callee, ffi_raw_callee};
 
-pub mod callee;
-pub mod caller;
 mod basic;
-mod protobuf;
+pub mod protobuf;
+pub mod serde;
 
 
 #[no_mangle]
-pub extern "C" fn no_mangle_types(_: Buffer, _: FFIResult) {
+pub extern "C" fn no_mangle_types(_: Buffer, _: RustFfiResult, _: GoFfiResult) {
     unimplemented!()
 }
 
 #[no_mangle]
 pub extern "C" fn free_buffer(buf: Buffer) {
     unsafe { buf.mem_free() }
+}
+
+pub trait FromMessage<T: for<'a> TryFromBytes<'a>> {
+    fn from_message(value: T) -> Self;
+    fn try_from_bytes(buf: &mut [u8]) -> ABIResult<Self> where Self: Sized {
+        Ok(Self::from_message(T::try_from_bytes(buf)?))
+    }
+}
+
+impl<T: for<'a> TryFromBytes<'a>> FromMessage<T> for T {
+    #[inline(always)]
+    fn from_message(value: T) -> Self {
+        value
+    }
+}
+
+pub trait IntoMessage<T: TryIntoBytes> {
+    fn into_message(self) -> T;
+    fn try_into_bytes(self) -> ABIResult<Vec<u8>> where Self: Sized {
+        self.into_message().try_into_bytes()
+    }
+}
+
+pub trait ABIMessage<'a>: TryFromBytes<'a> + TryIntoBytes {}
+
+pub trait TryFromBytes<'b>: Debug {
+    fn try_from_bytes(buf: &'b mut [u8]) -> ABIResult<Self> where Self: Sized;
+}
+
+pub trait TryIntoBytes: Debug {
+    fn try_into_bytes(self) -> ABIResult<Vec<u8>> where Self: Sized;
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -86,13 +116,12 @@ impl Buffer {
     }
 
     /// this releases our memory to the caller
-    pub(crate) fn from_vec(mut v: Vec<u8>) -> Self {
-        let mut buf = Self {
+    pub fn from_vec(v: Vec<u8>) -> Self {
+        Self {
             len: v.len(),
             cap: v.capacity(),
             ptr: v.leak().as_mut_ptr(),
-        };
-        buf
+        }
     }
 
     // pub(crate) fn consume_vec(self) -> Vec<u8> {
@@ -110,36 +139,154 @@ impl Display for Buffer {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-#[repr(C)]
-pub enum ResultCode {
-    NoError = 0,
-    Decode = 1,
-    Encode = 2,
+
+pub type ResultCode = i8;
+
+#[derive(Debug)]
+pub struct ResultMsg {
+    pub code: ResultCode,
+    pub msg: String,
 }
 
-pub type ABIResult<T> = Result<T, ResultCode>;
+const RC_NO_ERROR: ResultCode = 0;
+const RC_DECODE: ResultCode = -1;
+const RC_ENCODE: ResultCode = -2;
 
-pub trait ABIMessage<'a>: TryFromBytes<'a> + TryIntoBytes {}
+pub type ABIResult<T> = Result<T, ResultMsg>;
 
-pub trait TryFromBytes<'a>: Debug {
-    fn try_from_bytes(buf: &'a mut [u8]) -> anyhow::Result<Self> where Self: Sized;
+#[derive(Debug)]
+pub struct RustFfiArg<T> {
+    buf: Buffer,
+    _p: std::marker::PhantomData<T>,
 }
 
-pub trait TryIntoBytes: Debug {
-    fn try_into_bytes(self) -> anyhow::Result<Vec<u8>> where Self: Sized;
+impl<T> RustFfiArg<T> {
+    pub fn from(buf: Buffer) -> Self {
+        Self { buf, _p: Default::default() }
+    }
+    pub fn bytes(&self) -> &[u8] { self.buf.read().unwrap_or_default() }
+    pub fn bytes_mut(&mut self) -> &mut [u8] { self.buf.read_mut().unwrap_or_default() }
+    pub fn try_to_object<U>(&mut self) -> ABIResult<T> where
+        Self: Sized,
+        for<'a> U: TryFromBytes<'a>,
+        T: FromMessage<U>,
+    { Ok(T::from_message(U::try_from_bytes(self.bytes_mut())?)) }
 }
+
+
+#[derive(Debug, Clone)]
+pub enum MidParam<T> {
+    Bytes(Vec<u8>),
+    Object(T),
+}
+
+impl<T> MidParam<T> {
+    pub fn try_into_bytes<U>(self) -> ABIResult<Vec<u8>> where
+        Self: Sized,
+        T: IntoMessage<U>,
+        U: TryIntoBytes,
+    {
+        match self {
+            MidParam::Bytes(b) => { Ok(b) }
+            MidParam::Object(obj) => { obj.try_into_bytes() }
+        }
+    }
+    pub fn try_into_object<U>(self) -> ABIResult<T> where
+        Self: Sized,
+        T: FromMessage<U>,
+        for<'a> U: TryFromBytes<'a>,
+    {
+        match self {
+            MidParam::Bytes(mut b) => { Ok(T::from_message(U::try_from_bytes(&mut b)?)) }
+            MidParam::Object(obj) => { Ok(obj) }
+        }
+    }
+}
+
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct FFIResult {
+pub struct GoFfiResult {
+    pub code: ResultCode,
+    pub data_ptr: usize,
+}
+
+impl GoFfiResult {
+    pub fn from_ok<T>(data: T) -> Self {
+        Self { code: RC_NO_ERROR, data_ptr: Box::leak(Box::new(data)) as *mut T as usize }
+    }
+    pub(crate) fn from_err(ret_msg: ResultMsg) -> Self {
+        let err = ret_msg.msg.to_string();
+        #[cfg(debug_assertions)]
+        error!("{}", err);
+        Self { code: ret_msg.code, data_ptr: Box::leak(Box::new(err)) as *mut String as usize }
+    }
+    pub unsafe fn consume_data<T>(&mut self) -> Option<T> {
+        let data_ptr = self.data_ptr as *mut T;
+        if data_ptr.is_null() {
+            None
+        } else {
+            self.data_ptr = std::ptr::null_mut::<u8>() as usize;
+            Some(*Box::from_raw(data_ptr))
+        }
+    }
+}
+
+
+impl FromResidual<Result<Infallible, ResultMsg>> for GoFfiResult {
+    fn from_residual(residual: Result<Infallible, ResultMsg>) -> Self {
+        let ResultMsg { code, msg } = residual.unwrap_err();
+        Self { code, data_ptr: Box::leak(Box::new(msg)) as *mut String as usize }
+    }
+}
+
+impl<T: TryIntoBytes> From<ABIResult<T>> for GoFfiResult {
+    fn from(value: ABIResult<T>) -> Self {
+        match value {
+            Ok(v) => match v.try_into_bytes() {
+                Ok(v) => Self::from_ok(Buffer::from_vec(v)),
+                Err(e) => {
+                    Self::from_err(e)
+                }
+            },
+            Err(e) => Self::from_err(e)
+        }
+    }
+}
+
+impl<T: Default> From<GoFfiResult> for ABIResult<T> {
+    fn from(mut value: GoFfiResult) -> Self {
+        match value.code {
+            RC_NO_ERROR => {
+                if let Some(v) = unsafe { value.consume_data::<T>() } {
+                    Ok(v)
+                } else {
+                    Ok(T::default())
+                }
+            }
+            code => {
+                let msg = if let Some(v) = unsafe { value.consume_data::<String>() } {
+                    v
+                } else {
+                    String::default()
+                };
+                Err(ResultMsg { code, msg })
+            }
+        }
+    }
+}
+
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct RustFfiResult {
     pub code: ResultCode,
     pub data: Buffer,
 }
 
-impl FFIResult {
+impl RustFfiResult {
     pub fn ok(data: Buffer) -> Self {
-        Self { code: ResultCode::NoError, data }
+        Self { code: RC_NO_ERROR, data }
     }
     pub(crate) fn err<E: Debug>(code: ResultCode, _err: Option<E>) -> Self {
         #[cfg(debug_assertions)]{
@@ -151,37 +298,40 @@ impl FFIResult {
     }
 }
 
-impl FromResidual<Result<Infallible, ResultCode>> for FFIResult {
+impl FromResidual<Result<Infallible, ResultCode>> for RustFfiResult {
     fn from_residual(residual: Result<Infallible, ResultCode>) -> Self {
         Self { code: residual.unwrap_err(), data: Buffer::null() }
     }
 }
 
-impl<T: TryIntoBytes> From<ABIResult<T>> for FFIResult {
+impl<T: TryIntoBytes> From<ABIResult<T>> for RustFfiResult {
     fn from(value: ABIResult<T>) -> Self {
         match value {
             Ok(v) => match v.try_into_bytes() {
                 Ok(v) => Self::ok(Buffer::from_vec(v)),
-                Err(e) => Self::err(ResultCode::Encode, Some(e)),
+                Err(e) => Self::err(RC_ENCODE, Some(e)),
             },
-            Err(e) => Self::err(ResultCode::Encode, Some(e))
+            Err(e) => Self::err(e.code, Some(e.msg))
         }
     }
 }
 
-impl<'a, T: TryFromBytes<'a>> From<&'a mut FFIResult> for ABIResult<T> {
-    fn from(value: &'a mut FFIResult) -> Self {
+impl<'a, T: TryFromBytes<'a>> From<&'a mut RustFfiResult> for ABIResult<T> {
+    fn from(value: &'a mut RustFfiResult) -> Self {
         match value.code {
-            ResultCode::NoError => {
+            RC_NO_ERROR => {
                 TryFromBytes::try_from_bytes(value.data.read_mut().unwrap_or_default())
-                    .map_err(|_err| {
+                    .map_err(|err| {
+                        let msg = format!("{:?}", err);
                         #[cfg(debug_assertions)]{
-                            error!("{:?}", _err);
+                            error!("{}", msg);
                         }
-                        ResultCode::Decode
+                        ResultMsg { code: RC_DECODE, msg }
                     })
             }
-            code => Err(code)
+            code => {
+                Err(ResultMsg { code, msg: value.data.to_string() })
+            }
         }
     }
 }

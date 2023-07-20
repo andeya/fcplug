@@ -1,15 +1,16 @@
 use std::{env, fs};
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use pilota_build::{CodegenBackend, Context, DefId, MakeBackend, Output, rir::Enum, rir::Message, rir::Method, rir::NewType, rir::Service};
+use pilota_build::{CodegenBackend, Context, DefId, MakeBackend, Output, ProtobufBackend, rir::Enum, rir::Message, rir::Method, rir::NewType, rir::Service};
 use pilota_build::ir::ItemKind;
 use pilota_build::parser::{Parser, ParseResult, ProtobufParser};
+use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 
-use crate::ffidl::ctypes_code::write_ctypes_file;
 // use crate::ffidl::gen_go::GoCodegenBackend;
 use crate::ffidl::gen_rust::RustCodegenBackend;
 
@@ -79,6 +80,7 @@ impl FFIDL {
     }
     fn check_idl(self) -> anyhow::Result<Self> {
         let mut parser = ProtobufParser::default();
+        // let mut parser = ThriftParser::default();
         Parser::include_dirs(&mut parser, vec![self.config.idl_file_path.parent().unwrap().to_path_buf()]);
         Parser::input(&mut parser, &self.config.idl_file_path);
         let mut ret: ParseResult = Parser::parse(parser);
@@ -153,8 +155,9 @@ impl FFIDL {
             "###));
 
         pilota_build::Builder::protobuf_with_backend(self.clone())
-        // pilota_build::Builder::thrift_with_backend(self.clone())
+            // pilota_build::Builder::thrift_with_backend(self.clone())
             .include_dirs(vec![self.config.idl_file_path.parent().unwrap().to_path_buf()])
+            .plugin(AutoDerivePlugin::new(Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]), |_| PredicateResult::GoOn))
             .ignore_unused(true)
             .compile(
                 [&self.config.idl_file_path],
@@ -207,26 +210,51 @@ impl FFIDL {
         cbindgen::Builder::new()
             // .with_crate(env::var("CARGO_MANIFEST_DIR").unwrap())
             .with_src(self.config.output_dir.join("mod.rs"))
-            .with_src(write_ctypes_file()?)
+            // .with_src("/Users/henrylee2cn/rust/fcplug/rust/fcplug/src/lib.rs")
             .with_language(cbindgen::Language::C)
+            .with_after_include(r###"
+typedef int8_t ResultCode;
+
+typedef struct Buffer {
+  uint8_t *ptr;
+  uintptr_t len;
+  uintptr_t cap;
+} Buffer;
+
+typedef struct RustFfiResult {
+  ResultCode code;
+  struct Buffer data;
+} RustFfiResult;
+
+typedef struct GoFfiResult {
+  ResultCode code;
+  uintptr_t data_ptr;
+} GoFfiResult;
+
+void free_buffer(struct Buffer buf);
+
+"###)
             .generate()?
             .write_to_file(self.rust_c_lib_dir.borrow().join(self.rust_c_header_name_base.borrow().to_string() + ".h"));
         Ok(())
     }
 }
 
+
 impl MakeBackend for FFIDL {
     type Target = FFIDLBackend;
 
     fn make_backend(self, context: Context) -> Self::Target {
+        let protobuf = ProtobufBackend::new(context.clone());
         let context = Arc::new(context);
         FFIDLBackend {
-            rust: RustCodegenBackend { config: self.config.clone(), context: context.clone() },
+            rust: RustCodegenBackend { config: self.config.clone(), context: Cx(context.clone()) },
             // go: GoCodegenBackend { config: self.config.clone(), context: context.clone() },
-            config: self.config,
+            protobuf,
             context,
             go_pkg_code: self.go_pkg_code,
             go_main_code: self.go_main_code,
+            config: self.config,
         }
     }
 }
@@ -240,24 +268,58 @@ pub struct FFIDLBackend {
     // go: GoCodegenBackend,
     go_pkg_code: Arc<RefCell<String>>,
     go_main_code: Arc<RefCell<String>>,
+    protobuf: ProtobufBackend,
 }
 
 unsafe impl Send for FFIDLBackend {}
+
+#[derive(Clone)]
+pub(crate) struct Cx(Arc<Context>);
+
+enum ServiceType {
+    RustFfi,
+    GoFfi,
+}
+
+impl Cx {
+    fn service_type(&self, service_def_id: DefId) -> ServiceType {
+        match self.rust_name(service_def_id).to_lowercase().as_str() {
+            "rustffi" => ServiceType::RustFfi,
+            "goffi" => ServiceType::GoFfi,
+            _ => { unreachable!() }
+        }
+    }
+}
+
+impl Deref for Cx {
+    type Target = Context;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
 
 impl CodegenBackend for FFIDLBackend {
     fn cx(&self) -> &Context {
         self.context.as_ref()
     }
     fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
+        self.protobuf.codegen_struct_impl(def_id, stream, s)
     }
     fn codegen_service_impl(&self, service_def_id: DefId, stream: &mut String, s: &Service) {
+        self.protobuf.codegen_service_impl(service_def_id, stream, s);
         self.rust.codegen_service_impl(service_def_id, stream, s);
     }
     fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
+        self.protobuf.codegen_service_method(service_def_id, method);
         self.rust.codegen_service_method(service_def_id, method)
     }
-    fn codegen_enum_impl(&self, _def_id: DefId, _stream: &mut String, _e: &Enum) {}
-    fn codegen_newtype_impl(&self, _def_id: DefId, _stream: &mut String, _t: &NewType) {}
+    fn codegen_enum_impl(&self, def_id: DefId, stream: &mut String, e: &Enum) {
+        self.protobuf.codegen_enum_impl(def_id, stream, e);
+    }
+    fn codegen_newtype_impl(&self, def_id: DefId, stream: &mut String, t: &NewType) {
+        self.protobuf.codegen_newtype_impl(def_id, stream, t);
+    }
 }
 
 fn new_shell_cmd() -> Command {

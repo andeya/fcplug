@@ -6,6 +6,7 @@ pub mod must_gen_items {
         pub struct A {
             pub a: ::std::option::Option<i32>,
         }
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for A {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -98,7 +99,7 @@ pub mod must_gen_items {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -122,9 +123,9 @@ pub mod must_gen_items {
                 use ::pilota::thrift::TLengthProtocolExt;
                 protocol.write_struct_begin_len(&::pilota::thrift::TStructIdentifier { name: "A" })
                     + self
-                        .a
-                        .as_ref()
-                        .map_or(0, |value| protocol.write_i32_field_len(Some(1), *value))
+                    .a
+                    .as_ref()
+                    .map_or(0, |value| protocol.write_i32_field_len(Some(1), *value))
                     + protocol.write_field_stop_len()
                     + protocol.write_struct_end_len()
             }

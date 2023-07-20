@@ -1,9 +1,9 @@
 // ---------------------------------TryFromBytes implement-------------------------------
 
-use crate::{TryFromBytes, TryIntoBytes};
+use crate::{ABIResult, TryFromBytes, TryIntoBytes};
 
 impl TryFromBytes<'_> for Vec<u8> {
-    fn try_from_bytes(buf: &'_ mut [u8]) -> anyhow::Result<Self>
+    fn try_from_bytes(buf: &mut [u8]) -> ABIResult<Self>
         where
             Self: Sized,
     {
@@ -12,7 +12,7 @@ impl TryFromBytes<'_> for Vec<u8> {
 }
 
 impl<'a> TryFromBytes<'a> for &'a [u8] {
-    fn try_from_bytes(buf: &'a mut [u8]) -> anyhow::Result<Self>
+    fn try_from_bytes(buf: &'a mut [u8]) -> ABIResult<Self>
         where
             Self: Sized,
     {
@@ -21,7 +21,7 @@ impl<'a> TryFromBytes<'a> for &'a [u8] {
 }
 
 impl<'a> TryFromBytes<'a> for &'a str {
-    fn try_from_bytes(buf: &'a mut [u8]) -> anyhow::Result<Self>
+    fn try_from_bytes(buf: &'a mut [u8]) -> ABIResult<Self>
         where
             Self: Sized,
     {
@@ -31,7 +31,7 @@ impl<'a> TryFromBytes<'a> for &'a str {
 
 
 impl<'a> TryFromBytes<'a> for &'a mut [u8] {
-    fn try_from_bytes(buf: &'a mut [u8]) -> anyhow::Result<Self>
+    fn try_from_bytes(buf: &'a mut [u8]) -> ABIResult<Self>
         where
             Self: Sized,
     {
@@ -40,7 +40,7 @@ impl<'a> TryFromBytes<'a> for &'a mut [u8] {
 }
 
 impl<'a> TryFromBytes<'a> for &'a mut str {
-    fn try_from_bytes(buf: &'a mut [u8]) -> anyhow::Result<Self>
+    fn try_from_bytes(buf: &'a mut [u8]) -> ABIResult<Self>
         where
             Self: Sized,
     {
@@ -52,13 +52,13 @@ impl<'a> TryFromBytes<'a> for &'a mut str {
 // ---------------------------------TryIntoBytes implement-------------------------------
 
 impl TryIntoBytes for Vec<u8> {
-    fn try_into_bytes(self) -> anyhow::Result<Vec<u8>> where Self: Sized {
+    fn try_into_bytes(self) -> ABIResult<Vec<u8>> where Self: Sized {
         Ok(self)
     }
 }
 
 impl TryIntoBytes for String {
-    fn try_into_bytes(self) -> anyhow::Result<Vec<u8>> where Self: Sized {
+    fn try_into_bytes(self) -> ABIResult<Vec<u8>> where Self: Sized {
         Ok(self.into_bytes())
     }
 }

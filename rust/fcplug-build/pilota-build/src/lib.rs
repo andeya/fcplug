@@ -93,8 +93,8 @@ impl<MkB> Builder<MkB, ThriftParser> {
     }
 }
 
-impl <MkB> Builder<MkB, ProtobufParser> {
-    pub fn protobuf_with_backend(mk_backend: MkB)-> Self {
+impl<MkB> Builder<MkB, ProtobufParser> {
+    pub fn protobuf_with_backend(mk_backend: MkB) -> Self {
         Builder {
             source_type: SourceType::Protobuf,
             mk_backend: mk_backend,

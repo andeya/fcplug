@@ -17,5 +17,5 @@ crate-type = ["rlib", "staticlib"]
 [dependencies]
 
 [build-dependencies]
-cbindgen={workspace=true}
-bindgen={workspace=true}
+cbindgen = { workspace = true }
+bindgen = { workspace = true }

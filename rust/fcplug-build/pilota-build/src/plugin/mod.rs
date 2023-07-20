@@ -6,17 +6,17 @@ use itertools::Itertools;
 use quote::quote;
 
 use crate::{
+    Context,
     db::RirDatabase,
     rir::{EnumVariant, Field, Item},
     symbol::{DefId, EnumRepr},
     tags::EnumMode,
     ty::{self, Ty, Visitor},
-    Context,
 };
 
-mod serde;
-
 pub use self::serde::SerdePlugin;
+
+mod serde;
 
 pub trait Plugin: Sync + Send {
     fn on_item(&mut self, cx: &Context, def_id: DefId, item: Arc<Item>) {
@@ -71,8 +71,8 @@ impl Plugin for BoxClonePlugin {
 }
 
 impl<T> ClonePlugin for T
-where
-    T: Plugin + Clone + 'static,
+    where
+        T: Plugin + Clone + 'static,
 {
     fn clone_box(&self) -> Box<dyn ClonePlugin> {
         Box::new(self.clone())
@@ -80,8 +80,8 @@ where
 }
 
 impl<T> Plugin for &mut T
-where
-    T: Plugin,
+    where
+        T: Plugin,
 {
     fn on_item(&mut self, cx: &Context, def_id: DefId, item: Arc<Item>) {
         (*self).on_item(cx, def_id, item)
@@ -120,16 +120,14 @@ pub fn walk_field<P: Plugin + ?Sized>(
     _cx: &Context,
     _def_id: DefId,
     _field: Arc<Field>,
-) {
-}
+) {}
 
 pub fn walk_variant<P: Plugin + ?Sized>(
     _p: &mut P,
     _cx: &Context,
     _def_id: DefId,
     _variant: Arc<EnumVariant>,
-) {
-}
+) {}
 
 pub struct BoxedPlugin;
 
@@ -155,8 +153,8 @@ pub struct AutoDerivePlugin<F> {
 }
 
 impl<F> AutoDerivePlugin<F>
-where
-    F: Fn(&Ty) -> PredicateResult,
+    where
+        F: Fn(&Ty) -> PredicateResult,
 {
     pub fn new(attrs: Arc<[FastStr]>, f: F) -> Self {
         Self {
@@ -175,7 +173,8 @@ pub enum CanDerive {
 }
 
 pub enum PredicateResult {
-    No,   // can not derive,
+    No,
+    // can not derive,
     GoOn, // can derive, but need more pass
 }
 
@@ -191,8 +190,8 @@ impl super::ty::Visitor for PathCollector {
 }
 
 impl<F> AutoDerivePlugin<F>
-where
-    F: Fn(&Ty) -> PredicateResult,
+    where
+        F: Fn(&Ty) -> PredicateResult,
 {
     fn can_derive(
         &mut self,
@@ -264,8 +263,8 @@ where
 }
 
 impl<F> Plugin for AutoDerivePlugin<F>
-where
-    F: Fn(&Ty) -> PredicateResult + Send + Sync,
+    where
+        F: Fn(&Ty) -> PredicateResult + Send + Sync,
 {
     fn on_item(&mut self, cx: &Context, def_id: DefId, item: Arc<Item>) {
         self.can_derive(cx, def_id, &mut HashSet::default(), &mut HashSet::default());
@@ -282,8 +281,8 @@ where
 }
 
 impl<T> Plugin for Box<T>
-where
-    T: Plugin + ?Sized,
+    where
+        T: Plugin + ?Sized,
 {
     fn on_item(&mut self, cx: &Context, def_id: DefId, item: Arc<Item>) {
         self.deref_mut().on_item(cx, def_id, item)
@@ -355,7 +354,7 @@ impl Plugin for ImplDefaultPlugin {
                                 }}
                             "#
                             )
-                            .into(),
+                                .into(),
                         )
                     });
                 };
@@ -391,47 +390,47 @@ impl Plugin for EnumNumPlugin {
     fn on_item(&mut self, cx: &Context, def_id: DefId, item: Arc<Item>) {
         match &*item {
             Item::Enum(e)
-                if e.repr.is_some()
-                    && cx
-                        .node_tags(def_id)
-                        .unwrap()
-                        .get::<EnumMode>()
-                        .copied()
-                        .unwrap_or(EnumMode::Enum)
-                        == EnumMode::Enum =>
-            {
-                let name_str = &*cx.rust_name(def_id);
-                let name = name_str;
-                let num_ty = match e.repr {
-                    Some(EnumRepr::I32) => quote!(i32),
-                    None => return,
-                };
-                let variants = e
-                    .variants
-                    .iter()
-                    .map(|v| {
-                        let variant_name_str = cx.rust_name(v.did);
-                        let variant_name = variant_name_str;
-                        format!(
-                            "{variant_name} => ::std::result::Result::Ok({name}::{variant_name}), \n"
-                        )
-                    })
-                    .join("");
+            if e.repr.is_some()
+                && cx
+                .node_tags(def_id)
+                .unwrap()
+                .get::<EnumMode>()
+                .copied()
+                .unwrap_or(EnumMode::Enum)
+                == EnumMode::Enum =>
+                {
+                    let name_str = &*cx.rust_name(def_id);
+                    let name = name_str;
+                    let num_ty = match e.repr {
+                        Some(EnumRepr::I32) => quote!(i32),
+                        None => return,
+                    };
+                    let variants = e
+                        .variants
+                        .iter()
+                        .map(|v| {
+                            let variant_name_str = cx.rust_name(v.did);
+                            let variant_name = variant_name_str;
+                            format!(
+                                "{variant_name} => ::std::result::Result::Ok({name}::{variant_name}), \n"
+                            )
+                        })
+                        .join("");
 
-                let nums = e
-                    .variants
-                    .iter()
-                    .map(|v| {
-                        let variant_name_str = cx.rust_name(v.did);
-                        let variant_name = variant_name_str;
-                        format!(
-                            "const {variant_name}: {num_ty} = {name}::{variant_name} as {num_ty};"
-                        )
-                    })
-                    .join("\n");
+                    let nums = e
+                        .variants
+                        .iter()
+                        .map(|v| {
+                            let variant_name_str = cx.rust_name(v.did);
+                            let variant_name = variant_name_str;
+                            format!(
+                                "const {variant_name}: {num_ty} = {name}::{variant_name} as {num_ty};"
+                            )
+                        })
+                        .join("\n");
 
-                cx.with_adjust_mut(def_id, |adj| {
-                    adj.add_nested_item(format!(r#"
+                    cx.with_adjust_mut(def_id, |adj| {
+                        adj.add_nested_item(format!(r#"
                         impl ::std::convert::From<{name}> for {num_ty} {{
                             fn from(e: {name}) -> Self {{
                                 e as _
@@ -450,9 +449,9 @@ impl Plugin for EnumNumPlugin {
                                 }}
                             }}
                         }}"#).into(),
-                    )
-                });
-            }
+                        )
+                    });
+                }
             _ => {}
         }
         walk_item(self, cx, def_id, item)

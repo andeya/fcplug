@@ -1,11 +1,13 @@
 pub mod string {
     #![allow(warnings, clippy::all)]
+
     #[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
     pub struct A {
         pub a: ::std::option::Option<::pilota::FastStr>,
 
         pub b: ::pilota::FastStr,
     }
+
     impl ::pilota::prost::Message for A {
         #[inline]
         fn encoded_len(&self) -> usize {
@@ -16,8 +18,8 @@ pub mod string {
 
         #[allow(unused_variables)]
         fn encode_raw<B>(&self, buf: &mut B)
-        where
-            B: ::pilota::prost::bytes::BufMut,
+            where
+                B: ::pilota::prost::bytes::BufMut,
         {
             if let Some(_pilota_inner_value) = self.a.as_ref() {
                 ::pilota::prost::encoding::faststr::encode(1, _pilota_inner_value, buf);
@@ -33,8 +35,8 @@ pub mod string {
             buf: &mut B,
             ctx: ::pilota::prost::encoding::DecodeContext,
         ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-        where
-            B: ::pilota::prost::bytes::Buf,
+            where
+                B: ::pilota::prost::bytes::Buf,
         {
             const STRUCT_NAME: &'static str = stringify!(A);
             match tag {
@@ -46,10 +48,10 @@ pub mod string {
                         buf,
                         ctx,
                     )
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(a));
-                        error
-                    })
+                        .map_err(|mut error| {
+                            error.push(STRUCT_NAME, stringify!(a));
+                            error
+                        })
                 }
                 2 => {
                     let mut _inner_pilota_value = &mut self.b;
@@ -59,10 +61,10 @@ pub mod string {
                         buf,
                         ctx,
                     )
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(b));
-                        error
-                    })
+                        .map_err(|mut error| {
+                            error.push(STRUCT_NAME, stringify!(b));
+                            error
+                        })
                 }
                 _ => ::pilota::prost::encoding::skip_field(wire_type, tag, buf, ctx),
             }

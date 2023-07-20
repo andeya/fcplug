@@ -2,7 +2,6 @@ pub mod default_value {
     #![allow(warnings, clippy::all)]
 
     pub mod default_value {
-
         impl ::std::convert::From<B> for i32 {
             fn from(e: B) -> Self {
                 e as _
@@ -24,6 +23,7 @@ pub mod default_value {
                 }
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, ::pilota::derivative::Derivative)]
         #[derivative(Default)]
         #[derive(Clone, PartialEq)]
@@ -78,6 +78,7 @@ pub mod default_value {
                 protocol.write_i32_len(*self as i32)
             }
         }
+
         impl Default for A {
             fn default() -> Self {
                 A {
@@ -100,6 +101,7 @@ pub mod default_value {
                 }
             }
         }
+
         #[derive(Debug, Clone, PartialEq)]
         pub struct A {
             pub faststr: ::pilota::FastStr,
@@ -122,6 +124,7 @@ pub mod default_value {
 
             pub alias_str: ::std::option::Option<::pilota::FastStr>,
         }
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for A {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -199,15 +202,15 @@ pub mod default_value {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                faststr = protocol.read_faststr()?;
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    faststr = protocol.read_faststr()?;
+                                }
                             Some(2)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                string = Some(protocol.read_string()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    string = Some(protocol.read_string()?);
+                                }
                             Some(3) if field_ident.field_type == ::pilota::thrift::TType::Bool => {
                                 a = Some(protocol.read_bool()?);
                             }
@@ -233,20 +236,20 @@ pub mod default_value {
                                 });
                             }
                             Some(7)
-                                if field_ident.field_type == ::pilota::thrift::TType::Double =>
-                            {
-                                test_double = Some(protocol.read_double()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Double =>
+                                {
+                                    test_double = Some(protocol.read_double()?);
+                                }
                             Some(8)
-                                if field_ident.field_type == ::pilota::thrift::TType::Double =>
-                            {
-                                test_double2 = Some(protocol.read_double()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Double =>
+                                {
+                                    test_double2 = Some(protocol.read_double()?);
+                                }
                             Some(9)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                alias_str = Some(protocol.read_faststr()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    alias_str = Some(protocol.read_faststr()?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type)?;
                             }
@@ -320,15 +323,15 @@ pub mod default_value {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                faststr = protocol.read_faststr().await?;
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    faststr = protocol.read_faststr().await?;
+                                }
                             Some(2)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                string = Some(protocol.read_string().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    string = Some(protocol.read_string().await?);
+                                }
                             Some(3) if field_ident.field_type == ::pilota::thrift::TType::Bool => {
                                 a = Some(protocol.read_bool().await?);
                             }
@@ -356,20 +359,20 @@ pub mod default_value {
                                 });
                             }
                             Some(7)
-                                if field_ident.field_type == ::pilota::thrift::TType::Double =>
-                            {
-                                test_double = Some(protocol.read_double().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Double =>
+                                {
+                                    test_double = Some(protocol.read_double().await?);
+                                }
                             Some(8)
-                                if field_ident.field_type == ::pilota::thrift::TType::Double =>
-                            {
-                                test_double2 = Some(protocol.read_double().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Double =>
+                                {
+                                    test_double2 = Some(protocol.read_double().await?);
+                                }
                             Some(9)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                alias_str = Some(protocol.read_faststr().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    alias_str = Some(protocol.read_faststr().await?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type).await?;
                             }
@@ -379,7 +382,7 @@ pub mod default_value {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -427,41 +430,42 @@ pub mod default_value {
                     + protocol.write_faststr_field_len(Some(1), &self.faststr)
                     + protocol.write_string_field_len(Some(2), &&self.string)
                     + self
-                        .a
-                        .as_ref()
-                        .map_or(0, |value| protocol.write_bool_field_len(Some(3), *value))
+                    .a
+                    .as_ref()
+                    .map_or(0, |value| protocol.write_bool_field_len(Some(3), *value))
                     + self.test_b.as_ref().map_or(0, |value| {
-                        protocol.write_i32_field_len(Some(4), (*value).into())
-                    })
+                    protocol.write_i32_field_len(Some(4), (*value).into())
+                })
                     + self.test_b2.as_ref().map_or(0, |value| {
-                        protocol.write_i32_field_len(Some(5), (*value).into())
-                    })
+                    protocol.write_i32_field_len(Some(5), (*value).into())
+                })
                     + self.map.as_ref().map_or(0, |value| {
-                        protocol.write_map_field_len(
-                            Some(6),
-                            ::pilota::thrift::TType::Binary,
-                            ::pilota::thrift::TType::Binary,
-                            value,
-                            |protocol, key| protocol.write_faststr_len(key),
-                            |protocol, val| protocol.write_faststr_len(val),
-                        )
-                    })
+                    protocol.write_map_field_len(
+                        Some(6),
+                        ::pilota::thrift::TType::Binary,
+                        ::pilota::thrift::TType::Binary,
+                        value,
+                        |protocol, key| protocol.write_faststr_len(key),
+                        |protocol, val| protocol.write_faststr_len(val),
+                    )
+                })
                     + self
-                        .test_double
-                        .as_ref()
-                        .map_or(0, |value| protocol.write_double_field_len(Some(7), *value))
+                    .test_double
+                    .as_ref()
+                    .map_or(0, |value| protocol.write_double_field_len(Some(7), *value))
                     + self
-                        .test_double2
-                        .as_ref()
-                        .map_or(0, |value| protocol.write_double_field_len(Some(8), *value))
+                    .test_double2
+                    .as_ref()
+                    .map_or(0, |value| protocol.write_double_field_len(Some(8), *value))
                     + self
-                        .alias_str
-                        .as_ref()
-                        .map_or(0, |value| protocol.write_faststr_field_len(Some(9), value))
+                    .alias_str
+                    .as_ref()
+                    .map_or(0, |value| protocol.write_faststr_field_len(Some(9), value))
                     + protocol.write_field_stop_len()
                     + protocol.write_struct_end_len()
             }
         }
+
         pub const A_S: &'static str = "string";
     }
 }

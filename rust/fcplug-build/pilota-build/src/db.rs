@@ -9,8 +9,8 @@ use crate::{
         type_graph::TypeGraph,
     },
     symbol::{DefId, FileId},
-    tags::Tags,
     TagId,
+    tags::Tags,
 };
 
 #[derive(Default)]
@@ -66,9 +66,9 @@ fn item(db: &dyn RirDatabase, def_id: DefId) -> Option<Arc<rir::Item>> {
     let node = db.node(def_id);
     match node {
         Some(rir::Node {
-            kind: rir::NodeKind::Item(i),
-            ..
-        }) => Some(i),
+                 kind: rir::NodeKind::Item(i),
+                 ..
+             }) => Some(i),
         None => None,
         _ => panic!("{:?} is not an item", def_id),
     }

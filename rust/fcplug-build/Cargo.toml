@@ -24,4 +24,4 @@ defer-lite = { workspace = true }
 anyhow = { workspace = true }
 pilota-build = { workspace = true }
 pilota-thrift-parser = "0.4.2"
-itertools= "0.10"
+itertools = "0.10"

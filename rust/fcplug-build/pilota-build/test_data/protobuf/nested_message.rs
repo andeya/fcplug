@@ -1,5 +1,6 @@
 pub mod nested_message {
     #![allow(warnings, clippy::all)]
+
     #[derive(Debug, Default, Clone, PartialEq)]
     pub struct Tt1 {
         pub t2: tt1::T2,
@@ -8,6 +9,7 @@ pub mod nested_message {
 
         pub t4: tt1::t2::Tt3,
     }
+
     impl ::pilota::prost::Message for Tt1 {
         #[inline]
         fn encoded_len(&self) -> usize {
@@ -18,8 +20,8 @@ pub mod nested_message {
 
         #[allow(unused_variables)]
         fn encode_raw<B>(&self, buf: &mut B)
-        where
-            B: ::pilota::prost::bytes::BufMut,
+            where
+                B: ::pilota::prost::bytes::BufMut,
         {
             ::pilota::prost::encoding::message::encode(1, (&self.t2), buf);
             ::pilota::prost::encoding::int32::encode(2, &self.t3, buf);
@@ -34,8 +36,8 @@ pub mod nested_message {
             buf: &mut B,
             ctx: ::pilota::prost::encoding::DecodeContext,
         ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-        where
-            B: ::pilota::prost::bytes::Buf,
+            where
+                B: ::pilota::prost::bytes::Buf,
         {
             const STRUCT_NAME: &'static str = stringify!(Tt1);
             match tag {
@@ -47,10 +49,10 @@ pub mod nested_message {
                         buf,
                         ctx,
                     )
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(t2));
-                        error
-                    })
+                        .map_err(|mut error| {
+                            error.push(STRUCT_NAME, stringify!(t2));
+                            error
+                        })
                 }
                 2 => {
                     let mut _inner_pilota_value = &mut self.t3;
@@ -60,10 +62,10 @@ pub mod nested_message {
                         buf,
                         ctx,
                     )
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(t3));
-                        error
-                    })
+                        .map_err(|mut error| {
+                            error.push(STRUCT_NAME, stringify!(t3));
+                            error
+                        })
                 }
                 4 => {
                     let mut _inner_pilota_value = &mut self.t4;
@@ -73,10 +75,10 @@ pub mod nested_message {
                         buf,
                         ctx,
                     )
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(t4));
-                        error
-                    })
+                        .map_err(|mut error| {
+                            error.push(STRUCT_NAME, stringify!(t4));
+                            error
+                        })
                 }
                 _ => ::pilota::prost::encoding::skip_field(wire_type, tag, buf, ctx),
             }
@@ -84,7 +86,6 @@ pub mod nested_message {
     }
 
     pub mod tt1 {
-
         impl ::std::convert::From<Label> for i32 {
             fn from(e: Label) -> Self {
                 e as _
@@ -110,6 +111,7 @@ pub mod nested_message {
                 }
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, ::pilota::derivative::Derivative)]
         #[derivative(Default)]
         #[derive(Clone, PartialEq)]
@@ -123,10 +125,12 @@ pub mod nested_message {
 
             LabelRepeated = 3,
         }
+
         #[derive(Debug, Default, Clone, PartialEq)]
         pub struct T2 {
             pub t3: t2::Tt3,
         }
+
         impl ::pilota::prost::Message for T2 {
             #[inline]
             fn encoded_len(&self) -> usize {
@@ -135,8 +139,8 @@ pub mod nested_message {
 
             #[allow(unused_variables)]
             fn encode_raw<B>(&self, buf: &mut B)
-            where
-                B: ::pilota::prost::bytes::BufMut,
+                where
+                    B: ::pilota::prost::bytes::BufMut,
             {
                 ::pilota::prost::encoding::message::encode(1, (&self.t3), buf);
             }
@@ -149,8 +153,8 @@ pub mod nested_message {
                 buf: &mut B,
                 ctx: ::pilota::prost::encoding::DecodeContext,
             ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-            where
-                B: ::pilota::prost::bytes::Buf,
+                where
+                    B: ::pilota::prost::bytes::Buf,
             {
                 const STRUCT_NAME: &'static str = stringify!(T2);
                 match tag {
@@ -162,10 +166,10 @@ pub mod nested_message {
                             buf,
                             ctx,
                         )
-                        .map_err(|mut error| {
-                            error.push(STRUCT_NAME, stringify!(t3));
-                            error
-                        })
+                            .map_err(|mut error| {
+                                error.push(STRUCT_NAME, stringify!(t3));
+                                error
+                            })
                     }
                     _ => ::pilota::prost::encoding::skip_field(wire_type, tag, buf, ctx),
                 }
@@ -179,6 +183,7 @@ pub mod nested_message {
 
                 pub m: ::std::collections::HashMap<i32, super::T2>,
             }
+
             impl ::pilota::prost::Message for Tt3 {
                 #[inline]
                 fn encoded_len(&self) -> usize {
@@ -194,8 +199,8 @@ pub mod nested_message {
 
                 #[allow(unused_variables)]
                 fn encode_raw<B>(&self, buf: &mut B)
-                where
-                    B: ::pilota::prost::bytes::BufMut,
+                    where
+                        B: ::pilota::prost::bytes::BufMut,
                 {
                     if let Some(_pilota_inner_value) = self.a.as_ref() {
                         ::pilota::prost::encoding::int32::encode(1, _pilota_inner_value, buf);
@@ -219,8 +224,8 @@ pub mod nested_message {
                     buf: &mut B,
                     ctx: ::pilota::prost::encoding::DecodeContext,
                 ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-                where
-                    B: ::pilota::prost::bytes::Buf,
+                    where
+                        B: ::pilota::prost::bytes::Buf,
                 {
                     const STRUCT_NAME: &'static str = stringify!(Tt3);
                     match tag {
@@ -233,10 +238,10 @@ pub mod nested_message {
                                 buf,
                                 ctx,
                             )
-                            .map_err(|mut error| {
-                                error.push(STRUCT_NAME, stringify!(a));
-                                error
-                            })
+                                .map_err(|mut error| {
+                                    error.push(STRUCT_NAME, stringify!(a));
+                                    error
+                                })
                         }
                         2 => {
                             let mut _inner_pilota_value = &mut self.m;
@@ -247,10 +252,10 @@ pub mod nested_message {
                                 buf,
                                 ctx,
                             )
-                            .map_err(|mut error| {
-                                error.push(STRUCT_NAME, stringify!(m));
-                                error
-                            })
+                                .map_err(|mut error| {
+                                    error.push(STRUCT_NAME, stringify!(m));
+                                    error
+                                })
                         }
                         _ => ::pilota::prost::encoding::skip_field(wire_type, tag, buf, ctx),
                     }

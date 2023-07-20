@@ -1,5 +1,6 @@
 pub mod oneof {
     #![allow(warnings, clippy::all)]
+
     #[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
     pub struct Test {
         pub c: i32,
@@ -10,6 +11,7 @@ pub mod oneof {
 
         pub test: ::std::option::Option<test::Test>,
     }
+
     impl ::pilota::prost::Message for Test {
         #[inline]
         fn encoded_len(&self) -> usize {
@@ -21,8 +23,8 @@ pub mod oneof {
 
         #[allow(unused_variables)]
         fn encode_raw<B>(&self, buf: &mut B)
-        where
-            B: ::pilota::prost::bytes::BufMut,
+            where
+                B: ::pilota::prost::bytes::BufMut,
         {
             ::pilota::prost::encoding::int32::encode(1, &self.c, buf);
             if let Some(_pilota_inner_value) = self.r#type.as_ref() {
@@ -42,8 +44,8 @@ pub mod oneof {
             buf: &mut B,
             ctx: ::pilota::prost::encoding::DecodeContext,
         ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-        where
-            B: ::pilota::prost::bytes::Buf,
+            where
+                B: ::pilota::prost::bytes::Buf,
         {
             const STRUCT_NAME: &'static str = stringify!(Test);
             match tag {
@@ -55,10 +57,10 @@ pub mod oneof {
                         buf,
                         ctx,
                     )
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(c));
-                        error
-                    })
+                        .map_err(|mut error| {
+                            error.push(STRUCT_NAME, stringify!(c));
+                            error
+                        })
                 }
                 2 | 4 => {
                     let mut _inner_pilota_value = &mut self.r#type;
@@ -77,10 +79,10 @@ pub mod oneof {
                         buf,
                         ctx,
                     )
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(j));
-                        error
-                    })
+                        .map_err(|mut error| {
+                            error.push(STRUCT_NAME, stringify!(j));
+                            error
+                        })
                 }
                 6 | 8 => {
                     let mut _inner_pilota_value = &mut self.test;
@@ -100,17 +102,17 @@ pub mod oneof {
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, ::pilota::derivative::Derivative)]
         #[derivative(Default)]
         #[derive(Clone, PartialEq)]
-
         pub enum Test {
             #[derivative(Default)]
             A(::pilota::FastStr),
 
             B(i32),
         }
+
         impl Test {
             pub fn encode<B>(&self, buf: &mut B)
-            where
-                B: ::pilota::prost::bytes::BufMut,
+                where
+                    B: ::pilota::prost::bytes::BufMut,
             {
                 match self {
                     Test::A(value) => {
@@ -138,8 +140,8 @@ pub mod oneof {
                 buf: &mut B,
                 ctx: ::pilota::prost::encoding::DecodeContext,
             ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-            where
-                B: ::pilota::prost::bytes::Buf,
+                where
+                    B: ::pilota::prost::bytes::Buf,
             {
                 match tag {
                     6 => match field {
@@ -169,20 +171,21 @@ pub mod oneof {
                 Ok(())
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, ::pilota::derivative::Derivative)]
         #[derivative(Default)]
         #[derive(Clone, PartialEq)]
-
         pub enum Type {
             #[derivative(Default)]
             S(::pilota::FastStr),
 
             I(i32),
         }
+
         impl Type {
             pub fn encode<B>(&self, buf: &mut B)
-            where
-                B: ::pilota::prost::bytes::BufMut,
+                where
+                    B: ::pilota::prost::bytes::BufMut,
             {
                 match self {
                     Type::S(value) => {
@@ -210,8 +213,8 @@ pub mod oneof {
                 buf: &mut B,
                 ctx: ::pilota::prost::encoding::DecodeContext,
             ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-            where
-                B: ::pilota::prost::bytes::Buf,
+                where
+                    B: ::pilota::prost::bytes::Buf,
             {
                 match tag {
                     2 => match field {

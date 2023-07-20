@@ -25,7 +25,7 @@
 /// of protobuf runtime.
 const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_3_2_0;
 
-#[derive(PartialEq,Clone,Default,Debug)]
+#[derive(PartialEq, Clone, Default, Debug)]
 // @@protoc_insertion_point(message:tests.Echo)
 pub struct Echo {
     // message fields
@@ -101,10 +101,10 @@ impl ::protobuf::Message for Echo {
             match tag {
                 10 => {
                     self.msg = is.read_string()?;
-                },
+                }
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
-                },
+                }
             };
         }
         ::std::result::Result::Ok(())

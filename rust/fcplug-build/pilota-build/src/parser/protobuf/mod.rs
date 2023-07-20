@@ -5,20 +5,21 @@ use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use normpath::PathExt;
 use protobuf::descriptor::{
-    field_descriptor_proto::{Label, Type},
-    DescriptorProto, EnumDescriptorProto, ServiceDescriptorProto,
+    DescriptorProto,
+    EnumDescriptorProto, field_descriptor_proto::{Label, Type}, ServiceDescriptorProto,
 };
 
-use super::Parser;
 use crate::{
     index::Idx,
     ir::{self, FieldKind, Item, Path, TyKind},
     symbol::{EnumRepr, FileId, Ident, IdentName},
     tags::{
-        protobuf::{ClientStreaming, OneOf, ProstType, Repeated, ServerStreaming},
-        PilotaName, Tags,
+        PilotaName,
+        protobuf::{ClientStreaming, OneOf, ProstType, Repeated, ServerStreaming}, Tags,
     },
 };
+
+use super::Parser;
 
 #[derive(Default)]
 pub struct ProtobufParser {

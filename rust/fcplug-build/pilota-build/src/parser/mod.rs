@@ -3,15 +3,15 @@ use std::{
     sync::Arc,
 };
 
-use crate::{ir::File, symbol::FileId};
-
-pub(crate) mod protobuf;
-pub(crate) mod thrift;
-
 use fxhash::FxHashMap;
 pub use thrift::ThriftParser;
 
+use crate::{ir::File, symbol::FileId};
+
 pub use self::protobuf::ProtobufParser;
+
+pub(crate) mod protobuf;
+pub(crate) mod thrift;
 
 pub struct ParseResult {
     pub files: Vec<Arc<File>>,
@@ -22,7 +22,7 @@ pub struct ParseResult {
 pub trait Parser {
     fn input<P: AsRef<Path>>(&mut self, path: P);
 
-    fn inputs<P: AsRef<Path>>(&mut self, paths: impl IntoIterator<Item = P>) {
+    fn inputs<P: AsRef<Path>>(&mut self, paths: impl IntoIterator<Item=P>) {
         paths.into_iter().for_each(|p| self.input(p))
     }
 

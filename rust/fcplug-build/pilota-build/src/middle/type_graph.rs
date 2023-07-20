@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use fxhash::FxHashMap;
-use petgraph::{algo::has_path_connecting, graph::NodeIndex, Graph};
+use petgraph::{algo::has_path_connecting, Graph, graph::NodeIndex};
+
+use crate::symbol::DefId;
 
 use super::{
     rir::Item,
     ty::{self},
 };
-use crate::symbol::DefId;
 
 #[derive(Debug)]
 pub struct TypeGraph {
@@ -16,7 +17,7 @@ pub struct TypeGraph {
 }
 
 impl TypeGraph {
-    pub fn from_items(items: impl Iterator<Item = (DefId, Arc<Item>)> + Clone) -> Self {
+    pub fn from_items(items: impl Iterator<Item=(DefId, Arc<Item>)> + Clone) -> Self {
         let mut graph: Graph<DefId, ()> = Graph::new();
         let mut node_map = FxHashMap::default();
         items.clone().for_each(|(def_id, _)| {

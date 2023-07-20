@@ -91,8 +91,8 @@ impl Deref for Symbol {
 }
 
 impl<T> From<T> for Symbol
-where
-    T: Into<FastStr>,
+    where
+        T: Into<FastStr>,
 {
     fn from(t: T) -> Self {
         Symbol(t.into())
@@ -143,8 +143,8 @@ impl Display for Ident {
 }
 
 impl<T> From<T> for Ident
-where
-    T: Into<FastStr>,
+    where
+        T: Into<FastStr>,
 {
     fn from(t: T) -> Self {
         Ident {

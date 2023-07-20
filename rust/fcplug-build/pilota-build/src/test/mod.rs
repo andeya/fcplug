@@ -4,7 +4,7 @@ use std::path::Path;
 
 use tempfile::tempdir;
 
-use crate::{plugin::SerdePlugin, IdlService};
+use crate::{IdlService, plugin::SerdePlugin};
 
 fn diff_file(old: impl AsRef<Path>, new: impl AsRef<Path>) {
     let old_content =
@@ -191,7 +191,7 @@ mod tests {
             12_u8, 0, 1, 12, 0, 1, 11, 0, 1, 0, 0, 0, 10, 104, 101, 108, 108, 111, 32, 119, 111,
             114, 108, 100, 0, 0, 0,
         ] as &[u8])
-        .freeze();
+            .freeze();
 
         let err = A::decode(&mut TBinaryProtocol::new(&mut data, false)).unwrap_err();
 

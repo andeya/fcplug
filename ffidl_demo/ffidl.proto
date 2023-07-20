@@ -15,17 +15,20 @@ message WebSite {
   string name = 1;
   string link = 2;
   int32 age = 3;
-  map<string,Server> server = 4;
+  map<string, Server> server = 4;
+  repeated string a = 5;
+  bytes b = 6;
 }
 
-service rustFFI {
-    rpc Search (SearchRequest) returns (WebSite) {}
+service RustFFI {
+  rpc SearchWebSite (SearchRequest) returns (WebSite) {}
 }
 
+message Client {
+  string ip = 1;
+  string city = 2;
+}
 
-
-
-//
-//service goFFI {
-//    rpc Search (SearchRequest) returns (WebSite) {}
-//}
+service GoFFI {
+  rpc SearchClient (SearchRequest) returns (Client) {}
+}

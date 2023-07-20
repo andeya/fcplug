@@ -1,9 +1,9 @@
 use fxhash::FxHashMap;
 
 use crate::{
+    DefId,
     rir::{Arg, EnumVariant, Field, Item, Method, Node},
     ty::{Ty, TyKind},
-    DefId,
 };
 
 type Nodes = FxHashMap<DefId, Node>;
@@ -40,39 +40,39 @@ fn item_equal(nodes: &Nodes, item1: &Item, item2: &Item) -> bool {
         (Item::Message(m1), Item::Message(m2)) => {
             m1.name == m2.name
                 && vec_equal_by_key(
-                    nodes,
-                    &m1.fields,
-                    &m2.fields,
-                    |m| m.id,
-                    |cx, f1, f2| field_equal(cx, f1, f2),
-                )
+                nodes,
+                &m1.fields,
+                &m2.fields,
+                |m| m.id,
+                |cx, f1, f2| field_equal(cx, f1, f2),
+            )
         }
         (Item::Enum(e1), Item::Enum(e2)) => {
             e1.name == e2.name
                 && vec_equal_by_key(
-                    nodes,
-                    &e1.variants,
-                    &e2.variants,
-                    |v| v.id,
-                    |cx, v1, v2| variant_equal(cx, v1, v2),
-                )
+                nodes,
+                &e1.variants,
+                &e2.variants,
+                |v| v.id,
+                |cx, v1, v2| variant_equal(cx, v1, v2),
+            )
         }
         (Item::Service(s1), Item::Service(s2)) => {
             s1.name == s2.name
                 && vec_equal_by_key(
-                    nodes,
-                    &s1.extend,
-                    &s2.extend,
-                    |e| e.did,
-                    |cx, d1, d2| def_id_equal(cx, d1.did, d2.did),
-                )
+                nodes,
+                &s1.extend,
+                &s2.extend,
+                |e| e.did,
+                |cx, d1, d2| def_id_equal(cx, d1.did, d2.did),
+            )
                 && vec_equal_by_key(
-                    nodes,
-                    &s1.methods,
-                    &s2.methods,
-                    |m| m.name.0.clone(),
-                    |cx, m1, m2| method_equal(cx, m1, m2),
-                )
+                nodes,
+                &s1.methods,
+                &s2.methods,
+                |m| m.name.0.clone(),
+                |cx, m1, m2| method_equal(cx, m1, m2),
+            )
         }
         (Item::NewType(n1), Item::NewType(n2)) => {
             n1.name == n2.name && ty_equal(nodes, &n1.ty, &n2.ty)
@@ -89,8 +89,8 @@ fn vec_equal_by_key<T: Clone, F, O: Ord>(
     get_key: impl Fn(&T) -> O,
     f: F,
 ) -> bool
-where
-    F: Fn(&Nodes, &T, &T) -> bool,
+    where
+        F: Fn(&Nodes, &T, &T) -> bool,
 {
     if v1.len() != v2.len() {
         return false;
@@ -108,10 +108,10 @@ fn variant_equal(nodes: &Nodes, v1: &EnumVariant, v2: &EnumVariant) -> bool {
         && v1.discr == v2.discr
         && v1.fields.len() == v2.fields.len()
         && v1
-            .fields
-            .iter()
-            .zip(&v2.fields)
-            .all(|(t1, t2)| ty_equal(nodes, t1, t2))
+        .fields
+        .iter()
+        .zip(&v2.fields)
+        .all(|(t1, t2)| ty_equal(nodes, t1, t2))
 }
 
 fn field_equal(nodes: &Nodes, f1: &Field, f2: &Field) -> bool {
@@ -122,10 +122,10 @@ fn method_equal(nodes: &Nodes, m1: &Method, m2: &Method) -> bool {
     m1.name == m2.name
         && m1.args.len() == m2.args.len()
         && m1
-            .args
-            .iter()
-            .zip(m2.args.iter())
-            .all(|(a1, a2)| ty_equal(nodes, &a1.ty, &a2.ty))
+        .args
+        .iter()
+        .zip(m2.args.iter())
+        .all(|(a1, a2)| ty_equal(nodes, &a1.ty, &a2.ty))
 }
 
 fn arg_equal(nodes: &Nodes, a1: &Arg, a2: &Arg) -> bool {

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use pilota_build::{codegen, DefId, IdentName, rir::Message, rir::Service};
 use pilota_build::Context;
 use pilota_build::rir::{Field, Method};
-use pilota_build::ty::{TyKind};
+use pilota_build::ty::TyKind;
 
 use crate::ffidl::{Config, GoObjectPath};
 

@@ -16,12 +16,14 @@ crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 fcplug-macros = { workspace = true }
-protobuf = { workspace = true }
 defer-lite = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
-flatbuffers = { workspace = true }
-anyhow= { workspace = true }
+anyhow = { workspace = true }
+pilota = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
 [build-dependencies]
 fcplug-build = { workspace = true }

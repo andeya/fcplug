@@ -1,53 +1,252 @@
 use std::sync::Arc;
 
-use itertools::Itertools;
-use pilota_build::{Context, DefId, IdentName};
+use pilota_build::{DefId, IdentName};
 use pilota_build::rir::{Method, Service};
 use pilota_build::ty::{CodegenTy, TyKind};
 
-use crate::ffidl::Config;
+use crate::ffidl::{Config, Cx, ServiceType};
 
 #[derive(Clone)]
 pub(crate) struct RustCodegenBackend {
     pub(crate) config: Arc<Config>,
-    pub(crate) context: Arc<Context>,
+    pub(crate) context: Cx,
 }
 
 impl RustCodegenBackend {
     pub(crate) fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
-        let name = (&**method.name).fn_ident();
+        let service_name_lower = self.context.rust_name(service_def_id).to_lowercase();
+        let method_name = (&**method.name).fn_ident();
         let args = self.codegen_method_args(service_def_id, method);
         let ret = self.codegen_method_ret(service_def_id, method);
-        match self.context.rust_name(service_def_id).to_lowercase().as_str() {
-            "rustffi" => format!("fn {name}({args}) -> {ret};"),
-            "goffi" => format!("unsafe fn {name}({args}) -> {ret};"),
-            _ => { String::new() }
+        match self.context.service_type(service_def_id) {
+            ServiceType::RustFfi => format!("fn {method_name}({args}) -> {ret};"),
+            ServiceType::GoFfi => {
+                let set_ret_fn = if method.ret.is_scalar() {
+                    String::new()
+                } else {
+                    let ffi_ret = self.codegen_ffi_ret(service_def_id, method);
+                    let ret_ty_name = self.codegen_item_ty(&method.ret.kind);
+                    format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret};")
+                };
+                let args_ident = self.codegen_ffi_args_ident(service_def_id, method);
+                format!(r###"unsafe fn {method_name}<T: Default>({args}) -> {ret} {{
+                    ::fcplug::ABIResult::from({service_name_lower}_{method_name}({args_ident}))
+                }}
+                {set_ret_fn}
+                "###)
+            }
         }
     }
     pub(crate) fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
-        match s.name.to_string().to_lowercase().as_str() {
-            "rustffi" => self.codegen_rustffi_service_impl(def_id, stream, s),
-            "goffi" => self.codegen_goffi_service_impl(def_id, stream, s),
-            _ => {}
-        };
-    }
-    fn codegen_method_args(&self, service_def_id: DefId, method: &Method) -> String {
-        match self.context.rust_name(service_def_id).to_lowercase().as_str() {
-            "rustffi" => method.args
-                .iter()
-                .map(|arg| format!("{}: &{}", (&**arg.name).snake_ident(), self.codegen_item_ty(&arg.ty.kind)))
-                .collect::<Vec<String>>()
-                .join(", "),
-            "goffi" => method.args
-                .iter()
-                .map(|arg| format!("{}: {}", (&**arg.name).snake_ident(), self.codegen_item_ty(&arg.ty.kind)))
-                .collect::<Vec<String>>()
-                .join(", "),
-            _ => { String::new() }
+        match self.context.service_type(def_id) {
+            ServiceType::RustFfi => self.codegen_rustffi_service_impl(def_id, stream, s),
+            ServiceType::GoFfi => self.codegen_goffi_service_impl(def_id, stream, s),
         }
     }
-    fn codegen_method_ret(&self, _service_def_id: DefId, method: &Method) -> String {
-        format!("::fcplug::ABIResult<{}>",self.codegen_item_ty(&method.ret.kind))
+    fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
+        let name = self.context.rust_name(def_id);
+        let name_lower = name.to_lowercase();
+        let (ust, setted) = self.rustffi_impl_name(def_id);
+        if !setted {
+            let methods = s.methods.iter().map(|method| {
+                let name = (&**method.name).fn_ident();
+                let args = self.codegen_method_args(def_id, method);
+                let ret = self.codegen_method_ret(def_id, method);
+                format!("fn {name}({args}) -> {ret} {{ unimplemented!() }}")
+            }).collect::<Vec<String>>()
+                .join("\n");
+
+            stream.push_str(&format!(r###"struct {ust};
+            impl {name} for {ust} {{
+                {methods}
+            }}"###));
+        };
+
+        stream.push_str(&s.methods.iter().map(|method| {
+            let fn_name = (&**method.name).fn_ident();
+            let args = self.codegen_ffi_args_param(def_id, method);
+            let args_ident = self.codegen_ffi_args_ident(def_id, method);
+            let ret = self.codegen_ffi_ret(def_id, method);
+            format!(r###"#[no_mangle]
+                #[inline]
+                pub extern "C" fn {name_lower}_{fn_name}({args}) -> {ret} {{
+                    {ret}::from(<{ust} as {name}>::{fn_name}({args_ident}))
+                }}
+                "###)
+        })
+            .collect::<Vec<String>>()
+            .join("\n"));
+    }
+    fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
+        let name = self.context.rust_name(def_id);
+        let name_lower = name.to_lowercase();
+        let ffi_fns = s.methods.iter().map(|method| {
+            let fn_name = (&**method.name).fn_ident();
+            let args = self.codegen_ffi_args_param(def_id, method);
+            let ret = self.codegen_ffi_ret(def_id, method);
+            format!("fn {name_lower}_{fn_name}({args}) -> {ret};")
+        })
+            .collect::<Vec<String>>()
+            .join("\n");
+        stream.push_str(&format!(r###"extern "C" {{
+            {ffi_fns}
+        }}
+        "###));
+
+
+        let (ust, _) = self.rustffi_impl_name(def_id);
+        let store_to_rust_fns = s.methods.iter()
+            .filter(|method| !method.ret.is_scalar())
+            .map(|method| {
+                let fn_name = (&**method.name).fn_ident().to_string() + "_set_result";
+                let ret = self.codegen_ffi_ret(def_id, method);
+                format!(r###"#[no_mangle]
+                #[inline]
+                pub extern "C" fn {name_lower}_{fn_name}(buf: ::fcplug::Buffer) -> {ret} {{
+                    unsafe{{<{ust} as {name}>::{fn_name}(::fcplug::RustFfiArg::from(buf))}}
+                }}
+                "###)
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        stream.push_str(&store_to_rust_fns);
+    }
+}
+
+impl RustCodegenBackend {
+    fn rustffi_impl_name(&self, service_def_id: DefId) -> (String, bool) {
+        if let Some(ust) = &self.config.rustffi_impl_of_unit_struct {
+            (ust.0.to_string(), true)
+        } else {
+            let name = self.context.rust_name(service_def_id);
+            (format!("Unimplemented{name}"), false)
+        }
+    }
+    fn codegen_ffi_args_param(&self, service_def_id: DefId, method: &Method) -> String {
+        match self.context.service_type(service_def_id) {
+            ServiceType::RustFfi => method.args
+                .iter()
+                .map(|arg| {
+                    let ident = (&**arg.name).snake_ident();
+                    let ty_name = self.codegen_item_ty(&arg.ty.kind);
+                    if arg.ty.is_scalar() {
+                        format!("{ident}: {ty_name}")
+                    } else {
+                        format!("{ident}: ::fcplug::Buffer")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+            ServiceType::GoFfi => method.args
+                .iter()
+                .map(|arg| {
+                    let ident = (&**arg.name).snake_ident();
+                    let ty_name = self.codegen_item_ty(&arg.ty.kind);
+                    if arg.ty.is_scalar() {
+                        format!("{ident}: {ty_name}")
+                    } else {
+                        format!("{ident}: ::fcplug::Buffer")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+        }
+    }
+    fn codegen_ffi_args_ident(&self, service_def_id: DefId, method: &Method) -> String {
+        match self.context.service_type(service_def_id) {
+            ServiceType::RustFfi => method.args
+                .iter()
+                .map(|arg| {
+                    let ident = (&**arg.name).snake_ident();
+                    if arg.ty.is_scalar() {
+                        format!("{ident}")
+                    } else {
+                        format!("::fcplug::RustFfiArg::from({ident})")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+            ServiceType::GoFfi => method.args
+                .iter()
+                .map(|arg| {
+                    let ident = (&**arg.name).snake_ident();
+                    if arg.ty.is_scalar() {
+                        format!("{ident}")
+                    } else {
+                        format!("::fcplug::Buffer::from_vec({ident})")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+        }
+    }
+    fn codegen_method_args(&self, service_def_id: DefId, method: &Method) -> String {
+        match self.context.service_type(service_def_id) {
+            ServiceType::RustFfi => method.args
+                .iter()
+                .map(|arg| {
+                    let ident = (&**arg.name).snake_ident();
+                    let ty_name = self.codegen_item_ty(&arg.ty.kind);
+                    if arg.ty.is_scalar() {
+                        format!("{ident}: {ty_name}")
+                    } else {
+                        format!("{ident}: ::fcplug::RustFfiArg<{ty_name}>")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+            ServiceType::GoFfi => method.args
+                .iter()
+                .map(|arg| {
+                    let ident = (&**arg.name).snake_ident();
+                    let ty_name = self.codegen_item_ty(&arg.ty.kind);
+                    if arg.ty.is_scalar() {
+                        format!("{ident}: {ty_name}")
+                    } else {
+                        format!("{ident}: ::std::vec::Vec<u8>")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+        }
+    }
+    fn codegen_method_ret(&self, service_def_id: DefId, method: &Method) -> String {
+        let ty_name = self.codegen_item_ty(&method.ret.kind);
+        match self.context.service_type(service_def_id) {
+            ServiceType::RustFfi => {
+                if method.ret.is_scalar() {
+                    format!("{ty_name}")
+                } else {
+                    format!("::fcplug::ABIResult<Vec<u8>>")
+                }
+            }
+            ServiceType::GoFfi => {
+                if method.ret.is_scalar() {
+                    format!("{ty_name}")
+                } else {
+                    format!("::fcplug::ABIResult<T>")
+                }
+            }
+        }
+    }
+    fn codegen_ffi_ret(&self, service_def_id: DefId, method: &Method) -> String {
+        let ty_name = self.codegen_item_ty(&method.ret.kind);
+        match self.context.service_type(service_def_id) {
+            ServiceType::RustFfi => {
+                if method.ret.is_scalar() {
+                    format!("{ty_name}")
+                } else {
+                    format!("::fcplug::RustFfiResult")
+                }
+            }
+            ServiceType::GoFfi => {
+                if method.ret.is_scalar() {
+                    format!("{ty_name}")
+                } else {
+                    format!("::fcplug::GoFfiResult")
+                }
+            }
+        }
     }
     #[inline]
     fn codegen_item_ty(&self, ty: &TyKind) -> String {
@@ -71,138 +270,5 @@ impl RustCodegenBackend {
             TyKind::F32 => CodegenTy::F32.to_string(),
             TyKind::Arc(ty) => format!("::std::sync::Arc<{}>", self.codegen_item_ty(&ty.kind)),
         }
-    }
-    #[inline]
-    fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
-        let name = self.context.rust_name(def_id);
-        let name_lower = name.to_lowercase();
-        let ust = if let Some(ust) = &self.config.rustffi_impl_of_unit_struct {
-            ust.0.to_string()
-        } else {
-            let methods = s.methods.iter().map(|method| {
-                let name = (&**method.name).fn_ident();
-                let args = self.codegen_method_args(def_id, method);
-                let ret = self.codegen_method_ret(def_id, method);
-                format!("fn {name}({args}) -> {ret} {{ unimplemented!() }}")
-            }).collect::<Vec<String>>()
-                .join("\n");
-            let ust = format!("Unimplemented{name}");
-            stream.push_str(&format!(r###"struct {ust};
-            impl {name} for {ust} {{
-                {methods}
-            }}"###));
-            ust
-        };
-
-        stream.push_str(&s.methods.iter().map(|method| {
-            let fn_name = (&**method.name).fn_ident();
-            format!(r###"#[no_mangle]
-                #[inline]
-                pub extern "C" fn {name_lower}_{fn_name}(mut req: ::fcplug::Buffer) -> ::fcplug::callee::FFIResult {{
-                    ::fcplug::callee::protobuf::callback("{name_lower}_{fn_name}", <{ust} as {name}>::{fn_name}, &mut req)
-                }}
-                "###)
-        })
-            .collect::<Vec<String>>()
-            .join("\n"));
-    }
-    fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
-        self.codegen_goffi_functions(def_id, stream, s);
-        self.codegen_goffi_impl(def_id, stream, s);
-    }
-    fn codegen_goffi_functions(&self, def_id: DefId, stream: &mut String, s: &Service) {
-        let name = self.context.rust_name(def_id);
-        let name_lower = name.to_lowercase();
-        let ffi_fns = s.methods.iter().map(|method| {
-            let fn_name = (&**method.name).fn_ident();
-            format!("fn {name_lower}_{fn_name}(mut req: ::fcplug::Buffer) -> ::fcplug::caller::FFIResult;")
-        })
-            .collect::<Vec<String>>()
-            .join("\n");
-        stream.push_str(&format!(r###"extern "C" {{
-            {ffi_fns}
-        }}
-        "###));
-    }
-    fn codegen_goffi_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
-        let name = self.context.rust_name(def_id);
-        let name_lower = name.to_lowercase();
-        let impl_methods = s.methods.iter().map(|method| {
-            let name = (&**method.name).fn_ident();
-            let args = self.codegen_method_args(def_id, method);
-            let ret = self.codegen_method_ret(def_id, method);
-            let args_into_c_repr = method.args
-                .iter()
-                .filter(|arg| !arg.ty.is_in_stack())
-                .map(|arg| {
-                    let ident = (&**arg.name).snake_ident();
-                    format!("let {ident} = ::std::boxed::Box::into_raw(::std::boxed::Box::new(::fcplug::ctypes::ConvRepr::into_c_repr({ident})));")
-                })
-                .collect::<Vec<String>>()
-                .join("\n");
-
-            let c_args = method.args
-                .iter()
-                .map(|arg| {
-                    (&**arg.name).snake_ident().to_string()
-                })
-                .collect::<Vec<String>>()
-                .join(", ");
-
-
-            if method.ret.is_in_stack() {
-                let free_args = method.args
-                    .iter()
-                    .filter(|arg| !arg.ty.is_in_stack())
-                    .map(|arg| {
-                        let ident = (&**arg.name).snake_ident();
-                        let ty = self.codegen_item_ty(&arg.ty.kind);
-                        format!("let _ = <{ty} as ::fcplug::ctypes::ConvRepr>::from_c_repr(*::std::boxed::Box::from_raw({ident}));")
-                    })
-                    .collect::<Vec<String>>()
-                    .join("\n");
-                format!(r###"unsafe fn {name}({args}) -> {ret} {{
-                    {args_into_c_repr}
-                    let ret__ = {name_lower}_{name}({c_args});
-                    {free_args}
-                    ret__
-                }}"###)
-            } else {
-                let mut c_args_tuple = method.args
-                    .iter()
-                    .filter(|arg| !arg.ty.is_in_stack())
-                    .map(|arg| (&**arg.name).snake_ident().to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                if c_args_tuple.contains(',') {
-                    c_args_tuple = format!("({c_args_tuple})")
-                } else if c_args_tuple.len() == 0 {
-                    c_args_tuple = "::std::ptr::null_mut::<()>()".to_string()
-                }
-                let raw_ret_ty = self.codegen_item_ty(&method.ret.kind);
-                let goffi_free_name = self.goffi_free_name(def_id, method);
-                format!(r###"unsafe fn {name}({args}) -> {ret} {{
-                    {args_into_c_repr}
-                    let c_ret__ = {name_lower}_{name}({c_args});
-                    let ret__ = <{raw_ret_ty} as ::fcplug::ctypes::ConvRepr>::from_c_repr(*::std::boxed::Box::from_raw(c_ret__));
-                    ::fcplug::ctypes::GoFfiResult::new(
-                        ret__,
-                        {c_args_tuple},
-                        c_ret__ as usize,
-                        {goffi_free_name},
-                    )
-                }}"###)
-            }
-        }).collect::<Vec<String>>().join("\n");
-        stream.push_str(&format!(r###"pub struct Impl{name};
-        impl {name} for Impl{name}{{
-            {impl_methods}
-        }}
-        "###))
-    }
-    fn goffi_free_name(&self, service_def_id: DefId, method: &Method) -> String {
-        let name_lower = self.context.rust_name(service_def_id).to_lowercase();
-        let fn_name = (&**method.name).fn_ident();
-        format!("{name_lower}_{fn_name}_free_ret")
     }
 }

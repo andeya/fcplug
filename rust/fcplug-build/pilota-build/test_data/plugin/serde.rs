@@ -3,14 +3,14 @@ pub mod serde {
 
     pub mod serde {
         #[derive(
-            PartialOrd,
-            Hash,
-            Eq,
-            Ord,
-            Debug,
-            Default,
-            ::pilota::serde::Serialize,
-            ::pilota::serde::Deserialize,
+        PartialOrd,
+        Hash,
+        Eq,
+        Ord,
+        Debug,
+        Default,
+        ::pilota::serde::Serialize,
+        ::pilota::serde::Deserialize,
         )]
         #[serde(rename_all = "camelCase")]
         #[derive(Clone, PartialEq)]
@@ -20,6 +20,7 @@ pub mod serde {
 
             pub b: i32,
         }
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for A {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -56,10 +57,10 @@ pub mod serde {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                a = Some(protocol.read_faststr()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    a = Some(protocol.read_faststr()?);
+                                }
                             Some(2) if field_ident.field_type == ::pilota::thrift::TType::I32 => {
                                 b = Some(protocol.read_i32()?);
                             }
@@ -86,21 +87,21 @@ pub mod serde {
                 protocol.read_struct_end()?;
 
                 let Some(a) = a else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field a is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field a is required".to_string(),
+                        )
+                    );
+                };
                 let Some(b) = b else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field b is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field b is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { a, b };
                 Ok(data)
@@ -124,10 +125,10 @@ pub mod serde {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                a = Some(protocol.read_faststr().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    a = Some(protocol.read_faststr().await?);
+                                }
                             Some(2) if field_ident.field_type == ::pilota::thrift::TType::I32 => {
                                 b = Some(protocol.read_i32().await?);
                             }
@@ -140,7 +141,7 @@ pub mod serde {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -156,21 +157,21 @@ pub mod serde {
                 protocol.read_struct_end().await?;
 
                 let Some(a) = a else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field a is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field a is required".to_string(),
+                        )
+                    );
+                };
                 let Some(b) = b else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field b is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field b is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { a, b };
                 Ok(data)
@@ -186,6 +187,7 @@ pub mod serde {
                     + protocol.write_struct_end_len()
             }
         }
+
         impl ::std::convert::From<C> for i32 {
             fn from(e: C) -> Self {
                 e as _
@@ -207,6 +209,7 @@ pub mod serde {
                 }
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, ::pilota::derivative::Derivative)]
         #[derivative(Default)]
         #[derive(::pilota::serde::Serialize, ::pilota::serde::Deserialize)]
@@ -264,15 +267,16 @@ pub mod serde {
                 protocol.write_i32_len(*self as i32)
             }
         }
+
         #[derive(
-            PartialOrd,
-            Hash,
-            Eq,
-            Ord,
-            Debug,
-            Default,
-            ::pilota::serde::Serialize,
-            ::pilota::serde::Deserialize,
+        PartialOrd,
+        Hash,
+        Eq,
+        Ord,
+        Debug,
+        Default,
+        ::pilota::serde::Serialize,
+        ::pilota::serde::Deserialize,
         )]
         #[serde(rename = "BB")]
         #[derive(Clone, PartialEq)]

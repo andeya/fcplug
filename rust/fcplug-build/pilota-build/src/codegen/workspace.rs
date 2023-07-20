@@ -6,14 +6,15 @@ use fxhash::FxHashMap;
 use itertools::Itertools;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
-use super::CodegenItem;
 use crate::{
+    Codegen,
+    CodegenBackend,
+    Context,
     db::RirDatabase,
-    fmt::fmt_file,
-    middle::context::DefLocation,
-    rir::{self, ItemPath},
-    Codegen, CodegenBackend, Context, DefId,
+    DefId, fmt::fmt_file, middle::context::DefLocation, rir::{self, ItemPath},
 };
+
+use super::CodegenItem;
 
 #[derive(Clone)]
 pub struct Workspace<B> {
@@ -41,8 +42,8 @@ struct CrateInfo {
 }
 
 impl<B> Workspace<B>
-where
-    B: CodegenBackend + Send,
+    where
+        B: CodegenBackend + Send,
 {
     fn cx(&self) -> &Context {
         &self.cg
@@ -89,7 +90,7 @@ where
         let mut cargo_toml = toml::from_str::<toml::Value>(&unsafe {
             String::from_utf8_unchecked(std::fs::read(self.base_dir.join("Cargo.toml")).unwrap())
         })
-        .unwrap();
+            .unwrap();
 
         crate::codegen::toml::merge_tomls(
             &mut cargo_toml,
@@ -98,7 +99,7 @@ where
     members = [
     {members}
     ]
-    
+
     [workspace.dependencies]
     pilota = "0.6"
     async-trait = "0.1"
@@ -106,7 +107,7 @@ where
     volo = "0.4"
     volo-thrift = "0.4""#
             ))
-            .unwrap(),
+                .unwrap(),
         );
 
         let workspace_deps = cargo_toml
@@ -245,7 +246,7 @@ where
         let mut cargo_toml = toml::from_str::<toml::Value>(&unsafe {
             String::from_utf8_unchecked(std::fs::read(&cargo_toml_path)?)
         })
-        .unwrap();
+            .unwrap();
 
         let deps = info
             .deps

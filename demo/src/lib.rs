@@ -34,8 +34,9 @@ fn echo<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::ffi_raw_echo;
     use goffi_gen::go_ffi::{Buffer, helloString};
+
+    use crate::ffi_raw_echo;
 
     #[test]
     fn test_echo() {

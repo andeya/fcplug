@@ -5,7 +5,6 @@ pub mod void {
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, ::pilota::derivative::Derivative)]
         #[derivative(Default)]
         #[derive(Clone, PartialEq)]
-
         pub enum TestTest123ResultRecv {
             #[derivative(Default)]
             Ok(()),
@@ -91,8 +90,10 @@ pub mod void {
                     + protocol.write_struct_end_len()
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
         pub struct TestTest123ArgsSend {}
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for TestTest123ArgsSend {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -178,7 +179,7 @@ pub mod void {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -209,8 +210,10 @@ pub mod void {
                     + protocol.write_struct_end_len()
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
         pub struct TestTest123ArgsRecv {}
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for TestTest123ArgsRecv {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -296,7 +299,7 @@ pub mod void {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -327,10 +330,10 @@ pub mod void {
                     + protocol.write_struct_end_len()
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, ::pilota::derivative::Derivative)]
         #[derivative(Default)]
         #[derive(Clone, PartialEq)]
-
         pub enum TestTest123ResultSend {
             #[derivative(Default)]
             Ok(()),
@@ -416,6 +419,7 @@ pub mod void {
                     + protocol.write_struct_end_len()
             }
         }
+
         #[::async_trait::async_trait]
         pub trait Test {}
     }

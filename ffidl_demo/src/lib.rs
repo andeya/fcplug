@@ -1,5 +1,9 @@
 use std::collections::HashMap;
-use crate::gen::{RustFfi, SearchRequest, Server, WebSite};
+
+use fcplug::{ABIResult, GoFfiResult, RustFfiArg, TryIntoBytes};
+use fcplug::protobuf::PbMessage;
+
+use crate::gen::{Client, GoFfi, RustFfi, SearchRequest, Server, WebSite};
 
 mod gen;
 
@@ -22,17 +26,26 @@ struct Test;
 
 
 impl RustFfi for Test {
-    fn search(req: &SearchRequest) -> WebSite {
+    fn search_web_site(mut req: RustFfiArg<SearchRequest>) -> ABIResult<Vec<u8>> {
+        let req = req.try_to_object::<fcplug::protobuf::PbMessage<SearchRequest>>();
         println!("request: {:?}", req);
-        WebSite{
+        fcplug::protobuf::PbMessage(WebSite {
             name: "andeya".to_string(),
             link: "a/b/c".to_string(),
             age: 40,
             server: HashMap::from([
-                ("a".to_string(),Server{ hostname: "github.com1".to_string(), port: 801 }),
-                ("b".to_string(),Server{ hostname: "github.com2".to_string(), port: 802 }),
-                ("c".to_string(),Server{ hostname: "github.com3".to_string(), port: 803 }),
+                ("a".to_string(), Server { hostname: "github.com1".to_string(), port: 801 }),
+                ("b".to_string(), Server { hostname: "github.com2".to_string(), port: 802 }),
+                ("c".to_string(), Server { hostname: "github.com3".to_string(), port: 803 }),
             ]),
-        }
+            a: vec![],
+            b: vec![],
+        }).try_into_bytes()
+    }
+}
+
+impl GoFfi for Test {
+    unsafe fn search_client_set_result(mut go_ret: RustFfiArg<Client>) -> GoFfiResult {
+        GoFfiResult::from_ok(go_ret.try_to_object::<PbMessage<Client>>()?)
     }
 }

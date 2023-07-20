@@ -10,20 +10,22 @@ use normpath::PathExt;
 use quote::format_ident;
 use salsa::ParallelDatabase;
 
-use self::tls::{with_cur_item, CUR_ITEM};
+use crate::{
+    db::{RirDatabase, RootDatabase},
+    Plugin,
+    rir::{self, Field, Item, ItemPath, Literal},
+    symbol::{DefId, IdentName, Symbol},
+    tags::{EnumMode, TagId, Tags},
+    ty::{AdtDef, AdtKind, CodegenTy, Visitor},
+};
+
 use super::{
     adjust::Adjust,
     resolver::{DefaultPathResolver, PathResolver, WorkspacePathResolver},
     rir::NodeKind,
 };
-use crate::{
-    db::{RirDatabase, RootDatabase},
-    rir::{self, Field, Item, ItemPath, Literal},
-    symbol::{DefId, IdentName, Symbol},
-    tags::{EnumMode, TagId, Tags},
-    ty::{AdtDef, AdtKind, CodegenTy, Visitor},
-    Plugin,
-};
+
+use self::tls::{CUR_ITEM, with_cur_item};
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Clone)]
 pub(crate) enum DefLocation {
@@ -350,8 +352,8 @@ pub enum SourceType {
 
 impl Context {
     pub fn with_adjust<T, F>(&self, def_id: DefId, f: F) -> T
-    where
-        F: FnOnce(Option<&Adjust>) -> T,
+        where
+            F: FnOnce(Option<&Adjust>) -> T,
     {
         match self.adjusts.get(&def_id) {
             Some(adj) => f(Some(&*adj)),
@@ -360,8 +362,8 @@ impl Context {
     }
 
     pub fn with_adjust_mut<T, F>(&self, def_id: DefId, f: F) -> T
-    where
-        F: FnOnce(&mut Adjust) -> T,
+        where
+            F: FnOnce(&mut Adjust) -> T,
     {
         let adjust = &mut *self.adjusts.entry(def_id).or_insert_with(Default::default);
         f(adjust)
@@ -432,7 +434,7 @@ impl Context {
                     {kvs}
                     map
                 }}"#}
-                .into(),
+                    .into(),
             )
         };
 
@@ -466,30 +468,30 @@ impl Context {
             }
             (
                 CodegenTy::Adt(AdtDef {
-                    did: _,
-                    kind: AdtKind::Enum,
-                }),
+                                   did: _,
+                                   kind: AdtKind::Enum,
+                               }),
                 CodegenTy::I64,
             )
             | (
                 CodegenTy::Adt(AdtDef {
-                    did: _,
-                    kind: AdtKind::Enum,
-                }),
+                                   did: _,
+                                   kind: AdtKind::Enum,
+                               }),
                 CodegenTy::I32,
             )
             | (
                 CodegenTy::Adt(AdtDef {
-                    did: _,
-                    kind: AdtKind::Enum,
-                }),
+                                   did: _,
+                                   kind: AdtKind::Enum,
+                               }),
                 CodegenTy::I16,
             )
             | (
                 CodegenTy::Adt(AdtDef {
-                    did: _,
-                    kind: AdtKind::Enum,
-                }),
+                                   did: _,
+                                   kind: AdtKind::Enum,
+                               }),
                 CodegenTy::I8,
             ) => {
                 let stream = self.cur_related_item_path(did);
@@ -521,9 +523,9 @@ impl Context {
             (Literal::String(s), CodegenTy::String) => {
                 (format! {"\"{s}\".to_string()"}.into(), false)
             }
-            (Literal::Int(i), CodegenTy::I16) => (format! { "{i}i16" }.into(), true),
-            (Literal::Int(i), CodegenTy::I32) => (format! { "{i}i32" }.into(), true),
-            (Literal::Int(i), CodegenTy::I64) => (format! { "{i}i64" }.into(), true),
+            (Literal::Int(i), CodegenTy::I16) => (format! {"{i}i16"}.into(), true),
+            (Literal::Int(i), CodegenTy::I32) => (format! {"{i}i32"}.into(), true),
+            (Literal::Int(i), CodegenTy::I64) => (format! {"{i}i64"}.into(), true),
             (Literal::Int(i), CodegenTy::F32) => {
                 let f = (*i) as f32;
                 (format!("{f}f32").into(), true)
@@ -535,9 +537,9 @@ impl Context {
             (
                 Literal::Int(i),
                 CodegenTy::Adt(AdtDef {
-                    did,
-                    kind: AdtKind::Enum,
-                }),
+                                   did,
+                                   kind: AdtKind::Enum,
+                               }),
             ) => {
                 let item = self.item(*did).unwrap();
                 let e = match &*item {
@@ -555,18 +557,18 @@ impl Context {
             }
             (Literal::Float(f), CodegenTy::F64) => {
                 let f = f.parse::<f64>().unwrap();
-                (format! { "{f}f64" }.into(), true)
+                (format! {"{f}f64"}.into(), true)
             }
             (
                 l,
                 CodegenTy::Adt(AdtDef {
-                    kind: AdtKind::NewType(inner_ty),
-                    did,
-                }),
+                                   kind: AdtKind::NewType(inner_ty),
+                                   did,
+                               }),
             ) => {
                 let ident = self.cur_related_item_path(*did);
                 let (stream, is_const) = self.lit_into_ty(l, inner_ty)?;
-                (format! { "{ident}({stream})" }.into(), is_const)
+                (format! {"{ident}({stream})"}.into(), is_const)
             }
             (Literal::Map(_), CodegenTy::StaticRef(map)) => match &**map {
                 CodegenTy::Map(_, _) => {
@@ -578,7 +580,7 @@ impl Context {
                             &*INNER_MAP
                         }}"#
                     }
-                    .into();
+                        .into();
                     (stream, false)
                 }
                 _ => panic!("invalid map type {:?}", map),
@@ -591,7 +593,7 @@ impl Context {
                 let is_const = stream.iter().all(|(_, is_const)| *is_const);
                 let stream = stream.into_iter().map(|(s, _)| s).join(",");
 
-                (format! {"[{stream}]" }.into(), is_const)
+                (format! {"[{stream}]"}.into(), is_const)
             }
             (Literal::List(els), CodegenTy::Vec(inner)) => {
                 let stream = els
@@ -602,22 +604,22 @@ impl Context {
                     .map(|(s, _)| s)
                     .join(",");
 
-                (format! { "::std::vec![{stream}]" }.into(), false)
+                (format! {"::std::vec![{stream}]"}.into(), false)
             }
-            (Literal::Bool(b), CodegenTy::Bool) => (format! { "{b}" }.into(), true),
+            (Literal::Bool(b), CodegenTy::Bool) => (format! {"{b}"}.into(), true),
             (Literal::String(s), CodegenTy::Bytes) => {
                 let s = &**s;
                 (
-                    format! { "::bytes::Bytes::from_static({s}.as_bytes())" }.into(),
+                    format! {"::bytes::Bytes::from_static({s}.as_bytes())"}.into(),
                     true,
                 )
             }
             (
                 Literal::Map(m),
                 CodegenTy::Adt(AdtDef {
-                    did,
-                    kind: AdtKind::Struct,
-                }),
+                                   did,
+                                   kind: AdtKind::Struct,
+                               }),
             ) => {
                 let def = self.item(*did).unwrap();
                 let def = match &*def {
@@ -667,7 +669,7 @@ impl Context {
                             {fields}
                         }}"#
                     }
-                    .into(),
+                        .into(),
                     is_const,
                 )
             }
@@ -742,7 +744,7 @@ impl Context {
             NodeKind::Method(m) => (&**m.name).fn_ident(),
             NodeKind::Arg(a) => (&**a.name).field_ident(),
         }
-        .into()
+            .into()
     }
 
     pub fn mod_path(&self, def_id: DefId) -> Arc<[Symbol]> {
@@ -818,25 +820,25 @@ impl Context {
 }
 
 pub mod tls {
-
     use scoped_tls::scoped_thread_local;
 
-    use super::Context;
     use crate::DefId;
+
+    use super::Context;
 
     scoped_thread_local!(pub static CONTEXT: Context);
     scoped_thread_local!(pub static CUR_ITEM: DefId);
 
     pub fn with_cx<T, F>(f: F) -> T
-    where
-        F: FnOnce(&Context) -> T,
+        where
+            F: FnOnce(&Context) -> T,
     {
         CONTEXT.with(|cx| f(cx))
     }
 
     pub fn with_cur_item<T, F>(f: F) -> T
-    where
-        F: FnOnce(DefId) -> T,
+        where
+            F: FnOnce(DefId) -> T,
     {
         CUR_ITEM.with(|def_id| f(*def_id))
     }

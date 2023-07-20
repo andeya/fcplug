@@ -6,6 +6,7 @@ pub mod decode_error {
         pub struct A {
             pub b: B,
         }
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for A {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -40,10 +41,10 @@ pub mod decode_error {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Struct =>
-                            {
-                                b = Some(::pilota::thrift::Message::decode(protocol)?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Struct =>
+                                {
+                                    b = Some(::pilota::thrift::Message::decode(protocol)?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type)?;
                             }
@@ -67,13 +68,13 @@ pub mod decode_error {
                 protocol.read_struct_end()?;
 
                 let Some(b) = b else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field b is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field b is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { b };
                 Ok(data)
@@ -96,10 +97,10 @@ pub mod decode_error {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(1)
-                                if field_ident.field_type == ::pilota::thrift::TType::Struct =>
-                            {
-                                b = Some(::pilota::thrift::Message::decode_async(protocol).await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Struct =>
+                                {
+                                    b = Some(::pilota::thrift::Message::decode_async(protocol).await?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type).await?;
                             }
@@ -109,7 +110,7 @@ pub mod decode_error {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -125,13 +126,13 @@ pub mod decode_error {
                 protocol.read_struct_end().await?;
 
                 let Some(b) = b else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field b is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field b is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { b };
                 Ok(data)
@@ -146,10 +147,12 @@ pub mod decode_error {
                     + protocol.write_struct_end_len()
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
         pub struct C {
             pub a: ::pilota::FastStr,
         }
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for C {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -184,10 +187,10 @@ pub mod decode_error {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(3)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                a = Some(protocol.read_faststr()?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    a = Some(protocol.read_faststr()?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type)?;
                             }
@@ -211,13 +214,13 @@ pub mod decode_error {
                 protocol.read_struct_end()?;
 
                 let Some(a) = a else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field a is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field a is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { a };
                 Ok(data)
@@ -240,10 +243,10 @@ pub mod decode_error {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(3)
-                                if field_ident.field_type == ::pilota::thrift::TType::Binary =>
-                            {
-                                a = Some(protocol.read_faststr().await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Binary =>
+                                {
+                                    a = Some(protocol.read_faststr().await?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type).await?;
                             }
@@ -253,7 +256,7 @@ pub mod decode_error {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -269,13 +272,13 @@ pub mod decode_error {
                 protocol.read_struct_end().await?;
 
                 let Some(a) = a else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field a is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field a is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { a };
                 Ok(data)
@@ -290,10 +293,12 @@ pub mod decode_error {
                     + protocol.write_struct_end_len()
             }
         }
+
         #[derive(PartialOrd, Hash, Eq, Ord, Debug, Default, Clone, PartialEq)]
         pub struct B {
             pub c: C,
         }
+
         #[::async_trait::async_trait]
         impl ::pilota::thrift::Message for B {
             fn encode<T: ::pilota::thrift::TOutputProtocol>(
@@ -328,10 +333,10 @@ pub mod decode_error {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(2)
-                                if field_ident.field_type == ::pilota::thrift::TType::Struct =>
-                            {
-                                c = Some(::pilota::thrift::Message::decode(protocol)?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Struct =>
+                                {
+                                    c = Some(::pilota::thrift::Message::decode(protocol)?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type)?;
                             }
@@ -355,13 +360,13 @@ pub mod decode_error {
                 protocol.read_struct_end()?;
 
                 let Some(c) = c else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field c is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field c is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { c };
                 Ok(data)
@@ -384,10 +389,10 @@ pub mod decode_error {
                         __pilota_decoding_field_id = field_ident.id;
                         match field_ident.id {
                             Some(2)
-                                if field_ident.field_type == ::pilota::thrift::TType::Struct =>
-                            {
-                                c = Some(::pilota::thrift::Message::decode_async(protocol).await?);
-                            }
+                            if field_ident.field_type == ::pilota::thrift::TType::Struct =>
+                                {
+                                    c = Some(::pilota::thrift::Message::decode_async(protocol).await?);
+                                }
                             _ => {
                                 protocol.skip(field_ident.field_type).await?;
                             }
@@ -397,7 +402,7 @@ pub mod decode_error {
                     }
                     Ok::<_, ::pilota::thrift::DecodeError>(())
                 }
-                .await
+                    .await
                 {
                     if let Some(field_id) = __pilota_decoding_field_id {
                         return Err(::pilota::thrift::DecodeError::new(
@@ -413,13 +418,13 @@ pub mod decode_error {
                 protocol.read_struct_end().await?;
 
                 let Some(c) = c else {
-                return Err(
-                    ::pilota::thrift::DecodeError::new(
-                        ::pilota::thrift::DecodeErrorKind::InvalidData,
-                            "field c is required".to_string()
-                    )
-                )
-            };
+                    return Err(
+                        ::pilota::thrift::DecodeError::new(
+                            ::pilota::thrift::DecodeErrorKind::InvalidData,
+                            "field c is required".to_string(),
+                        )
+                    );
+                };
 
                 let data = Self { c };
                 Ok(data)
