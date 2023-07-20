@@ -29,7 +29,7 @@ struct Test;
 
 impl RustFfi for Test {
     fn search_web_site(mut req: RustFfiArg<SearchRequest>) -> ABIResult<TBytes<WebSite>> {
-        let req = req.try_to_object::<fcplug::protobuf::PbMessage<SearchRequest>>();
+        let req = req.try_to_object::<PbMessage<_>>();
         println!("request: {:?}", req);
         WebSite {
             name: "andeya".to_string(),
