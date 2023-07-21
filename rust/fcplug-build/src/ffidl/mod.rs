@@ -1,5 +1,6 @@
 use std::{env, fs};
 use std::cell::RefCell;
+use std::env::temp_dir;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::process::Command;
@@ -11,12 +12,11 @@ use pilota_build::ir::ItemKind;
 use pilota_build::parser::{Parser, ParseResult, ProtobufParser};
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 
-// use crate::ffidl::gen_go::GoCodegenBackend;
+use crate::ffidl::gen_go::GoCodegenBackend;
 use crate::ffidl::gen_rust::RustCodegenBackend;
 
 mod gen_rust;
-// mod gen_go;
-mod ctypes_code;
+mod gen_go;
 
 #[cfg(not(debug_assertions))]
 const MODE: &'static str = "release";
@@ -54,10 +54,10 @@ pub struct GoObjectPath {
 #[derive(Debug, Clone)]
 pub(crate) struct FFIDL {
     config: Arc<Config>,
-    go_pkg_code: Arc<RefCell<String>>,
-    go_main_code: Arc<RefCell<String>>,
     rust_c_header_name_base: Arc<RefCell<String>>,
     rust_c_lib_dir: Arc<RefCell<PathBuf>>,
+    go_pkg_code: Arc<RefCell<String>>,
+    go_main_code: Arc<RefCell<String>>,
 }
 
 unsafe impl Send for FFIDL {}
@@ -78,10 +78,13 @@ impl FFIDL {
             .set_rust_clib_path()
             .gen_rust_and_go()
     }
+    fn include_dir(&self) -> PathBuf {
+        self.config.idl_file_path.parent().unwrap().to_path_buf()
+    }
     fn check_idl(self) -> anyhow::Result<Self> {
         let mut parser = ProtobufParser::default();
         // let mut parser = ThriftParser::default();
-        Parser::include_dirs(&mut parser, vec![self.config.idl_file_path.parent().unwrap().to_path_buf()]);
+        Parser::include_dirs(&mut parser, vec![self.include_dir()]);
         Parser::input(&mut parser, &self.config.idl_file_path);
         let mut ret: ParseResult = Parser::parse(parser);
         for item in &ret.files.pop().unwrap().items {
@@ -124,14 +127,31 @@ impl FFIDL {
             .join(MODE);
         self
     }
+
     fn gen_rust_and_go(self) -> anyhow::Result<()> {
         fs::create_dir_all(&self.config.output_dir.join("cgobin"))?;
-
         let pkg_name = self.config.dir_name();
 
+        let temp_dir = temp_dir();
+        let temp_idl = temp_dir.join(pkg_name.clone() + ".proto");
+        fs::copy(&self.config.idl_file_path, &temp_idl)?;
+        let output = new_shell_cmd()
+            .arg(format!(
+                "protoc --proto_path={} --go_out {} {}",
+                temp_dir.to_str().unwrap(),
+                self.config.output_dir.to_str().unwrap(),
+                temp_idl.to_str().unwrap(),
+            ))
+            .output()
+            .unwrap();
+        if !output.status.success() {
+            eprintln!("gen_protobuf_code: {:?}", output)
+        }
+
+        *self.go_main_code.borrow_mut() = "package main\n".to_string();
         let rust_c_header_name_base = self.rust_c_header_name_base.borrow().to_string();
         let rust_c_lib_dir = self.rust_c_lib_dir.borrow().as_os_str().to_str().unwrap().to_string();
-        self.go_pkg_code.borrow_mut().push_str(&format!(
+        *self.go_pkg_code.borrow_mut() = format!(
             r###"package {pkg_name}
             /*
             #cgo CFLAGS: -I{rust_c_lib_dir}
@@ -142,21 +162,29 @@ impl FFIDL {
             import "C"
 
             import (
+                "errors"
+                "reflect"
                 "unsafe"
 
-                "github.com/andeya/fcplug/go/ctypes"
+                "github.com/andeya/gust/valconv"
+                "github.com/bytedance/sonic"
+                "github.com/golang/protobuf/proto"
             )
 
             var (
+                _ = errors.New
+                _ reflect.SliceHeader
                 _ unsafe.Pointer
-                _ ctypes.FfiArray[any]
+                _ valconv.ReadonlyBytes
+                _ = sonic.Marshal
+                _ = proto.Marshal
             )
 
-            "###));
+            "###);
 
         pilota_build::Builder::protobuf_with_backend(self.clone())
             // pilota_build::Builder::thrift_with_backend(self.clone())
-            .include_dirs(vec![self.config.idl_file_path.parent().unwrap().to_path_buf()])
+            .include_dirs(vec![self.include_dir()])
             .plugin(AutoDerivePlugin::new(Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]), |_| PredicateResult::GoOn))
             .ignore_unused(true)
             .compile(
@@ -248,12 +276,18 @@ impl MakeBackend for FFIDL {
         let protobuf = ProtobufBackend::new(context.clone());
         let context = Arc::new(context);
         FFIDLBackend {
-            rust: RustCodegenBackend { config: self.config.clone(), context: Cx(context.clone()) },
-            // go: GoCodegenBackend { config: self.config.clone(), context: context.clone() },
+            rust: RustCodegenBackend {
+                config: self.config.clone(),
+                context: Cx(context.clone()),
+            },
+            go: GoCodegenBackend {
+                config: self.config.clone(),
+                context: Cx(context.clone()),
+                go_pkg_code: self.go_pkg_code.clone(),
+                go_main_code: self.go_main_code.clone(),
+            },
             protobuf,
             context,
-            go_pkg_code: self.go_pkg_code,
-            go_main_code: self.go_main_code,
             config: self.config,
         }
     }
@@ -265,9 +299,7 @@ pub struct FFIDLBackend {
     config: Arc<Config>,
     context: Arc<Context>,
     rust: RustCodegenBackend,
-    // go: GoCodegenBackend,
-    go_pkg_code: Arc<RefCell<String>>,
-    go_main_code: Arc<RefCell<String>>,
+    go: GoCodegenBackend,
     protobuf: ProtobufBackend,
 }
 
@@ -309,6 +341,7 @@ impl CodegenBackend for FFIDLBackend {
     fn codegen_service_impl(&self, service_def_id: DefId, stream: &mut String, s: &Service) {
         self.protobuf.codegen_service_impl(service_def_id, stream, s);
         self.rust.codegen_service_impl(service_def_id, stream, s);
+        self.go.codegen(service_def_id, s)
     }
     fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
         self.protobuf.codegen_service_method(service_def_id, method);

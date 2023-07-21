@@ -6,22 +6,22 @@ message SearchRequest {
   int32  result_per_page = 3;
 }
 
-message Server {
+message server {
   string hostname = 1;
   int32 port = 2;
 }
 
-message WebSite {
+message web_site {
   string name = 1;
   string link = 2;
   int32 age = 3;
-  map<string, Server> server = 4;
+  map<string, server> server = 4;
   repeated string a = 5;
   bytes b = 6;
 }
 
 service RustFFI {
-  rpc SearchWebSite (SearchRequest) returns (WebSite) {}
+  rpc SearchWeb_site (SearchRequest) returns (web_site) {}
 }
 
 message Client {
@@ -30,5 +30,5 @@ message Client {
 }
 
 service GoFFI {
-  rpc SearchClient (SearchRequest) returns (Client) {}
+  rpc Search_client (SearchRequest) returns (Client) {}
 }

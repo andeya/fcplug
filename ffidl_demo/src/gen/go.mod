@@ -5,8 +5,16 @@ go 1.19
 replace github.com/andeya/fcplug/go/ctypes => /Users/henrylee2cn/rust/fcplug/go/ctypes
 
 require (
-	github.com/andeya/fcplug/go/ctypes v0.0.0-00010101000000-000000000000
+	github.com/andeya/gust v1.5.2
+	github.com/bytedance/sonic v1.9.2
 	github.com/davecgh/go-spew v1.1.1
+	github.com/golang/protobuf v1.5.3
 )
 
-require github.com/stretchr/testify v1.8.4 // indirect
+require (
+	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
+	google.golang.org/protobuf v1.26.0 // indirect
+)

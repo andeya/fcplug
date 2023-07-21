@@ -167,6 +167,7 @@ impl<T> TBytes<T> {
 }
 
 impl<T> TBytes<T> {
+    #[inline]
     fn try_from<M>(value: T) -> ABIResult<Self> where
         T: IntoMessage<M>,
         M: TryIntoBytes,
@@ -176,6 +177,7 @@ impl<T> TBytes<T> {
 }
 
 pub trait TryIntoTBytes {
+    #[inline]
     fn try_into_tbytes<M>(self) -> ABIResult<TBytes<Self>>
         where
             Self: IntoMessage<M> + Sized,
@@ -243,6 +245,7 @@ impl GoFfiResult {
 
 
 impl FromResidual<Result<Infallible, ResultMsg>> for GoFfiResult {
+    #[inline]
     fn from_residual(residual: Result<Infallible, ResultMsg>) -> Self {
         let ResultMsg { code, msg } = residual.unwrap_err();
         Self { code, data_ptr: Box::leak(Box::new(msg)) as *mut String as usize }
@@ -250,6 +253,7 @@ impl FromResidual<Result<Infallible, ResultMsg>> for GoFfiResult {
 }
 
 impl<T: TryIntoBytes> From<ABIResult<T>> for GoFfiResult {
+    #[inline]
     fn from(value: ABIResult<T>) -> Self {
         match value {
             Ok(v) => match v.try_into_bytes() {
@@ -264,6 +268,7 @@ impl<T: TryIntoBytes> From<ABIResult<T>> for GoFfiResult {
 }
 
 impl<T: Default> From<GoFfiResult> for ABIResult<T> {
+    #[inline]
     fn from(mut value: GoFfiResult) -> Self {
         match value.code {
             RC_NO_ERROR => {
@@ -294,9 +299,11 @@ pub struct RustFfiResult {
 }
 
 impl RustFfiResult {
+    #[inline]
     pub fn ok(data: Buffer) -> Self {
         Self { code: RC_NO_ERROR, data }
     }
+    #[inline]
     pub(crate) fn err<E: Debug>(code: ResultCode, _err: Option<E>) -> Self {
         #[cfg(debug_assertions)]{
             if let Some(err) = _err {
@@ -314,6 +321,7 @@ impl FromResidual<Result<Infallible, ResultCode>> for RustFfiResult {
 }
 
 impl<T: TryIntoBytes> From<ABIResult<T>> for RustFfiResult {
+    #[inline]
     fn from(value: ABIResult<T>) -> Self {
         match value {
             Ok(v) => match v.try_into_bytes() {
