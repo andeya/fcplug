@@ -1,9 +1,0 @@
-// example IDL file
-
-table EchoRequest {
-  data:string (id:0);
-}
-
-table EchoResponse {
-  data:string (id:0);
-}

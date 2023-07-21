@@ -36,6 +36,7 @@ fn decode_map_err(e: pilota::prost::DecodeError) -> ResultMsg {
     ResultMsg { code: RC_DECODE, msg: e.to_string() }
 }
 
+#[allow(dead_code)]
 fn encode_map_err(e: pilota::prost::EncodeError) -> ResultMsg {
     ResultMsg { code: RC_ENCODE, msg: e.to_string() }
 }

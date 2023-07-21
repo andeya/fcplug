@@ -24,6 +24,3 @@ anyhow = { workspace = true }
 pilota = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-
-[build-dependencies]
-fcplug-build = { workspace = true }

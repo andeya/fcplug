@@ -1,68 +1,62 @@
-use fcplug::callee::ABIResult;
-use fcplug::callee::flatbuf::{FbRequest, FbResponseWriter};
-use goffi_gen::idl::Echo;
-use goffi_gen::idl_generated::{EchoRequest, EchoResponse, EchoResponseArgs};
+use std::collections::HashMap;
 
-#[fcplug::callee::ffi_raw_callee]
-fn echo(args: &str) -> ABIResult<String> {
-    Ok("input is: ".to_string() + args)
-}
+use fcplug::{ABIResult, GoFfiResult, RustFfiArg, TBytes, TryIntoTBytes};
+use fcplug::protobuf::PbMessage;
 
+use crate::gen::{Client, GoFfi, RustFfi, SearchRequest, Server, WebSite};
 
-#[fcplug::callee::ffi_pb_callee]
-fn echo(args: Echo) -> ABIResult<Echo> {
-    let mut r = Echo::new();
-    r.set_msg("input is: ".to_string() + args.get_msg());
-    Ok(r)
-}
+pub mod gen;
 
-#[fcplug::callee::ffi_fb_callee]
-fn echo<'a>(
-    req: FbRequest<'a, EchoRequest<'a>>,
-) -> (EchoResponseArgs<'a>, FbResponseWriter<EchoResponse<'a>>) {
-    let data = req.data().unwrap();
-    let mut w = req.new_response_writer();
-    (
-        EchoResponseArgs {
-            data: Some(
-                w.create_string(("input is: ".to_string() + data).as_str()),
-            ),
-        },
-        w,
-    )
+pub fn add(left: usize, right: usize) -> usize {
+    left + right
 }
 
 #[cfg(test)]
 mod tests {
-    use goffi_gen::go_ffi::{Buffer, helloString};
-
-    use crate::ffi_raw_echo;
+    use super::*;
 
     #[test]
-    fn test_echo() {
-        use fcplug::callee::*;
-        let req = "andeya".to_string().try_into_buffer().unwrap();
-        let mut r: FFIResult = ffi_raw_echo(req.buffer());
-        unsafe { req.mem_free() };
-        println!("FFIResult={:?}", r);
-
-        println!("ABIResult={:?}", if let ResultCode::NoError = r.code {
-            <&str>::try_from_bytes(r.data.read_mut().unwrap_or_default()).map_err(|_e| ResultCode::Decode)
-        } else {
-            Err::<&str, ResultCode>(r.code)
-        });
+    fn it_works() {
+        let result = add(2, 2);
+        assert_eq!(result, 4);
     }
 
     #[test]
-    #[inline]
-    fn test_call_go() {
-        let mut s = String::from("hello world");
-        unsafe {
-            helloString(Buffer {
-                ptr: s.as_mut_ptr(),
-                len: s.len(),
-                cap: s.len(),
-            })
-        }
+    fn search_client() {
+        let req = SearchRequest {
+            query: "query abc".to_string(),
+            page_number: 10,
+            result_per_page: 30,
+        }.try_into_tbytes::<PbMessage<_>>().unwrap();
+        let cli = unsafe { Test::search_client::<Client>(req).unwrap() };
+        println!("{:?}", cli);
+    }
+}
+
+pub struct Test;
+
+
+impl RustFfi for Test {
+    fn search_web_site(mut req: RustFfiArg<SearchRequest>) -> ABIResult<TBytes<WebSite>> {
+        let req = req.try_to_object::<PbMessage<_>>();
+        println!("request: {:?}", req);
+        WebSite {
+            name: "andeya".to_string(),
+            link: "a/b/c".to_string(),
+            age: 40,
+            server: HashMap::from([
+                ("a".to_string(), Server { hostname: "github.com1".to_string(), port: 801 }),
+                ("b".to_string(), Server { hostname: "github.com2".to_string(), port: 802 }),
+                ("c".to_string(), Server { hostname: "github.com3".to_string(), port: 803 }),
+            ]),
+            a: vec![],
+            b: vec![],
+        }.try_into_tbytes::<PbMessage<_>>()
+    }
+}
+
+impl GoFfi for Test {
+    unsafe fn search_client_set_result(mut go_ret: RustFfiArg<Client>) -> GoFfiResult {
+        GoFfiResult::from_ok(go_ret.try_to_object::<PbMessage<Client>>()?)
     }
 }

@@ -10,8 +10,6 @@ use std::ops::FromResidual;
 #[cfg(debug_assertions)]
 use tracing::error;
 
-pub use fcplug_macros::{ffi_pb_callee, ffi_raw_callee};
-
 mod basic;
 pub mod protobuf;
 pub mod serde;
@@ -115,7 +113,8 @@ impl Buffer {
     }
 
     /// this releases our memory to the caller
-    pub fn from_vec(v: Vec<u8>) -> Self {
+    pub fn from_vec(mut v: Vec<u8>) -> Self {
+        v.shrink_to_fit();
         Self {
             len: v.len(),
             cap: v.capacity(),
@@ -150,6 +149,7 @@ pub struct ResultMsg {
 const RC_NO_ERROR: ResultCode = 0;
 const RC_DECODE: ResultCode = -1;
 const RC_ENCODE: ResultCode = -2;
+const RC_UNKNOWN: ResultCode = -128;
 
 pub type ABIResult<T> = Result<T, ResultMsg>;
 
@@ -168,7 +168,7 @@ impl<T> TBytes<T> {
 
 impl<T> TBytes<T> {
     #[inline]
-    fn try_from<M>(value: T) -> ABIResult<Self> where
+    pub fn try_from<M>(value: T) -> ABIResult<Self> where
         T: IntoMessage<M>,
         M: TryIntoBytes,
     {
@@ -226,10 +226,14 @@ impl GoFfiResult {
     pub fn from_ok<T>(data: T) -> Self {
         Self { code: RC_NO_ERROR, data_ptr: Box::leak(Box::new(data)) as *mut T as usize }
     }
-    pub(crate) fn from_err(ret_msg: ResultMsg) -> Self {
+    pub(crate) fn from_err(mut ret_msg: ResultMsg) -> Self {
         let err = ret_msg.msg.to_string();
-        #[cfg(debug_assertions)]
-        error!("{}", err);
+        #[cfg(debug_assertions)]{
+            error!("{}", err);
+        }
+        if ret_msg.code == 0 {
+            ret_msg.code = RC_UNKNOWN
+        }
         Self { code: ret_msg.code, data_ptr: Box::leak(Box::new(err)) as *mut String as usize }
     }
     pub unsafe fn consume_data<T>(&mut self) -> Option<T> {
@@ -300,17 +304,19 @@ pub struct RustFfiResult {
 
 impl RustFfiResult {
     #[inline]
-    pub fn ok(data: Buffer) -> Self {
+    pub fn from_ok(data: Buffer) -> Self {
         Self { code: RC_NO_ERROR, data }
     }
     #[inline]
-    pub(crate) fn err<E: Debug>(code: ResultCode, _err: Option<E>) -> Self {
+    pub(crate) fn from_err(mut ret_msg: ResultMsg) -> Self {
+        let err = ret_msg.msg.to_string();
         #[cfg(debug_assertions)]{
-            if let Some(err) = _err {
-                error!("{:?}", err);
-            }
+            error!("{}", err);
         }
-        Self { code, data: Buffer::null() }
+        if ret_msg.code == 0 {
+            ret_msg.code = RC_UNKNOWN
+        }
+        Self { code: ret_msg.code, data: Buffer::from_vec(ret_msg.msg.into_bytes()) }
     }
 }
 
@@ -325,10 +331,10 @@ impl<T: TryIntoBytes> From<ABIResult<T>> for RustFfiResult {
     fn from(value: ABIResult<T>) -> Self {
         match value {
             Ok(v) => match v.try_into_bytes() {
-                Ok(v) => Self::ok(Buffer::from_vec(v)),
-                Err(e) => Self::err(RC_ENCODE, Some(e)),
+                Ok(v) => Self::from_ok(Buffer::from_vec(v)),
+                Err(e) => Self::from_err(e),
             },
-            Err(e) => Self::err(e.code, Some(e.msg))
+            Err(e) => Self::from_err(e)
         }
     }
 }

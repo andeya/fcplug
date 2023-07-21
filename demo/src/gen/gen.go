@@ -2,9 +2,9 @@ package gen
 
 /*
    #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/debug
-   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/debug -lffidl_demo
+   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/debug -ldemo
 
-   #include "ffidl_demo.h"
+   #include "demo.h"
 */
 import "C"
 
@@ -31,6 +31,13 @@ var GlobalRustFfi RustFfi = RustFfiImpl{}
 
 type ResultCode = int8
 
+const (
+	RcNoError ResultCode = 0
+	RcDecode  ResultCode = -1
+	RcEncode  ResultCode = -2
+	RcUnknown ResultCode = -128
+)
+
 // TBytes bytes with type marker
 type TBytes[T any] struct {
 	bytes []byte
@@ -38,20 +45,26 @@ type TBytes[T any] struct {
 }
 
 // TBytesFromBytes new TBytes from bytes
+//
+//go:inline
 func TBytesFromBytes[T any](bytes []byte) TBytes[T] {
 	return TBytes[T]{bytes: bytes}
 }
 
 // TBytesFromString new TBytes from string
+//
+//go:inline
 func TBytesFromString[T any](s string) TBytes[T] {
 	return TBytes[T]{bytes: valconv.StringToReadonlyBytes[string](s)}
 }
 
+//go:inline
 func TBytesFromPbUnchecked[T proto.Message](obj T) TBytes[T] {
 	tb, _ := TBytesFromPb[T](obj)
 	return tb
 }
 
+//go:inline
 func TBytesFromPb[T proto.Message](obj T) (TBytes[T], error) {
 	var tb TBytes[T]
 	var err error
@@ -62,11 +75,13 @@ func TBytesFromPb[T proto.Message](obj T) (TBytes[T], error) {
 	return tb, nil
 }
 
+//go:inline
 func TBytesFromJsonUnchecked[T proto.Message](obj T) TBytes[T] {
 	tb, _ := TBytesFromJson[T](obj)
 	return tb
 }
 
+//go:inline
 func TBytesFromJson[T any](obj T) (TBytes[T], error) {
 	var tb TBytes[T]
 	var err error
@@ -77,14 +92,78 @@ func TBytesFromJson[T any](obj T) (TBytes[T], error) {
 	return tb, nil
 }
 
+//go:inline
+func (b TBytes[T]) Len() int {
+	return len(b.bytes)
+}
+
+// PbUnmarshal as protobuf to unmarshal
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (b TBytes[T]) PbUnmarshal() (*T, error) {
+	var t T
+	if b.Len() > 0 {
+		err := proto.Unmarshal(b.bytes, any(&t).(proto.Message))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &t, nil
+}
+
+// JsonUnmarshal as json to unmarshal
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (b TBytes[T]) JsonUnmarshal() (*T, error) {
+	var t T
+	if b.Len() > 0 {
+		err := sonic.Unmarshal(b.bytes, &t)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &t, nil
+}
+
+// Unmarshal unmarshal to object
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (b TBytes[T]) Unmarshal(unmarshal func([]byte, any) error) (*T, error) {
+	var t T
+	if b.Len() > 0 {
+		err := unmarshal(b.bytes, &t)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &t, nil
+}
+
+//go:inline
+func (b TBytes[T]) ForCBuffer() (unsafe.Pointer, int) {
+	size := len(b.bytes)
+	if size == 0 {
+		return nil, 0
+	}
+	if cap(b.bytes) > size {
+		b.bytes = b.bytes[0:size:size]
+	}
+	return unsafe.Pointer(&b.bytes[0]), size
+}
+
+//go:inline
 func (b TBytes[T]) asBuffer() C.struct_Buffer {
-	if len(b.bytes) == 0 {
+	p, size := b.ForCBuffer()
+	if size == 0 {
 		return C.struct_Buffer{}
 	}
 	return C.struct_Buffer{
-		ptr: (*C.uint8_t)(unsafe.Pointer(&b.bytes[0])),
-		len: C.uintptr_t(len(b.bytes)),
-		cap: C.uintptr_t(cap(b.bytes)),
+		ptr: (*C.uint8_t)(p),
+		len: C.uintptr_t(size),
+		cap: C.uintptr_t(size),
 	}
 }
 
@@ -148,7 +227,7 @@ func newRustFfiResult[T any](ret C.struct_RustFfiResult) RustFfiResult[T] {
 
 //go:inline
 func (r RustFfiResult[T]) IsOk() bool {
-	return r.Code == 0
+	return r.Code == RcNoError
 }
 
 // AsError as an error
@@ -156,7 +235,7 @@ func (r RustFfiResult[T]) IsOk() bool {
 //
 //go:inline
 func (r RustFfiResult[T]) AsError() error {
-	if r.Code != 0 {
+	if r.Code != RcNoError {
 		return errors.New(r.AsString())
 	}
 	return nil

@@ -11,14 +11,15 @@ documentation.workspace = true
 
 [lib]
 crate-type = ["rlib", "staticlib"]
+[[bin]]
+path = "src/gen/cgobin/main.rs"
+name = "goffi"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-protobuf = { workspace = true }
 fcplug = { workspace = true }
-flatbuffers = { workspace = true }
-cbindgen = { workspace = true }
-goffi_gen = { path = "goffi_gen" }
+pilota = { workspace = true }
+serde = { workspace = true }
 [build-dependencies]
 fcplug-build = { workspace = true }

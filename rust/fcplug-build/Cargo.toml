@@ -23,5 +23,6 @@ flatc-rust = { workspace = true }
 defer-lite = { workspace = true }
 anyhow = { workspace = true }
 pilota-build = { workspace = true }
-pilota-thrift-parser = "0.4.2"
-itertools = "0.10"
+
+[patch.crates-io]
+pilota-build = { path = "rust/fcplug-build/pilota-build" }

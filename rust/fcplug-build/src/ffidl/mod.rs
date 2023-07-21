@@ -18,6 +18,7 @@ use crate::ffidl::gen_rust::RustCodegenBackend;
 mod gen_rust;
 mod gen_go;
 
+const CGOBIN: &'static str = "cgobin";
 #[cfg(not(debug_assertions))]
 const MODE: &'static str = "release";
 #[cfg(debug_assertions)]
@@ -55,7 +56,8 @@ pub struct GoObjectPath {
 pub(crate) struct FFIDL {
     config: Arc<Config>,
     rust_c_header_name_base: Arc<RefCell<String>>,
-    rust_c_lib_dir: Arc<RefCell<PathBuf>>,
+    go_c_header_name_base: Arc<RefCell<String>>,
+    clib_dir: Arc<RefCell<PathBuf>>,
     go_pkg_code: Arc<RefCell<String>>,
     go_main_code: Arc<RefCell<String>>,
 }
@@ -72,10 +74,11 @@ impl FFIDL {
             go_pkg_code: Arc::new(RefCell::new(String::new())),
             go_main_code: Arc::new(RefCell::new(String::new())),
             rust_c_header_name_base: Arc::new(RefCell::new("".to_string())),
-            rust_c_lib_dir: Arc::new(RefCell::new(Default::default())),
+            go_c_header_name_base: Arc::new(RefCell::new("".to_string())),
+            clib_dir: Arc::new(RefCell::new(Default::default())),
         }
             .check_idl()?
-            .set_rust_clib_path()
+            .set_clib_paths()
             .gen_rust_and_go()
     }
     fn include_dir(&self) -> PathBuf {
@@ -115,9 +118,11 @@ impl FFIDL {
         }
         Ok(self)
     }
-    fn set_rust_clib_path(self) -> Self {
+
+    fn set_clib_paths(self) -> Self {
         *self.rust_c_header_name_base.borrow_mut() = env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
-        *self.rust_c_lib_dir.borrow_mut() = env::var("CARGO_TARGET_DIR").map_or_else(
+        *self.go_c_header_name_base.borrow_mut() = "go_".to_string() + &env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
+        *self.clib_dir.borrow_mut() = env::var("CARGO_TARGET_DIR").map_or_else(
             |_|
                 PathBuf::from(env::var("CARGO_WORKSPACE_DIR")
                     .unwrap_or(env::var("CARGO_MANIFEST_DIR").unwrap_or_default())
@@ -129,7 +134,7 @@ impl FFIDL {
     }
 
     fn gen_rust_and_go(self) -> anyhow::Result<()> {
-        fs::create_dir_all(&self.config.output_dir.join("cgobin"))?;
+        fs::create_dir_all(&self.config.output_dir.join(CGOBIN))?;
         let pkg_name = self.config.dir_name();
 
         let temp_dir = temp_dir();
@@ -148,9 +153,38 @@ impl FFIDL {
             eprintln!("gen_protobuf_code: {:?}", output)
         }
 
-        *self.go_main_code.borrow_mut() = "package main\n".to_string();
+        let import_gen_pkg = self.config.go_mod_path;
         let rust_c_header_name_base = self.rust_c_header_name_base.borrow().to_string();
-        let rust_c_lib_dir = self.rust_c_lib_dir.borrow().as_os_str().to_str().unwrap().to_string();
+        let rust_c_lib_dir = self.clib_dir.borrow().as_os_str().to_str().unwrap().to_string();
+        *self.go_main_code.borrow_mut() = format!(r###"package main
+
+/*
+#cgo CFLAGS: -I{rust_c_lib_dir}
+#cgo LDFLAGS: -L{rust_c_lib_dir} -l{rust_c_header_name_base}
+
+#include "{rust_c_header_name_base}.h"
+*/
+import "C"
+import (
+	"reflect"
+	"unsafe"
+
+	"{import_gen_pkg}"
+	"github.com/andeya/gust"
+)
+
+// main function is never called by C to.
+func main() {{}}
+
+var (
+	_ reflect.SliceHeader
+	_ unsafe.Pointer
+	_ gust.EnumResult[any, any]
+	_ gen.ResultCode
+)
+
+        "###);
+
         *self.go_pkg_code.borrow_mut() = format!(
             r###"package {pkg_name}
             /*
@@ -213,7 +247,7 @@ impl FFIDL {
             "###, self.config.go_mod_path),
         )?;
         fs::write(
-            self.config.output_dir.join("cgobin").join("main.go"),
+            self.config.output_dir.join(CGOBIN).join("main.go"),
             self.go_main_code.borrow().as_str(),
         )?;
 
@@ -221,8 +255,7 @@ impl FFIDL {
             .arg("-l")
             .arg("-w")
             .arg(self.config.output_dir.to_str().unwrap())
-            .output()
-            .unwrap();
+            .output()?;
         if !output.status.success() {
             eprintln!("{:?}", output);
         }
@@ -230,12 +263,12 @@ impl FFIDL {
         let output = new_shell_cmd()
             .current_dir(&self.config.output_dir)
             .arg("go mod tidy").arg(self.config.output_dir.to_str().unwrap())
-            .output()
-            .unwrap();
+            .output()?;
         if !output.status.success() {
             eprintln!("{:?}", output);
         }
 
+        self.gen_go_clib()?;
         Ok(())
     }
     fn gen_rust_clib(&self) -> anyhow::Result<()> {
@@ -267,7 +300,27 @@ void free_buffer(struct Buffer buf);
 
 "###)
             .generate()?
-            .write_to_file(self.rust_c_lib_dir.borrow().join(self.rust_c_header_name_base.borrow().to_string() + ".h"));
+            .write_to_file(self.clib_dir.borrow().join(self.rust_c_header_name_base.borrow().to_string() + ".h"));
+        Ok(())
+    }
+    fn gen_go_clib(&self) -> anyhow::Result<()> {
+        let output = new_shell_cmd()
+            .arg(format!(
+                "CGO_ENABLED=1 go build -buildmode=c-archive -o {} {}",
+                self.clib_dir.borrow().join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".a").to_str().unwrap(),
+                self.config.output_dir.join(CGOBIN).to_str().unwrap(),
+            ))
+            .output()
+            .unwrap();
+        if !output.status.success() {
+            return Err(anyhow!(format!("{:?}",output)));
+        }
+        println!("cargo:rustc-link-search={}", self.clib_dir.borrow().to_str().unwrap());
+        println!("cargo:rustc-link-lib={}", self.go_c_header_name_base.borrow());
+        println!(
+            "cargo:rerun-if-changed={}",
+            self.clib_dir.borrow().join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".h").to_str().unwrap(),
+        );
         Ok(())
     }
 }
@@ -377,10 +430,10 @@ mod tests {
     #[test]
     fn test_idl() {
         FFIDL::generate(Config {
-            idl_file_path: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/ffidl.proto".into(),
-            output_dir: "/Users/henrylee2cn/rust/fcplug/ffidl_demo/src/gen".into(),
+            idl_file_path: "/Users/henrylee2cn/rust/fcplug/demo/ffidl.proto".into(),
+            output_dir: "/Users/henrylee2cn/rust/fcplug/demo/src/gen".into(),
             impl_ffi_for_unitstruct: Some(UnitLikeStructPath("crate::Test")),
-            go_mod_path: "github.com/andeya/fcplug/ffidl_demo/src/gen",
+            go_mod_path: "github.com/andeya/fcplug/demo/src/gen",
             go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
             goffi_impl_of_object: None,
         })
