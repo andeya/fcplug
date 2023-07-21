@@ -204,7 +204,11 @@ impl FFIDL {
 
             go 1.19
 
-            replace github.com/andeya/fcplug/go/ctypes => /Users/henrylee2cn/rust/fcplug/go/ctypes
+            require (
+                github.com/andeya/gust v1.5.2
+                github.com/bytedance/sonic v1.9.2
+                github.com/golang/protobuf v1.5.3
+            )
 
             "###, self.config.go_mod_path),
         )?;
