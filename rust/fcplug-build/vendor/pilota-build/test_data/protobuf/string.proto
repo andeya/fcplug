@@ -1,6 +1,0 @@
-syntax = "proto3";
-
-message A {
-    optional string a = 1;
-    string b = 2;
-}

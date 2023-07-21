@@ -51,12 +51,11 @@ flatbuffers = "23.5.26"
 flatc-rust = "0.2.0"
 bindgen = "0.66.1"
 anyhow = "1"
-pilota-build = "0.7.7"
+pilota-build = { version = "0.7.7", package = "pilota-build2" }
 pilota = "0.7.0"
 serde = "1"
 serde_json = "1"
 
 [patch.crates-io]
-pilota-build = { path = "rust/fcplug-build/vendor/pilota-build" }
 fcplug-build = { path = "rust/fcplug-build" }
 fcplug = { path = "rust/fcplug" }
