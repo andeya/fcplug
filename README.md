@@ -7,7 +7,7 @@ Foreign Clang Plugin solution.
 | ⇊Caller \ Callee⇉ |  Go  | Rust |
 |-------------------|:----:|:----:|
 | Go                |  -   |  ✅   |
-| Rust              | TODO |  -   |
+| Rust              |  ✅ |  -   |
 
 ## Usage
 

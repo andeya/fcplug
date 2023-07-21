@@ -15,7 +15,6 @@ crate-type = ["rlib", "staticlib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fcplug-macros = { workspace = true }
 defer-lite = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }

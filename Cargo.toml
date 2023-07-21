@@ -21,7 +21,7 @@ exclude = []
 
 [workspace.package]
 edition = "2021"
-version = "0.2.4"
+version = "0.3.0"
 authors = ["Andeya <andeyalee@outlook.com>"]
 description = "Foreign Clang Plugin solution"
 repository = "https://github.com/andeya/fcplug"
@@ -32,8 +32,7 @@ documentation = "https://docs.rs/fcplug"
 
 [workspace.dependencies]
 fcplug = { path = "rust/fcplug" }
-fcplug-macros = "0.2.4"
-fcplug-build = "0.2.4"
+fcplug-build = { path = "rust/fcplug-build" }
 
 syn = { version = "1.0.109", features = ["full"] }
 quote = "1.0.29"
@@ -58,6 +57,6 @@ serde = "1"
 serde_json = "1"
 
 [patch.crates-io]
-pilota-build = { path = "rust/fcplug-build/pilota-build" }
+pilota-build = { path = "rust/fcplug-build/vendor/pilota-build" }
 fcplug-build = { path = "rust/fcplug-build" }
 fcplug = { path = "rust/fcplug" }
