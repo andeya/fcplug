@@ -25,6 +25,15 @@ pub extern "C" fn free_buffer(buf: Buffer) {
     unsafe { buf.mem_free() }
 }
 
+#[no_mangle]
+pub extern "C" fn leak_buffer(buf: Buffer) -> usize {
+    if let Some(v) = buf.read() {
+        Box::leak(Box::new(v.to_vec())) as *mut Vec<u8> as usize
+    } else {
+        0
+    }
+}
+
 pub trait FromMessage<M> {
     fn from_message(value: M) -> Self;
     fn try_from_bytes(buf: &mut [u8]) -> ABIResult<Self>

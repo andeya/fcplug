@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use fcplug::{ABIResult, GoFfiResult, RustFfiArg, TBytes, TryIntoTBytes};
 use fcplug::protobuf::PbMessage;
 
-use crate::gen::{Client, GoFfi, RustFfi, SearchRequest, Server, WebSite};
+use crate::gen::{Client, Empty, GoFfi, RustFfi, SearchRequest, Server, WebSite};
 
 pub mod gen;
 
@@ -30,6 +30,14 @@ mod tests {
         }.try_into_tbytes::<PbMessage<_>>().unwrap();
         let cli = unsafe { Test::search_client::<Client>(req).unwrap() };
         println!("{:?}", cli);
+    }
+
+    #[test]
+    fn empty() {
+        let req = Empty {
+        }.try_into_tbytes::<PbMessage<_>>().unwrap();
+        let ret = unsafe { Test::test_empty::<Empty>(req) };
+        println!("{:?}", ret);
     }
 }
 
@@ -58,5 +66,9 @@ impl RustFfi for Test {
 impl GoFfi for Test {
     unsafe fn search_client_set_result(mut go_ret: RustFfiArg<Client>) -> GoFfiResult {
         GoFfiResult::from_ok(go_ret.try_to_object::<PbMessage<Client>>()?)
+    }
+
+    unsafe fn test_empty_set_result(go_ret: RustFfiArg<Empty>) -> GoFfiResult {
+        todo!()
     }
 }

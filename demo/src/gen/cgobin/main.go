@@ -59,10 +59,16 @@ func asBytes[T any](buf C.struct_Buffer) gen.TBytes[T] {
 
 type GoFfi interface {
 	SearchClient(req gen.TBytes[*gen.SearchRequest]) gust.EnumResult[gen.TBytes[*gen.Client], ResultMsg]
+
+	TestEmpty(req gen.TBytes[*gen.Empty]) gust.EnumResult[gen.TBytes[*gen.Empty], ResultMsg]
 }
 type _UnimplementedGoFfi struct{}
 
 func (_UnimplementedGoFfi) SearchClient(req gen.TBytes[*gen.SearchRequest]) gust.EnumResult[gen.TBytes[*gen.Client], ResultMsg] {
+	panic("unimplemented")
+}
+
+func (_UnimplementedGoFfi) TestEmpty(req gen.TBytes[*gen.Empty]) gust.EnumResult[gen.TBytes[*gen.Empty], ResultMsg] {
 	panic("unimplemented")
 }
 
@@ -75,13 +81,41 @@ func goffi_search_client(req C.struct_Buffer) C.struct_GoFfiResult {
 		if _SearchClient_Ret_Msg.Code == gen.RcNoError {
 			_SearchClient_Ret_Msg.Code = gen.RcUnknown
 		}
-		if _SearchClient_Set_Ret := C.goffi_search_client_set_result(asBuffer(gen.TBytesFromString[string](_SearchClient_Ret_Msg.Msg))); gen.ResultCode(_SearchClient_Set_Ret.code) != gen.RcNoError {
-			return _SearchClient_Set_Ret
-		} else {
-			return C.struct_GoFfiResult{
-				code:     C.int8_t(_SearchClient_Ret_Msg.Code),
-				data_ptr: _SearchClient_Set_Ret.data_ptr,
-			}
+		return C.struct_GoFfiResult{
+			code:     C.int8_t(_SearchClient_Ret_Msg.Code),
+			data_ptr: C.leak_buffer(asBuffer(gen.TBytesFromString[string](_SearchClient_Ret_Msg.Msg))),
 		}
+		// if _SearchClient_Set_Ret := C.leak_buffer(asBuffer(gen.TBytesFromString[string](_SearchClient_Ret_Msg.Msg))); gen.ResultCode(_SearchClient_Set_Ret.code) != gen.RcNoError {
+		//     return _SearchClient_Set_Ret
+		// } else {
+		//     return C.struct_GoFfiResult{
+		//         code:     C.int8_t(_SearchClient_Ret_Msg.Code),
+		//         data_ptr: _SearchClient_Set_Ret.data_ptr,
+		//     }
+		// }
+	}
+}
+
+//export goffi_test_empty
+func goffi_test_empty(req C.struct_Buffer) C.struct_GoFfiResult {
+	if _TestEmpty_Ret := GlobalGoFfi.TestEmpty(asBytes[*gen.Empty](req)); _TestEmpty_Ret.IsOk() {
+		return C.goffi_test_empty_set_result(asBuffer(_TestEmpty_Ret.Unwrap()))
+	} else {
+		_TestEmpty_Ret_Msg := _TestEmpty_Ret.UnwrapErr()
+		if _TestEmpty_Ret_Msg.Code == gen.RcNoError {
+			_TestEmpty_Ret_Msg.Code = gen.RcUnknown
+		}
+		return C.struct_GoFfiResult{
+			code:     C.int8_t(_TestEmpty_Ret_Msg.Code),
+			data_ptr: C.leak_buffer(asBuffer(gen.TBytesFromString[string](_TestEmpty_Ret_Msg.Msg))),
+		}
+		// if _TestEmpty_Set_Ret := C.leak_buffer(asBuffer(gen.TBytesFromString[string](_TestEmpty_Ret_Msg.Msg))); gen.ResultCode(_TestEmpty_Set_Ret.code) != gen.RcNoError {
+		//     return _TestEmpty_Set_Ret
+		// } else {
+		//     return C.struct_GoFfiResult{
+		//         code:     C.int8_t(_TestEmpty_Ret_Msg.Code),
+		//         data_ptr: _TestEmpty_Set_Ret.data_ptr,
+		//     }
+		// }
 	}
 }

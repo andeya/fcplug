@@ -1,5 +1,6 @@
 syntax = "proto3";
-
+//import "google/protobuf/empty.proto";
+message Empty {}
 message SearchRequest {
   string query = 1;
   int32  page_number = 2;
@@ -31,4 +32,5 @@ message Client {
 
 service GoFFI {
   rpc Search_client (SearchRequest) returns (Client) {}
+  rpc test_empty (Empty) returns (Empty) {}
 }

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use pilota_build::{CodegenBackend, Context, DefId, MakeBackend, Output, ProtobufBackend, rir::Enum, rir::Message, rir::Method, rir::NewType, rir::Service};
 use pilota_build::ir::ItemKind;
-use pilota_build::parser::{Parser, ParseResult, ProtobufParser};
+use pilota_build::parser::{Parser, ProtobufParser};
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 
 use crate::ffidl::gen_go::GoCodegenBackend;
@@ -89,8 +89,11 @@ impl FFIDL {
         // let mut parser = ThriftParser::default();
         Parser::include_dirs(&mut parser, vec![self.include_dir()]);
         Parser::input(&mut parser, &self.config.idl_file_path);
-        let mut ret: ParseResult = Parser::parse(parser);
-        for item in &ret.files.pop().unwrap().items {
+        let file = Parser::parse(parser).files.pop().unwrap();
+        if !file.uses.is_empty() {
+            return Err(anyhow!("Does not support Protobuf 'import'."));
+        }
+        for item in &file.items {
             match &item.kind {
                 ItemKind::Message(_) => {}
                 ItemKind::Service(service_item) => {
@@ -297,6 +300,7 @@ typedef struct GoFfiResult {
 } GoFfiResult;
 
 void free_buffer(struct Buffer buf);
+uintptr_t leak_buffer(struct Buffer buf);
 
 "###)
             .generate()?

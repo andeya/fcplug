@@ -433,13 +433,9 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
                     if _{iface_method_name}_Ret_Msg.Code == {mod_name}.RcNoError {{
                         _{iface_method_name}_Ret_Msg.Code = {mod_name}.RcUnknown
                     }}
-                    if _{iface_method_name}_Set_Ret := C.{ffi_func_name}_set_result(asBuffer({mod_name}.TBytesFromString[string](_{iface_method_name}_Ret_Msg.Msg))); {mod_name}.ResultCode(_{iface_method_name}_Set_Ret.code) != {mod_name}.RcNoError {{
-                        return _{iface_method_name}_Set_Ret
-                    }} else {{
-                        return C.struct_GoFfiResult{{
-                            code:     C.int8_t(_{iface_method_name}_Ret_Msg.Code),
-                            data_ptr: _{iface_method_name}_Set_Ret.data_ptr,
-                        }}
+                    return C.struct_GoFfiResult{{
+                        code:     C.int8_t(_{iface_method_name}_Ret_Msg.Code),
+                        data_ptr: C.leak_buffer(asBuffer({mod_name}.TBytesFromString[string](_{iface_method_name}_Ret_Msg.Msg))),
                     }}
                 }}
             }}
