@@ -440,6 +440,7 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
 
             if is_empty_ret {
                 ffi_functions.push_str(&format!(r###"
+                //go:inline
                 //export {ffi_func_name}
                 func {ffi_func_name}({ffi_args_sign}) C.struct_GoFfiResult {{
                     if _{iface_method_name}_Ret_Msg := GlobalGoFfi.{iface_method_name}({ffi_args_assign}); _{iface_method_name}_Ret_Msg.Code == {mod_name}.RcNoError {{
@@ -454,6 +455,7 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
                 "###));
             } else {
                 ffi_functions.push_str(&format!(r###"
+                //go:inline
                 //export {ffi_func_name}
                 func {ffi_func_name}({ffi_args_sign}) C.struct_GoFfiResult {{
                     if _{iface_method_name}_Ret := GlobalGoFfi.{iface_method_name}({ffi_args_assign}); _{iface_method_name}_Ret.IsOk() {{

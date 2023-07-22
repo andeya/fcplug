@@ -72,6 +72,7 @@ func (_UnimplementedGoFfi) TestEmpty() ResultMsg {
 	panic("unimplemented")
 }
 
+//go:inline
 //export goffi_search_client
 func goffi_search_client(req C.struct_Buffer) C.struct_GoFfiResult {
 	if _SearchClient_Ret := GlobalGoFfi.SearchClient(asBytes[*gen.SearchRequest](req)); _SearchClient_Ret.IsOk() {
@@ -88,6 +89,7 @@ func goffi_search_client(req C.struct_Buffer) C.struct_GoFfiResult {
 	}
 }
 
+//go:inline
 //export goffi_test_empty
 func goffi_test_empty() C.struct_GoFfiResult {
 	if _TestEmpty_Ret_Msg := GlobalGoFfi.TestEmpty(); _TestEmpty_Ret_Msg.Code == gen.RcNoError {
