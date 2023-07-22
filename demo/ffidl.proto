@@ -23,6 +23,7 @@ message web_site {
 
 service RustFFI {
   rpc SearchWeb_site (SearchRequest) returns (web_site) {}
+  rpc rs_test_empty (Empty) returns (Empty) {}
 }
 
 message Client {

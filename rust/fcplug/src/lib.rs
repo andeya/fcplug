@@ -123,11 +123,15 @@ impl Buffer {
 
     /// this releases our memory to the caller
     pub fn from_vec(mut v: Vec<u8>) -> Self {
-        v.shrink_to_fit();
-        Self {
-            len: v.len(),
-            cap: v.capacity(),
-            ptr: v.leak().as_mut_ptr(),
+        if v.is_empty() {
+            Self::null()
+        } else {
+            v.shrink_to_fit();
+            Self {
+                len: v.len(),
+                cap: v.capacity(),
+                ptr: v.leak().as_mut_ptr(),
+            }
         }
     }
 

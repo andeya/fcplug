@@ -199,12 +199,10 @@ func (b CBuffer) AsBytes() []byte {
 
 //go:inline
 func (b CBuffer) AsString() string {
+    if b.buf.len == 0 {
+		return ""
+	}
 	return valconv.BytesToString[string](b.AsBytes())
-}
-
-//go:inline
-func (b CBuffer) String() string {
-	return b.AsString()
 }
 
 // RustFfiResult Rust FFI Result for Go
@@ -222,6 +220,11 @@ func newRustFfiResult[T any](ret C.struct_RustFfiResult) RustFfiResult[T] {
 		Code:    ResultCode(ret.code),
 		_nil:    nil,
 	}
+}
+
+//go:inline
+func (r RustFfiResult[T]) String() string {
+	return fmt.Sprintf("Code: %d, CBuffer: %s", r.Code, r.CBuffer.AsString())
 }
 
 //go:inline
@@ -393,14 +396,26 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
                 }
             }).collect::<Vec<String>>().join(",");
             let ret_type = self.ret_type(method, true);
-            iface_methods.push_str(&format!(r###"
+            let is_empty_ret = self.context.is_empty_ty(&method.ret.kind);
+            if is_empty_ret {
+                iface_methods.push_str(&format!(r###"
+                {iface_method_name}({args_sign}) ResultMsg
+            "###));
+                impl_methods.push_str(&format!(r###"
+                func (_UnimplementedGoFfi) {iface_method_name}({args_sign}) ResultMsg {{
+                    panic("unimplemented")
+                }}
+            "###));
+            } else {
+                iface_methods.push_str(&format!(r###"
                 {iface_method_name}({args_sign}) gust.EnumResult[{mod_name}.TBytes[*{ret_type}], ResultMsg]
             "###));
-            impl_methods.push_str(&format!(r###"
+                impl_methods.push_str(&format!(r###"
                 func (_UnimplementedGoFfi) {iface_method_name}({args_sign}) gust.EnumResult[{mod_name}.TBytes[*{ret_type}], ResultMsg] {{
                     panic("unimplemented")
                 }}
             "###));
+            }
 
             let ffi_func_name = self.ffi_func_name(service_def_id, method, false);
             let ffi_args_assign = method.args.iter().map(|arg| {
@@ -423,23 +438,39 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
                 }
             }).collect::<Vec<String>>().join(",");
 
-            ffi_functions.push_str(&format!(r###"
-            //export {ffi_func_name}
-            func {ffi_func_name}({ffi_args_sign}) C.struct_GoFfiResult {{
-                if _{iface_method_name}_Ret := GlobalGoFfi.{iface_method_name}({ffi_args_assign}); _{iface_method_name}_Ret.IsOk() {{
-                    return C.{ffi_func_name}_set_result(asBuffer(_{iface_method_name}_Ret.Unwrap()))
-                }} else {{
-                    _{iface_method_name}_Ret_Msg := _{iface_method_name}_Ret.UnwrapErr()
-                    if _{iface_method_name}_Ret_Msg.Code == {mod_name}.RcNoError {{
-                        _{iface_method_name}_Ret_Msg.Code = {mod_name}.RcUnknown
-                    }}
-                    return C.struct_GoFfiResult{{
-                        code:     C.int8_t(_{iface_method_name}_Ret_Msg.Code),
-                        data_ptr: C.leak_buffer(asBuffer({mod_name}.TBytesFromString[string](_{iface_method_name}_Ret_Msg.Msg))),
+            if is_empty_ret {
+                ffi_functions.push_str(&format!(r###"
+                //export {ffi_func_name}
+                func {ffi_func_name}({ffi_args_sign}) C.struct_GoFfiResult {{
+                    if _{iface_method_name}_Ret_Msg := GlobalGoFfi.{iface_method_name}({ffi_args_assign}); _{iface_method_name}_Ret_Msg.Code == {mod_name}.RcNoError {{
+                        return C.struct_GoFfiResult{{}}
+                    }} else {{
+                        return C.struct_GoFfiResult{{
+                            code:     C.int8_t(_{iface_method_name}_Ret_Msg.Code),
+                            data_ptr: C.leak_buffer(asBuffer({mod_name}.TBytesFromString[string](_{iface_method_name}_Ret_Msg.Msg))),
+                        }}
                     }}
                 }}
-            }}
-            "###));
+                "###));
+            } else {
+                ffi_functions.push_str(&format!(r###"
+                //export {ffi_func_name}
+                func {ffi_func_name}({ffi_args_sign}) C.struct_GoFfiResult {{
+                    if _{iface_method_name}_Ret := GlobalGoFfi.{iface_method_name}({ffi_args_assign}); _{iface_method_name}_Ret.IsOk() {{
+                        return C.{ffi_func_name}_set_result(asBuffer(_{iface_method_name}_Ret.Unwrap()))
+                    }} else {{
+                        _{iface_method_name}_Ret_Msg := _{iface_method_name}_Ret.UnwrapErr()
+                        if _{iface_method_name}_Ret_Msg.Code == {mod_name}.RcNoError {{
+                            _{iface_method_name}_Ret_Msg.Code = {mod_name}.RcUnknown
+                        }}
+                        return C.struct_GoFfiResult{{
+                            code:     C.int8_t(_{iface_method_name}_Ret_Msg.Code),
+                            data_ptr: C.leak_buffer(asBuffer({mod_name}.TBytesFromString[string](_{iface_method_name}_Ret_Msg.Msg))),
+                        }}
+                    }}
+                }}
+                "###));
+            }
         }
 
         format!(r###"
@@ -462,7 +493,7 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
     fn codegen_item_ty(&self, ty: &TyKind, is_main: bool) -> String {
         match &ty {
             TyKind::String => "string".to_string(),
-            TyKind::Void => "".to_string(),
+            TyKind::Void => "struct{}".to_string(),
             TyKind::U8 => "uint8".to_string(),
             TyKind::Bool => "bool".to_string(),
             TyKind::Bytes => "[]byte".to_string(),

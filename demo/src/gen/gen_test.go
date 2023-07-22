@@ -21,3 +21,15 @@ func TestRustFfiSearchWebSite(t *testing.T) {
 		spew.Dump(obj)
 	}
 }
+
+func TestEmpty(t *testing.T) {
+	ret := GlobalRustFfi.RsTestEmpty()
+	defer ret.Free()
+	t.Log(ret)
+	obj, err := ret.PbUnmarshal()
+	if err != nil {
+		t.Log(err)
+	} else {
+		spew.Dump(obj)
+	}
+}

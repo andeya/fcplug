@@ -21,15 +21,22 @@ impl RustCodegenBackend {
         match self.context.service_type(service_def_id) {
             ServiceType::RustFfi => format!("fn {method_name}({args}) -> {ret};"),
             ServiceType::GoFfi => {
-                let set_ret_fn = if method.ret.is_scalar() {
+                let is_empty_ret = self.context.is_empty_ty(&method.ret.kind);
+                let set_ret_fn = if is_empty_ret || method.ret.is_scalar() {
                     String::new()
                 } else {
                     let ffi_ret = self.codegen_ffi_ret(service_def_id, method);
                     let ret_ty_name = self.codegen_item_ty(&method.ret.kind);
                     format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret};")
                 };
+
+                let generic_signature = if self.context.is_empty_ty(&method.ret.kind) {
+                    String::new()
+                } else {
+                    "<T: Default>".to_string()
+                };
                 let args_ident = self.codegen_ffi_args_ident(service_def_id, method);
-                format!(r###"unsafe fn {method_name}<T: Default>({args}) -> {ret} {{
+                format!(r###"unsafe fn {method_name}{generic_signature}({args}) -> {ret} {{
                     ::fcplug::ABIResult::from({service_name_lower}_{method_name}({args_ident}))
                 }}
                 {set_ret_fn}
@@ -214,14 +221,18 @@ impl RustCodegenBackend {
         let ty_name = self.codegen_item_ty(&method.ret.kind);
         match self.context.service_type(service_def_id) {
             ServiceType::RustFfi => {
-                if method.ret.is_scalar() {
+                if self.context.is_empty_ty(&method.ret.kind) {
+                    format!("::fcplug::ABIResult<()>")
+                } else if method.ret.is_scalar() {
                     format!("{ty_name}")
                 } else {
                     format!("::fcplug::ABIResult<::fcplug::TBytes<{ty_name}>>")
                 }
             }
             ServiceType::GoFfi => {
-                if method.ret.is_scalar() {
+                if self.context.is_empty_ty(&method.ret.kind) {
+                    format!("::fcplug::ABIResult<()>")
+                } else if method.ret.is_scalar() {
                     format!("{ty_name}")
                 } else {
                     format!("::fcplug::ABIResult<T>")
@@ -233,14 +244,18 @@ impl RustCodegenBackend {
         let ty_name = self.codegen_item_ty(&method.ret.kind);
         match self.context.service_type(service_def_id) {
             ServiceType::RustFfi => {
-                if method.ret.is_scalar() {
+                if self.context.is_empty_ty(&method.ret.kind) {
+                    format!("::fcplug::RustFfiResult")
+                } else if method.ret.is_scalar() {
                     format!("{ty_name}")
                 } else {
                     format!("::fcplug::RustFfiResult")
                 }
             }
             ServiceType::GoFfi => {
-                if method.ret.is_scalar() {
+                if self.context.is_empty_ty(&method.ret.kind) {
+                    format!("::fcplug::GoFfiResult")
+                } else if method.ret.is_scalar() {
                     format!("{ty_name}")
                 } else {
                     format!("::fcplug::GoFfiResult")

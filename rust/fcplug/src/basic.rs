@@ -53,6 +53,15 @@ impl<'a> TryFromBytes<'a> for &'a mut str {
     }
 }
 
+impl TryFromBytes<'_> for () {
+    #[inline(always)]
+    fn try_from_bytes(_: &mut [u8]) -> ABIResult<Self>
+        where
+            Self: Sized,
+    {
+        Ok(())
+    }
+}
 
 // ---------------------------------TryIntoBytes implement-------------------------------
 
@@ -67,5 +76,14 @@ impl TryIntoBytes for String {
     #[inline(always)]
     fn try_into_bytes(self) -> ABIResult<Vec<u8>> where Self: Sized {
         Ok(self.into_bytes())
+    }
+}
+
+const EMPTY_BYTES: Vec<u8> = Vec::new();
+
+impl TryIntoBytes for () {
+    #[inline(always)]
+    fn try_into_bytes(self) -> ABIResult<Vec<u8>> where Self: Sized {
+        Ok(EMPTY_BYTES)
     }
 }

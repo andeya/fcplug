@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -20,6 +21,7 @@ import (
 
 var (
 	_ = errors.New
+	_ = fmt.Sprintf
 	_ reflect.SliceHeader
 	_ unsafe.Pointer
 	_ valconv.ReadonlyBytes
@@ -200,12 +202,10 @@ func (b CBuffer) AsBytes() []byte {
 
 //go:inline
 func (b CBuffer) AsString() string {
+	if b.buf.len == 0 {
+		return ""
+	}
 	return valconv.BytesToString[string](b.AsBytes())
-}
-
-//go:inline
-func (b CBuffer) String() string {
-	return b.AsString()
 }
 
 // RustFfiResult Rust FFI Result for Go
@@ -223,6 +223,11 @@ func newRustFfiResult[T any](ret C.struct_RustFfiResult) RustFfiResult[T] {
 		Code:    ResultCode(ret.code),
 		_nil:    nil,
 	}
+}
+
+//go:inline
+func (r RustFfiResult[T]) String() string {
+	return fmt.Sprintf("Code: %d, CBuffer: %s", r.Code, r.CBuffer.AsString())
 }
 
 //go:inline
@@ -297,10 +302,16 @@ func (r RustFfiResult[T]) Unmarshal(unmarshal func([]byte, any) error) (*T, erro
 
 type RustFfi interface {
 	SearchWebSite(req TBytes[*SearchRequest]) RustFfiResult[WebSite]
+	RsTestEmpty() RustFfiResult[struct{}]
 }
 type RustFfiImpl struct{}
 
 //go:inline
 func (RustFfiImpl) SearchWebSite(req TBytes[*SearchRequest]) RustFfiResult[WebSite] {
 	return newRustFfiResult[WebSite](C.rustffi_search_web_site(req.asBuffer()))
+}
+
+//go:inline
+func (RustFfiImpl) RsTestEmpty() RustFfiResult[struct{}] {
+	return newRustFfiResult[struct{}](C.rustffi_rs_test_empty())
 }

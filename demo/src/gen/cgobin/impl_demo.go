@@ -11,12 +11,15 @@ func init() {
 
 type Test struct{}
 
-func (t Test) TestEmpty(req gen.TBytes[*gen.Empty]) gust.EnumResult[gen.TBytes[*gen.Empty], ResultMsg] {
-	// return gust.EnumOk[gen.TBytes[*gen.Empty], ResultMsg](gen.TBytes[*gen.Empty]{})
-	return gust.EnumErr[gen.TBytes[*gen.Empty], ResultMsg](ResultMsg{
-		Code: 1,
-		Msg:  "empty test error",
-	})
+func (t Test) TestEmpty() ResultMsg {
+	return ResultMsg{
+		Code: 0,
+		Msg:  "",
+	}
+	// return ResultMsg{
+	// 	Code: 1,
+	// 	Msg:  "empty test error",
+	// }
 }
 
 func (t Test) SearchClient(g gen.TBytes[*gen.SearchRequest]) gust.EnumResult[gen.TBytes[*gen.Client], ResultMsg] {

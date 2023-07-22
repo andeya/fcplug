@@ -8,9 +8,12 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use pilota_build::{CodegenBackend, Context, DefId, MakeBackend, Output, ProtobufBackend, rir::Enum, rir::Message, rir::Method, rir::NewType, rir::Service};
+use pilota_build::db::RirDatabase;
 use pilota_build::ir::ItemKind;
 use pilota_build::parser::{Parser, ProtobufParser};
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
+use pilota_build::rir::{Arg, Item};
+use pilota_build::ty::TyKind;
 
 use crate::ffidl::gen_go::GoCodegenBackend;
 use crate::ffidl::gen_rust::RustCodegenBackend;
@@ -200,6 +203,7 @@ var (
 
             import (
                 "errors"
+                "fmt"
                 "reflect"
                 "unsafe"
 
@@ -210,6 +214,7 @@ var (
 
             var (
                 _ = errors.New
+                _ = fmt.Sprintf
                 _ reflect.SliceHeader
                 _ unsafe.Pointer
                 _ valconv.ReadonlyBytes
@@ -348,7 +353,7 @@ impl MakeBackend for FFIDL {
                 go_main_code: self.go_main_code.clone(),
             },
             protobuf,
-            context,
+            context: Cx(context),
             config: self.config,
         }
     }
@@ -358,7 +363,7 @@ impl MakeBackend for FFIDL {
 #[derive(Clone)]
 pub struct FFIDLBackend {
     config: Arc<Config>,
-    context: Arc<Context>,
+    context: Cx,
     rust: RustCodegenBackend,
     go: GoCodegenBackend,
     protobuf: ProtobufBackend,
@@ -382,6 +387,19 @@ impl Cx {
             _ => { unreachable!() }
         }
     }
+    fn is_empty_ty(&self, kind: &TyKind) -> bool {
+        match kind {
+            TyKind::Path(path) => {
+                if let Item::Message(m) = self.item(path.did).unwrap().as_ref() {
+                    m.fields.is_empty()
+                } else {
+                    false
+                }
+            }
+            TyKind::Void => true,
+            _ => false
+        }
+    }
 }
 
 impl Deref for Cx {
@@ -392,21 +410,35 @@ impl Deref for Cx {
     }
 }
 
+impl FFIDLBackend {
+    fn fix_empty_params(&self, method: &Method) -> Method {
+        let mut method = method.clone();
+        method.args = method.args.into_iter().filter(|arg| !self.context.is_empty_ty(&arg.ty.kind)).collect::<Vec<Arc<Arg>>>();
+        if self.context.is_empty_ty(&method.ret.kind) {
+            method.ret.kind = TyKind::Void;
+        }
+        method
+    }
+}
+
 impl CodegenBackend for FFIDLBackend {
     fn cx(&self) -> &Context {
-        self.context.as_ref()
+        self.context.0.as_ref()
     }
     fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         self.protobuf.codegen_struct_impl(def_id, stream, s)
     }
     fn codegen_service_impl(&self, service_def_id: DefId, stream: &mut String, s: &Service) {
-        self.protobuf.codegen_service_impl(service_def_id, stream, s);
-        self.rust.codegen_service_impl(service_def_id, stream, s);
-        self.go.codegen(service_def_id, s)
+        let mut s = s.clone();
+        s.methods = s.methods.iter().map(|method| Arc::new(self.fix_empty_params(method))).collect::<Vec<Arc<Method>>>();
+        self.protobuf.codegen_service_impl(service_def_id, stream, &s);
+        self.rust.codegen_service_impl(service_def_id, stream, &s);
+        self.go.codegen(service_def_id, &s)
     }
     fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
-        self.protobuf.codegen_service_method(service_def_id, method);
-        self.rust.codegen_service_method(service_def_id, method)
+        let method = self.fix_empty_params(method);
+        self.protobuf.codegen_service_method(service_def_id, &method);
+        self.rust.codegen_service_method(service_def_id, &method)
     }
     fn codegen_enum_impl(&self, def_id: DefId, stream: &mut String, e: &Enum) {
         self.protobuf.codegen_enum_impl(def_id, stream, e);

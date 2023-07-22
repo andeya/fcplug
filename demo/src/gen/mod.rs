@@ -37,6 +37,7 @@ pub trait RustFfi {
     fn search_web_site(
         req: ::fcplug::RustFfiArg<SearchRequest>,
     ) -> ::fcplug::ABIResult<::fcplug::TBytes<WebSite>>;
+    fn rs_test_empty() -> ::fcplug::ABIResult<()>;
 }
 #[no_mangle]
 #[inline]
@@ -44,6 +45,12 @@ pub extern "C" fn rustffi_search_web_site(req: ::fcplug::Buffer) -> ::fcplug::Ru
     ::fcplug::RustFfiResult::from(<crate::Test as RustFfi>::search_web_site(
         ::fcplug::RustFfiArg::from(req),
     ))
+}
+
+#[no_mangle]
+#[inline]
+pub extern "C" fn rustffi_rs_test_empty() -> ::fcplug::RustFfiResult {
+    ::fcplug::RustFfiResult::from(<crate::Test as RustFfi>::rs_test_empty())
 }
 #[derive(
     PartialOrd,
@@ -266,25 +273,18 @@ pub trait GoFfi {
         go_ret: ::fcplug::RustFfiArg<Client>,
     ) -> ::fcplug::GoFfiResult;
 
-    unsafe fn test_empty<T: Default>(req: ::fcplug::TBytes<Empty>) -> ::fcplug::ABIResult<T> {
-        ::fcplug::ABIResult::from(goffi_test_empty(::fcplug::Buffer::from_vec(req.bytes)))
+    unsafe fn test_empty() -> ::fcplug::ABIResult<()> {
+        ::fcplug::ABIResult::from(goffi_test_empty())
     }
-    unsafe fn test_empty_set_result(go_ret: ::fcplug::RustFfiArg<Empty>) -> ::fcplug::GoFfiResult;
 }
 extern "C" {
     fn goffi_search_client(req: ::fcplug::Buffer) -> ::fcplug::GoFfiResult;
-    fn goffi_test_empty(req: ::fcplug::Buffer) -> ::fcplug::GoFfiResult;
+    fn goffi_test_empty() -> ::fcplug::GoFfiResult;
 }
 #[no_mangle]
 #[inline]
 pub extern "C" fn goffi_search_client_set_result(buf: ::fcplug::Buffer) -> ::fcplug::GoFfiResult {
     unsafe { <crate::Test as GoFfi>::search_client_set_result(::fcplug::RustFfiArg::from(buf)) }
-}
-
-#[no_mangle]
-#[inline]
-pub extern "C" fn goffi_test_empty_set_result(buf: ::fcplug::Buffer) -> ::fcplug::GoFfiResult {
-    unsafe { <crate::Test as GoFfi>::test_empty_set_result(::fcplug::RustFfiArg::from(buf)) }
 }
 #[derive(Debug, Default, ::serde::Serialize, ::serde::Deserialize, Clone, PartialEq)]
 pub struct WebSite {
