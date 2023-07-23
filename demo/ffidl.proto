@@ -21,15 +21,17 @@ message web_site {
   bytes b = 6;
 }
 
+message Client {
+  string ip = 1;
+  string city = 2;
+}
+
+
 service RustFFI {
   rpc SearchWeb_site (SearchRequest) returns (web_site) {}
   rpc rs_test_empty (Empty) returns (Empty) {}
 }
 
-message Client {
-  string ip = 1;
-  string city = 2;
-}
 
 service GoFFI {
   rpc Search_client (SearchRequest) returns (Client) {}

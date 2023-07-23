@@ -15,16 +15,19 @@ pub mod protobuf;
 pub mod serde;
 
 
+#[inline]
 #[no_mangle]
 pub extern "C" fn no_mangle_types(_: Buffer, _: RustFfiResult, _: GoFfiResult) {
     unimplemented!()
 }
 
+#[inline]
 #[no_mangle]
 pub extern "C" fn free_buffer(buf: Buffer) {
     unsafe { buf.mem_free() }
 }
 
+#[inline]
 #[no_mangle]
 pub extern "C" fn leak_buffer(buf: Buffer) -> usize {
     if let Some(v) = buf.read() {
@@ -73,6 +76,7 @@ pub struct Buffer {
 }
 
 impl Default for Buffer {
+    #[inline]
     fn default() -> Self {
         Self {
             ptr: std::ptr::null_mut(),
@@ -84,6 +88,7 @@ impl Default for Buffer {
 
 
 impl Buffer {
+    #[inline]
     pub fn null() -> Self {
         Self::default()
     }
@@ -91,6 +96,7 @@ impl Buffer {
     /// read provides a reference to the included data to be parsed or copied elsewhere
     /// data is only guaranteed to live as long as the Buffer
     /// (or the scope of the extern "C" call it came from)
+    #[inline]
     pub fn read(&self) -> Option<&[u8]> {
         if self.is_empty() {
             None
@@ -102,6 +108,7 @@ impl Buffer {
     /// read_mut provides a reference to the included data to be parsed or copied elsewhere
     /// data is only guaranteed to live as long as the Buffer
     /// (or the scope of the extern "C" call it came from)
+    #[inline]
     pub fn read_mut(&mut self) -> Option<&mut [u8]> {
         if self.is_empty() {
             None
@@ -110,11 +117,13 @@ impl Buffer {
         }
     }
 
+    #[inline]
     pub(crate) fn is_empty(&self) -> bool {
         self.ptr.is_null() || self.len == 0 || self.cap == 0
     }
 
 
+    #[inline]
     pub(crate) unsafe fn mem_free(self) {
         if !self.ptr.is_null() {
             let _ = unsafe { Vec::from_raw_parts(self.ptr, self.len, self.cap) };
@@ -122,6 +131,7 @@ impl Buffer {
     }
 
     /// this releases our memory to the caller
+    #[inline]
     pub fn from_vec(mut v: Vec<u8>) -> Self {
         if v.is_empty() {
             Self::null()
@@ -236,9 +246,11 @@ pub struct GoFfiResult {
 }
 
 impl GoFfiResult {
+    #[inline]
     pub fn from_ok<T>(data: T) -> Self {
         Self { code: RC_NO_ERROR, data_ptr: Box::leak(Box::new(data)) as *mut T as usize }
     }
+    #[inline]
     pub(crate) fn from_err(mut ret_msg: ResultMsg) -> Self {
         let err = ret_msg.msg.to_string();
         #[cfg(debug_assertions)]{
@@ -249,6 +261,7 @@ impl GoFfiResult {
         }
         Self { code: ret_msg.code, data_ptr: Box::leak(Box::new(err)) as *mut String as usize }
     }
+    #[inline]
     pub unsafe fn consume_data<T>(&mut self) -> Option<T> {
         let data_ptr = self.data_ptr as *mut T;
         if data_ptr.is_null() {
@@ -353,6 +366,7 @@ impl<T: TryIntoBytes> From<ABIResult<T>> for RustFfiResult {
 }
 
 impl<'a, T: TryFromBytes<'a>> From<&'a mut RustFfiResult> for ABIResult<T> {
+    #[inline]
     fn from(value: &'a mut RustFfiResult) -> Self {
         match value.code {
             RC_NO_ERROR => {
@@ -371,21 +385,6 @@ impl<'a, T: TryFromBytes<'a>> From<&'a mut RustFfiResult> for ABIResult<T> {
         }
     }
 }
-
-
-// #[macro_export]
-// macro_rules! include_gen_file {
-//     ($gen_file: tt) => {
-//         include!(concat!(env!("OUT_DIR"), concat!("/", $gen_file)));
-//     };
-// }
-
-// #[macro_export]
-// macro_rules! include_goffi_gen {
-//     () => {
-//         include!(concat!(env!("OUT_DIR"), concat!("/", "goffi_gen.rs")));
-//     };
-// }
 
 #[cfg(test)]
 mod tests {

@@ -11,9 +11,6 @@ documentation.workspace = true
 
 [lib]
 crate-type = ["rlib", "staticlib"]
-[[bin]]
-path = "src/gen/cgobin/main.rs"
-name = "goffi"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
