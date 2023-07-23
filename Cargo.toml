@@ -21,14 +21,16 @@ exclude = []
 
 [workspace.package]
 edition = "2021"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Andeya <andeyalee@outlook.com>"]
-description = "Foreign Clang Plugin solution"
+description = "Foreign-Clang-Plugin solution, such as solving rust and go two-way calls"
 repository = "https://github.com/andeya/fcplug"
 license = "Apache-2.0"
 license-file = "LICENSE"
 readme = "README.md"
 documentation = "https://docs.rs/fcplug"
+keywords = ["go-rust", "rust-go", "ffi", "cgo"]
+categories = ["development-tools::ffi", "external-ffi-bindings"]
 
 [workspace.dependencies]
 fcplug = { path = "rust/fcplug" }
