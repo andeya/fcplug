@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/andeya/fcplug/demo/src/gen"
+	"github.com/andeya/fcplug/demo"
 	"github.com/andeya/gust"
 )
 
@@ -22,18 +22,18 @@ var (
 	_ reflect.SliceHeader
 	_ unsafe.Pointer
 	_ gust.EnumResult[any, any]
-	_ gen.ResultCode
+	_ demo.ResultCode
 )
 
 var GlobalGoFfi GoFfi = _UnimplementedGoFfi{}
 
 type ResultMsg struct {
-	Code gen.ResultCode
+	Code demo.ResultCode
 	Msg  string
 }
 
 //go:inline
-func asBuffer[T any](b gen.TBytes[T]) C.struct_Buffer {
+func asBuffer[T any](b demo.TBytes[T]) C.struct_Buffer {
 	p, size := b.ForCBuffer()
 	if size == 0 {
 		return C.struct_Buffer{}
@@ -46,11 +46,11 @@ func asBuffer[T any](b gen.TBytes[T]) C.struct_Buffer {
 }
 
 //go:inline
-func asBytes[T any](buf C.struct_Buffer) gen.TBytes[T] {
+func asBytes[T any](buf C.struct_Buffer) demo.TBytes[T] {
 	if buf.len == 0 {
-		return gen.TBytes[T]{}
+		return demo.TBytes[T]{}
 	}
-	return gen.TBytesFromBytes[T](*(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
+	return demo.TBytesFromBytes[T](*(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
 		Data: uintptr(unsafe.Pointer(buf.ptr)),
 		Len:  int(buf.len),
 		Cap:  int(buf.cap),
@@ -58,13 +58,13 @@ func asBytes[T any](buf C.struct_Buffer) gen.TBytes[T] {
 }
 
 type GoFfi interface {
-	SearchClient(req gen.TBytes[*gen.SearchRequest]) gust.EnumResult[gen.TBytes[*gen.Client], ResultMsg]
+	SearchClient(req demo.TBytes[*demo.SearchRequest]) gust.EnumResult[demo.TBytes[*demo.Client], ResultMsg]
 
 	TestEmpty() ResultMsg
 }
 type _UnimplementedGoFfi struct{}
 
-func (_UnimplementedGoFfi) SearchClient(req gen.TBytes[*gen.SearchRequest]) gust.EnumResult[gen.TBytes[*gen.Client], ResultMsg] {
+func (_UnimplementedGoFfi) SearchClient(req demo.TBytes[*demo.SearchRequest]) gust.EnumResult[demo.TBytes[*demo.Client], ResultMsg] {
 	panic("unimplemented")
 }
 
@@ -75,16 +75,16 @@ func (_UnimplementedGoFfi) TestEmpty() ResultMsg {
 //go:inline
 //export goffi_search_client
 func goffi_search_client(req C.struct_Buffer) C.struct_GoFfiResult {
-	if _SearchClient_Ret := GlobalGoFfi.SearchClient(asBytes[*gen.SearchRequest](req)); _SearchClient_Ret.IsOk() {
+	if _SearchClient_Ret := GlobalGoFfi.SearchClient(asBytes[*demo.SearchRequest](req)); _SearchClient_Ret.IsOk() {
 		return C.goffi_search_client_set_result(asBuffer(_SearchClient_Ret.Unwrap()))
 	} else {
 		_SearchClient_Ret_Msg := _SearchClient_Ret.UnwrapErr()
-		if _SearchClient_Ret_Msg.Code == gen.RcNoError {
-			_SearchClient_Ret_Msg.Code = gen.RcUnknown
+		if _SearchClient_Ret_Msg.Code == demo.RcNoError {
+			_SearchClient_Ret_Msg.Code = demo.RcUnknown
 		}
 		return C.struct_GoFfiResult{
 			code:     C.int8_t(_SearchClient_Ret_Msg.Code),
-			data_ptr: C.leak_buffer(asBuffer(gen.TBytesFromString[string](_SearchClient_Ret_Msg.Msg))),
+			data_ptr: C.leak_buffer(asBuffer(demo.TBytesFromString[string](_SearchClient_Ret_Msg.Msg))),
 		}
 	}
 }
@@ -92,12 +92,12 @@ func goffi_search_client(req C.struct_Buffer) C.struct_GoFfiResult {
 //go:inline
 //export goffi_test_empty
 func goffi_test_empty() C.struct_GoFfiResult {
-	if _TestEmpty_Ret_Msg := GlobalGoFfi.TestEmpty(); _TestEmpty_Ret_Msg.Code == gen.RcNoError {
+	if _TestEmpty_Ret_Msg := GlobalGoFfi.TestEmpty(); _TestEmpty_Ret_Msg.Code == demo.RcNoError {
 		return C.struct_GoFfiResult{}
 	} else {
 		return C.struct_GoFfiResult{
 			code:     C.int8_t(_TestEmpty_Ret_Msg.Code),
-			data_ptr: C.leak_buffer(asBuffer(gen.TBytesFromString[string](_TestEmpty_Ret_Msg.Msg))),
+			data_ptr: C.leak_buffer(asBuffer(demo.TBytesFromString[string](_TestEmpty_Ret_Msg.Msg))),
 		}
 	}
 }

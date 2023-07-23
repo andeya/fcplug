@@ -1,4 +1,4 @@
-module github.com/andeya/fcplug/demo/src/gen
+module github.com/andeya/fcplug/demo
 
 go 1.19
 

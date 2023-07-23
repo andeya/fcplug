@@ -1,4 +1,4 @@
-package gen
+package demo
 
 /*
    #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/debug

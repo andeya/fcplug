@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use fcplug::{ABIResult, GoFfiResult, RustFfiArg, TBytes, TryIntoTBytes};
 use fcplug::protobuf::PbMessage;
 
-use crate::gen::{Client, GoFfi, RustFfi, SearchRequest, Server, WebSite};
+use crate::ffidl_gen::{Client, GoFfi, RustFfi, SearchRequest, Server, WebSite};
 
-pub mod gen;
+mod ffidl_gen;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

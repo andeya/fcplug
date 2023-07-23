@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::env::temp_dir;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Output as CmdOutput};
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -30,28 +30,79 @@ const MODE: &'static str = "debug";
 #[derive(Debug, Clone)]
 pub struct Config {
     pub idl_file: PathBuf,
-    pub output_dir: PathBuf,
-    pub go_root: Option<PathBuf>,
-    pub go_mod: &'static str,
-    pub go_object_impl: Option<GoObjectPath>,
+    /// Target crate directory for code generation
+    pub target_crate_dir: Option<PathBuf>,
+    pub go_root_path: Option<PathBuf>,
+    pub go_mod_parent: &'static str,
     pub rust_unitstruct_impl: Option<UnitLikeStructPath>,
 }
 
 impl Config {
-    fn dir_name(&self) -> String {
-        self.output_dir.file_name().unwrap().to_os_string().into_string().unwrap()
+    fn pkg_dir(&self) -> PathBuf {
+        if let Some(target_crate_dir) = &self.target_crate_dir {
+            target_crate_dir.clone()
+        } else {
+            env::var("CARGO_MANIFEST_DIR").unwrap().into()
+        }
+    }
+    fn file_name_base(&self) -> String {
+        let idl_name = self.idl_file.file_name().unwrap().to_str().unwrap();
+        let pkg_name_prefix = idl_name
+            .rsplit_once(".")
+            .map_or(idl_name, |(idl_name, _)| idl_name)
+            .replace(".", "_")
+            .replace("-", "_")
+            .trim_start_matches("_").to_string()
+            .trim_end_matches("_").to_string();
+        format!("{pkg_name_prefix}_gen")
     }
     fn go_mod_name(&self) -> String {
-        self.go_mod.rsplit_once("/").expect("invalid go mod path").1.to_string()
+        self.pkg_dir()
+            .file_name().unwrap().to_str().unwrap()
+            .replace(".", "_")
+            .replace("-", "_")
+            .trim_start_matches("_").to_string()
+            .trim_end_matches("_").to_string()
+    }
+    fn go_mod_path(&self) -> String {
+        format!("{}/{}", self.go_mod_parent.trim_end_matches("/"), self.go_mod_name())
+    }
+    fn go_cmd_path(&self, cmd: &'static str) -> String {
+        if let Some(go_root_path) = &self.go_root_path {
+            go_root_path.join(cmd).to_str().unwrap().to_string()
+        } else {
+            cmd.to_string()
+        }
+    }
+    fn rust_mod_file(&self) -> PathBuf {
+        self.pkg_dir().join("src").join(self.file_name_base() + ".rs")
+    }
+    fn go_mod_file(&self) -> PathBuf {
+        self.pkg_dir().join("go.mod")
+    }
+    fn go_lib_file(&self) -> PathBuf {
+        self.pkg_dir().join(self.file_name_base() + ".go")
+    }
+    fn go_main_dir(&self) -> PathBuf {
+        self.pkg_dir().join(CGOBIN)
+    }
+    fn go_main_file(&self) -> PathBuf {
+        self.go_main_dir().join("clib_goffi_gen.go")
+    }
+    fn go_main_impl_file(&self) -> PathBuf {
+        self.go_main_dir().join("clib_goffi_impl.go")
     }
 }
 
+/// unit-like struct path, e.g. `::mycrate::Abc`
 #[derive(Debug, Clone)]
 pub struct UnitLikeStructPath(pub &'static str);
 
 #[derive(Debug, Clone)]
 pub struct GoObjectPath {
+    /// e.g. `github.com/xxx/mypkg`
     pub import: String,
+    /// e.g. `mypkg.Abc`
     pub object_ident: String,
 }
 
@@ -69,9 +120,6 @@ unsafe impl Send for FFIDL {}
 
 impl FFIDL {
     pub(crate) fn generate(config: Config) -> anyhow::Result<()> {
-        if config.go_mod_name() != config.dir_name() {
-            return Err(anyhow!("The directory name of 'output_dir' is inconsistent with the mod name of 'go_mod_path'"));
-        }
         Self {
             config: Arc::new(config),
             go_pkg_code: Arc::new(RefCell::new(String::new())),
@@ -139,27 +187,35 @@ impl FFIDL {
         self
     }
 
+    fn output_to_result(output: CmdOutput) -> anyhow::Result<()> {
+        if !output.status.success() {
+            return Err(anyhow!(format!("{:?}",output)));
+        }
+        Ok(())
+    }
+
+    fn crate_project(&self) -> anyhow::Result<()> {
+        Ok(fs::create_dir_all(&self.config.go_main_dir())?)
+    }
     fn gen_rust_and_go(self) -> anyhow::Result<()> {
-        fs::create_dir_all(&self.config.output_dir.join(CGOBIN))?;
-        let pkg_name = self.config.dir_name();
+        self.crate_project()?;
+        let pkg_dir = self.config.pkg_dir();
 
         let temp_dir = temp_dir();
-        let temp_idl = temp_dir.join(pkg_name.clone() + ".proto");
+        let temp_idl = temp_dir.join(self.config.go_mod_name().clone() + ".proto");
         fs::copy(&self.config.idl_file, &temp_idl)?;
-        let output = new_shell_cmd()
+        Self::output_to_result(new_shell_cmd()
             .arg(format!(
                 "protoc --proto_path={} --go_out {} {}",
                 temp_dir.to_str().unwrap(),
-                self.config.output_dir.to_str().unwrap(),
+                pkg_dir.to_str().unwrap(),
                 temp_idl.to_str().unwrap(),
             ))
-            .output()
-            .unwrap();
-        if !output.status.success() {
-            eprintln!("gen_protobuf_code: {:?}", output)
-        }
+            .output()?)?;
 
-        let import_gen_pkg = self.config.go_mod;
+
+        let import_gen_pkg = self.config.go_mod_path();
+        let import_gen_pkg_var = format!("_ {}.ResultCode", self.config.go_mod_name());
         let rust_c_header_name_base = self.rust_c_header_name_base.borrow().to_string();
         let rust_c_lib_dir = self.clib_dir.borrow().as_os_str().to_str().unwrap().to_string();
         *self.go_main_code.borrow_mut() = format!(r###"package main
@@ -186,13 +242,14 @@ var (
 	_ reflect.SliceHeader
 	_ unsafe.Pointer
 	_ gust.EnumResult[any, any]
-	_ gen.ResultCode
+	{import_gen_pkg_var}
 )
 
         "###);
 
+        let go_mod_name = self.config.go_mod_name();
         *self.go_pkg_code.borrow_mut() = format!(
-            r###"package {pkg_name}
+            r###"package {go_mod_name}
             /*
             #cgo CFLAGS: -I{rust_c_lib_dir}
             #cgo LDFLAGS: -L{rust_c_lib_dir} -l{rust_c_header_name_base}
@@ -231,18 +288,21 @@ var (
             .ignore_unused(true)
             .compile(
                 [&self.config.idl_file],
-                Output::File(self.config.output_dir.join("mod.rs")),
+                Output::File(self.config.rust_mod_file()),
             );
 
         self.gen_rust_clib()?;
 
         fs::write(
-            &self.config.output_dir.join(pkg_name + ".go"),
+            &self.config.go_lib_file(),
             self.go_pkg_code.borrow().as_str(),
         )?;
-        fs::write(
-            &self.config.output_dir.join("go.mod"),
-            format!(r###"module {}
+
+        let go_mod_file = self.config.go_mod_file();
+        if !go_mod_file.exists() {
+            fs::write(
+                &go_mod_file,
+                format!(r###"module {}
 
             go 1.19
 
@@ -252,38 +312,41 @@ var (
                 github.com/golang/protobuf v1.5.3
             )
 
-            "###, self.config.go_mod),
-        )?;
+            "###, self.config.go_mod_path()),
+            )?;
+        }
         fs::write(
-            self.config.output_dir.join(CGOBIN).join("main.go"),
+            self.config.go_main_file(),
             self.go_main_code.borrow().as_str(),
         )?;
+        if !self.config.go_main_impl_file().exists() {
+            fs::write(self.config.go_main_impl_file(), format!(r###"package main
 
-        let output = Command::new(self.config.go_root.as_ref().map_or("gofmt".to_string(), |p| p.join("gofmt").to_str().unwrap().to_string()))
+            func init() {{
+                // TODO: Replace with your own implementation, then re-execute `cargo build`
+                GlobalGoFfi = _UnimplementedGoFfi{{}}
+            }}
+
+            "###))?;
+        }
+
+        Self::output_to_result(Command::new(self.config.go_cmd_path("gofmt"))
             .arg("-l")
             .arg("-w")
-            .arg(self.config.output_dir.to_str().unwrap())
-            .output()?;
-        if !output.status.success() {
-            eprintln!("{:?}", output);
-        }
+            .arg(pkg_dir.to_str().unwrap())
+            .output()?).unwrap();
 
-        let output = new_shell_cmd()
-            .current_dir(&self.config.output_dir)
-            .arg("go mod tidy").arg(self.config.output_dir.to_str().unwrap())
-            .output()?;
-        if !output.status.success() {
-            eprintln!("{:?}", output);
-        }
+        Self::output_to_result(new_shell_cmd()
+            .current_dir(&pkg_dir)
+            .arg("go mod tidy").arg(pkg_dir.to_str().unwrap())
+            .output()?).unwrap();
 
-        self.gen_go_clib()?;
+        self.gen_go_clib().unwrap();
         Ok(())
     }
     fn gen_rust_clib(&self) -> anyhow::Result<()> {
         cbindgen::Builder::new()
-            // .with_crate(env::var("CARGO_MANIFEST_DIR").unwrap())
-            .with_src(self.config.output_dir.join("mod.rs"))
-            // .with_src("/Users/henrylee2cn/rust/fcplug/rust/fcplug/src/lib.rs")
+            .with_src(self.config.rust_mod_file())
             .with_language(cbindgen::Language::C)
             .with_after_include(r###"
 typedef int8_t ResultCode;
@@ -313,17 +376,16 @@ uintptr_t leak_buffer(struct Buffer buf);
         Ok(())
     }
     fn gen_go_clib(&self) -> anyhow::Result<()> {
-        let output = new_shell_cmd()
+        Self::output_to_result(new_shell_cmd()
+            .env("CGO_ENABLED", "1")
             .arg(format!(
-                "CGO_ENABLED=1 go build -buildmode=c-archive -o {} {}",
+                "{} build -buildmode=c-archive -o {} {}",
+                self.config.go_cmd_path("go"),
                 self.clib_dir.borrow().join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".a").to_str().unwrap(),
-                self.config.output_dir.join(CGOBIN).to_str().unwrap(),
+                self.config.go_main_dir().to_str().unwrap(),
             ))
-            .output()
-            .unwrap();
-        if !output.status.success() {
-            return Err(anyhow!(format!("{:?}",output)));
-        }
+            .output()?)?;
+
         println!("cargo:rustc-link-search={}", self.clib_dir.borrow().to_str().unwrap());
         println!("cargo:rustc-link-lib={}", self.go_c_header_name_base.borrow());
         println!(
@@ -467,11 +529,10 @@ mod tests {
     fn test_idl() {
         FFIDL::generate(Config {
             idl_file: "/Users/henrylee2cn/rust/fcplug/demo/ffidl.proto".into(),
-            output_dir: "/Users/henrylee2cn/rust/fcplug/demo/src/gen".into(),
             rust_unitstruct_impl: Some(UnitLikeStructPath("crate::Test")),
-            go_mod: "github.com/andeya/fcplug/demo/src/gen",
-            go_root: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
-            go_object_impl: None,
+            go_mod_parent: "github.com/andeya/fcplug",
+            go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
+            target_crate_dir: Some("/Users/henrylee2cn/rust/fcplug/demo".into()),
         })
             .unwrap();
     }
