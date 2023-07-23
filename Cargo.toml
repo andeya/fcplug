@@ -21,11 +21,11 @@ exclude = []
 
 [workspace.package]
 edition = "2021"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Andeya <andeyalee@outlook.com>"]
 description = "Foreign Clang Plugin solution"
 repository = "https://github.com/andeya/fcplug"
-license = "MIT"
+license = "Apache-2.0"
 license-file = "LICENSE"
 readme = "README.md"
 documentation = "https://docs.rs/fcplug"

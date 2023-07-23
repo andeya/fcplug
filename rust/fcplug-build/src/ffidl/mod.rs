@@ -29,12 +29,12 @@ const MODE: &'static str = "debug";
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub idl_file_path: PathBuf,
+    pub idl_file: PathBuf,
     pub output_dir: PathBuf,
-    pub impl_ffi_for_unitstruct: Option<UnitLikeStructPath>,
-    pub go_root_path: Option<PathBuf>,
-    pub go_mod_path: &'static str,
-    pub goffi_impl_of_object: Option<GoObjectPath>,
+    pub go_root: Option<PathBuf>,
+    pub go_mod: &'static str,
+    pub go_object_impl: Option<GoObjectPath>,
+    pub rust_unitstruct_impl: Option<UnitLikeStructPath>,
 }
 
 impl Config {
@@ -42,7 +42,7 @@ impl Config {
         self.output_dir.file_name().unwrap().to_os_string().into_string().unwrap()
     }
     fn go_mod_name(&self) -> String {
-        self.go_mod_path.rsplit_once("/").expect("invalid go mod path").1.to_string()
+        self.go_mod.rsplit_once("/").expect("invalid go mod path").1.to_string()
     }
 }
 
@@ -85,13 +85,13 @@ impl FFIDL {
             .gen_rust_and_go()
     }
     fn include_dir(&self) -> PathBuf {
-        self.config.idl_file_path.parent().unwrap().to_path_buf()
+        self.config.idl_file.parent().unwrap().to_path_buf()
     }
     fn check_idl(self) -> anyhow::Result<Self> {
         let mut parser = ProtobufParser::default();
         // let mut parser = ThriftParser::default();
         Parser::include_dirs(&mut parser, vec![self.include_dir()]);
-        Parser::input(&mut parser, &self.config.idl_file_path);
+        Parser::input(&mut parser, &self.config.idl_file);
         let file = Parser::parse(parser).files.pop().unwrap();
         if !file.uses.is_empty() {
             return Err(anyhow!("Does not support Protobuf 'import'."));
@@ -145,7 +145,7 @@ impl FFIDL {
 
         let temp_dir = temp_dir();
         let temp_idl = temp_dir.join(pkg_name.clone() + ".proto");
-        fs::copy(&self.config.idl_file_path, &temp_idl)?;
+        fs::copy(&self.config.idl_file, &temp_idl)?;
         let output = new_shell_cmd()
             .arg(format!(
                 "protoc --proto_path={} --go_out {} {}",
@@ -159,7 +159,7 @@ impl FFIDL {
             eprintln!("gen_protobuf_code: {:?}", output)
         }
 
-        let import_gen_pkg = self.config.go_mod_path;
+        let import_gen_pkg = self.config.go_mod;
         let rust_c_header_name_base = self.rust_c_header_name_base.borrow().to_string();
         let rust_c_lib_dir = self.clib_dir.borrow().as_os_str().to_str().unwrap().to_string();
         *self.go_main_code.borrow_mut() = format!(r###"package main
@@ -230,7 +230,7 @@ var (
             .plugin(AutoDerivePlugin::new(Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]), |_| PredicateResult::GoOn))
             .ignore_unused(true)
             .compile(
-                [&self.config.idl_file_path],
+                [&self.config.idl_file],
                 Output::File(self.config.output_dir.join("mod.rs")),
             );
 
@@ -252,14 +252,14 @@ var (
                 github.com/golang/protobuf v1.5.3
             )
 
-            "###, self.config.go_mod_path),
+            "###, self.config.go_mod),
         )?;
         fs::write(
             self.config.output_dir.join(CGOBIN).join("main.go"),
             self.go_main_code.borrow().as_str(),
         )?;
 
-        let output = Command::new(self.config.go_root_path.as_ref().map_or("gofmt".to_string(), |p| p.join("gofmt").to_str().unwrap().to_string()))
+        let output = Command::new(self.config.go_root.as_ref().map_or("gofmt".to_string(), |p| p.join("gofmt").to_str().unwrap().to_string()))
             .arg("-l")
             .arg("-w")
             .arg(self.config.output_dir.to_str().unwrap())
@@ -466,12 +466,12 @@ mod tests {
     #[test]
     fn test_idl() {
         FFIDL::generate(Config {
-            idl_file_path: "/Users/henrylee2cn/rust/fcplug/demo/ffidl.proto".into(),
+            idl_file: "/Users/henrylee2cn/rust/fcplug/demo/ffidl.proto".into(),
             output_dir: "/Users/henrylee2cn/rust/fcplug/demo/src/gen".into(),
-            impl_ffi_for_unitstruct: Some(UnitLikeStructPath("crate::Test")),
-            go_mod_path: "github.com/andeya/fcplug/demo/src/gen",
-            go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
-            goffi_impl_of_object: None,
+            rust_unitstruct_impl: Some(UnitLikeStructPath("crate::Test")),
+            go_mod: "github.com/andeya/fcplug/demo/src/gen",
+            go_root: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
+            go_object_impl: None,
         })
             .unwrap();
     }

@@ -122,7 +122,7 @@ impl RustCodegenBackend {
 
 impl RustCodegenBackend {
     fn rustffi_impl_name(&self, service_def_id: DefId) -> (String, bool) {
-        if let Some(ust) = &self.config.impl_ffi_for_unitstruct {
+        if let Some(ust) = &self.config.rust_unitstruct_impl {
             (ust.0.to_string(), true)
         } else {
             let name = self.context.rust_name(service_def_id);
