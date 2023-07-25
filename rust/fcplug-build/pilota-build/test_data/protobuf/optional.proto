@@ -1,6 +1,0 @@
-syntax = "proto2";
-
-message SearchRequest {
-    optional int32 page_number = 2;
-}
-  

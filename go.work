@@ -1,6 +1,3 @@
 use (
 	./demo
-	./ffidl_demo/src/gen
-	./go/caller
-	./go/ctypes
 )

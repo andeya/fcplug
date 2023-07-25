@@ -1,13 +1,13 @@
 # fcplug
 
-Foreign Clang Plugin solution.
+Foreign-Clang-Plugin solution, such as solving rust and go two-way calls.
 
 ## Features
 
 | ⇊Caller \ Callee⇉ |  Go  | Rust |
 |-------------------|:----:|:----:|
 | Go                |  -   |  ✅   |
-| Rust              | TODO |  -   |
+| Rust              |  ✅ |  -   |
 
 ## Usage
 

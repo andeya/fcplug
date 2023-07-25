@@ -1,6 +1,6 @@
 use crate::ffidl::FFIDL;
 
-pub use self::ffidl::{Config, UnitLikeStructPath};
+pub use self::ffidl::{Config, GoObjectPath, UnitLikeStructPath};
 
 mod ffidl;
 

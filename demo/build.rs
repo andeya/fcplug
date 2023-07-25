@@ -1,17 +1,12 @@
+use fcplug_build::{Config, generate_code, UnitLikeStructPath};
+
 fn main() {
-    use fcplug_build::{BuildConfig, FbConfig, FbConfigs, PbConfigs};
-    fcplug_build::build_files(BuildConfig::new().go_mod_dir("./")
-        .pb_configs(PbConfigs {
-            inputs: vec!["idl.proto".into()],
-            includes: vec!["./".into()],
-            rust_customize: None,
-        })
-        .fb_configs(FbConfigs {
-            inputs: vec!["idl.fbs".into()],
-            configs: vec![
-                FbConfig::Rust,
-                FbConfig::Go,
-            ],
-        })
-    )
+    generate_code(Config {
+        idl_file: "./ffidl.proto".into(),
+        go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
+        go_mod_parent: "github.com/andeya/fcplug",
+        rust_unitstruct_impl: Some(UnitLikeStructPath("crate::Test")),
+        target_crate_dir: None,
+    })
+        .unwrap();
 }

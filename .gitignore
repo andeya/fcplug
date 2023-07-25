@@ -5,10 +5,3 @@
 
 /target
 /Cargo.lock
-/libfcplug.a
-/fcplug.h
-/demo/demo
-ffi.c.go
-/demo/go_gen/
-gen.sh
-/demo/src/go_ffi.rs
