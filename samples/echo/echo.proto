@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+message Ping {
+  string msg = 1;
+}
+
+message Pong {
+  string msg = 1;
+}
+
+// go call rust
+service RustFFI {
+  rpc echo_rs (Ping) returns (Pong) {}
+}
+
+// rust call go
+service GoFFI {
+  rpc echo_go (Ping) returns (Pong) {}
+}
+
+message Pong2 {
+  string msg = 1;
+}

@@ -111,6 +111,18 @@ func (b TBytes[T]) PbUnmarshal() (*T, error) {
 	return &t, nil
 }
 
+// PbUnmarshalUnchecked as protobuf to unmarshal
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (b TBytes[T]) PbUnmarshalUnchecked() (*T) {
+	var t T
+	if b.Len() > 0 {
+		_= proto.Unmarshal(b.bytes, any(&t).(proto.Message))
+	}
+	return &t
+}
+
 // JsonUnmarshal as json to unmarshal
 // NOTE: maybe reference Rust memory buffer
 //
@@ -126,6 +138,18 @@ func (b TBytes[T]) JsonUnmarshal() (*T, error) {
 	return &t, nil
 }
 
+// JsonUnmarshalUnchecked as json to unmarshal
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (b TBytes[T]) JsonUnmarshalUnchecked() *T {
+	var t T
+	if b.Len() > 0 {
+		_ = sonic.Unmarshal(b.bytes, &t)
+	}
+	return &t
+}
+
 // Unmarshal unmarshal to object
 // NOTE: maybe reference Rust memory buffer
 //
@@ -139,6 +163,18 @@ func (b TBytes[T]) Unmarshal(unmarshal func([]byte, any) error) (*T, error) {
 		}
 	}
 	return &t, nil
+}
+
+// UnmarshalUnchecked unmarshal to object
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (b TBytes[T]) UnmarshalUnchecked(unmarshal func([]byte, any) error) *T {
+	var t T
+	if b.Len() > 0 {
+		_ = unmarshal(b.bytes, &t)
+	}
+	return &t
 }
 
 //go:inline
@@ -261,6 +297,21 @@ func (r RustFfiResult[T]) PbUnmarshal() (*T, error) {
 	return &t, nil
 }
 
+// PbUnmarshalUnchecked as protobuf to unmarshal
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (r RustFfiResult[T]) PbUnmarshalUnchecked() *T {
+	if err := r.AsError(); err != nil {
+		return nil
+	}
+	var t T
+	if r.Len() > 0 {
+		_ = proto.Unmarshal(r.AsBytes(), any(&t).(proto.Message))
+	}
+	return &t
+}
+
 // JsonUnmarshal as json to unmarshal
 // NOTE: maybe reference Rust memory buffer
 //
@@ -279,6 +330,21 @@ func (r RustFfiResult[T]) JsonUnmarshal() (*T, error) {
 	return &t, nil
 }
 
+// JsonUnmarshalUnchecked as json to unmarshal
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (r RustFfiResult[T]) JsonUnmarshalUnchecked() *T {
+	if err := r.AsError(); err != nil {
+		return nil
+	}
+	var t T
+	if r.Len() > 0 {
+		_ = sonic.Unmarshal(r.AsBytes(), &t)
+	}
+	return &t
+}
+
 // Unmarshal unmarshal to object
 // NOTE: maybe reference Rust memory buffer
 //
@@ -295,6 +361,21 @@ func (r RustFfiResult[T]) Unmarshal(unmarshal func([]byte, any) error) (*T, erro
 		}
 	}
 	return &t, nil
+}
+
+// UnmarshalUnchecked unmarshal to object
+// NOTE: maybe reference Rust memory buffer
+//
+//go:inline
+func (r RustFfiResult[T]) UnmarshalUnchecked(unmarshal func([]byte, any) error) *T {
+	if err := r.AsError(); err != nil {
+		return nil
+	}
+	var t T
+	if r.Len() > 0 {
+		_ = unmarshal(r.AsBytes(), &t)
+	}
+	return &t
 }
 
 "###;
@@ -392,7 +473,7 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
                 if arg.ty.is_scalar() {
                     format!("{} {}", self.arg_name(arg), self.arg_type(arg, true))
                 } else {
-                    format!("{} {mod_name}.TBytes[*{}]", self.arg_name(arg), self.arg_type(arg, true))
+                    format!("{} {mod_name}.TBytes[{}]", self.arg_name(arg), self.arg_type(arg, true))
                 }
             }).collect::<Vec<String>>().join(",");
             let ret_type = self.ret_type(method, true);
@@ -427,7 +508,7 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
                         name
                     }
                 } else {
-                    format!("asBytes[*{}]({})", self.arg_type(arg, true), self.arg_name(arg))
+                    format!("asBytes[{}]({})", self.arg_type(arg, true), self.arg_name(arg))
                 }
             }).collect::<Vec<String>>().join(",");
             let ffi_args_sign = method.args.iter().map(|arg| {

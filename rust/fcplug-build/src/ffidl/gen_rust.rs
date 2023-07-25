@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::sync::Arc;
 
 use pilota_build::{DefId, IdentName};
@@ -10,6 +11,7 @@ use crate::ffidl::{Config, Cx, ServiceType};
 pub(crate) struct RustCodegenBackend {
     pub(crate) config: Arc<Config>,
     pub(crate) context: Cx,
+    pub(crate) generated_ust: Cell<bool>,
 }
 
 impl RustCodegenBackend {
@@ -45,6 +47,13 @@ impl RustCodegenBackend {
         }
     }
     pub(crate) fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
+        if !self.generated_ust.get() {
+            let (ust, ok) = self.ffi_impl_name();
+            if !ok {
+                stream.push_str(&format!("struct {ust};\n"))
+            }
+            self.generated_ust.replace(true);
+        }
         match self.context.service_type(def_id) {
             ServiceType::RustFfi => self.codegen_rustffi_service_impl(def_id, stream, s),
             ServiceType::GoFfi => self.codegen_goffi_service_impl(def_id, stream, s),
@@ -53,7 +62,7 @@ impl RustCodegenBackend {
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
-        let (ust, setted) = self.rustffi_impl_name(def_id);
+        let (ust, setted) = self.ffi_impl_name();
         if !setted {
             let methods = s.methods.iter().map(|method| {
                 let name = (&**method.name).fn_ident();
@@ -63,8 +72,7 @@ impl RustCodegenBackend {
             }).collect::<Vec<String>>()
                 .join("\n");
 
-            stream.push_str(&format!(r###"struct {ust};
-            impl {name} for {ust} {{
+            stream.push_str(&format!(r###"impl {name} for {ust} {{
                 {methods}
             }}"###));
         };
@@ -100,8 +108,24 @@ impl RustCodegenBackend {
         }}
         "###));
 
-
-        let (ust, _) = self.rustffi_impl_name(def_id);
+        let (ust, setted) = self.ffi_impl_name();
+        if !setted {
+            let methods = s.methods.iter().map(|method| {
+                let is_empty_ret = self.context.is_empty_ty(&method.ret.kind);
+                if !is_empty_ret && !method.ret.is_scalar() {
+                    let method_name = (&**method.name).fn_ident();
+                    let ffi_ret = self.codegen_ffi_ret(def_id, method);
+                    let ret_ty_name = self.codegen_item_ty(&method.ret.kind);
+                    format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret} {{ unimplemented!() }}")
+                } else {
+                    String::new()
+                }
+            }).collect::<Vec<String>>()
+                .join("\n");
+            stream.push_str(&format!(r###"impl {name} for {ust} {{
+                {methods}
+            }}"###));
+        };
         let store_to_rust_fns = s.methods.iter()
             .filter(|method| !method.ret.is_scalar())
             .map(|method| {
@@ -121,12 +145,11 @@ impl RustCodegenBackend {
 }
 
 impl RustCodegenBackend {
-    fn rustffi_impl_name(&self, service_def_id: DefId) -> (String, bool) {
+    fn ffi_impl_name(&self) -> (String, bool) {
         if let Some(ust) = &self.config.rust_unitstruct_impl {
             (ust.0.to_string(), true)
         } else {
-            let name = self.context.rust_name(service_def_id);
-            (format!("Unimplemented{name}"), false)
+            (format!("UnimplementedFfi"), false)
         }
     }
     fn codegen_ffi_args_param(&self, service_def_id: DefId, method: &Method) -> String {

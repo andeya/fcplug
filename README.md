@@ -15,7 +15,7 @@ Foreign-Clang-Plugin solution, such as solving rust and go two-way calls.
 
 ## Usage
 
-See the [demo](https://github.com/andeya/fcplug/raw/HEAD/demo)
+See the [echo](https://github.com/andeya/fcplug/raw/HEAD/samples/echo)
 
 ## Benchmark
 

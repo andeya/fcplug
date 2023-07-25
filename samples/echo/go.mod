@@ -1,11 +1,10 @@
-module github.com/andeya/fcplug/demo
+module github.com/andeya/fcplug/samples/echo
 
 go 1.19
 
 require (
 	github.com/andeya/gust v1.5.2
 	github.com/bytedance/sonic v1.9.2
-	github.com/davecgh/go-spew v1.1.1
 	github.com/golang/protobuf v1.5.3
 )
 
