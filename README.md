@@ -9,6 +9,10 @@ Foreign-Clang-Plugin solution, such as solving rust and go two-way calls.
 | Go                |  -   |  ✅   |
 | Rust              |  ✅ |  -   |
 
+## Schematic
+
+![Fcplug Schematic](https://github.com/andeya/fcplug/raw/HEAD/doc/fcplug_schematic.png)
+
 ## Usage
 
 See the [demo](https://github.com/andeya/fcplug/raw/HEAD/demo)
