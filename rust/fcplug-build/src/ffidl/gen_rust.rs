@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 
+use pilota_build::{DefId, IdentName};
 use pilota_build::rir::{Method, Service};
 use pilota_build::ty::{CodegenTy, TyKind};
-use pilota_build::{DefId, IdentName};
 
-use crate::ffidl::{Config};
+use crate::ffidl::Config;
 use crate::ffidl::make_backend::{Cx, ServiceType};
 
 #[derive(Clone)]
@@ -17,41 +17,6 @@ pub(crate) struct RustCodegenBackend {
 }
 
 impl RustCodegenBackend {
-    pub(crate) fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
-        let service_name_lower = self.context.rust_name(service_def_id).to_lowercase();
-        let method_name = (&**method.name).fn_ident();
-        let args = self.codegen_method_args(service_def_id, method);
-        let ret = self.codegen_method_ret(service_def_id, method);
-        match self.context.service_type(service_def_id) {
-            ServiceType::RustFfi => {
-                format!("fn {method_name}({args}) -> {ret} {{ unimplemented!() }}")
-            }
-            ServiceType::GoFfi => {
-                let is_empty_ret = self.context.is_empty_ty(&method.ret.kind);
-                let set_ret_fn = if is_empty_ret || method.ret.is_scalar() {
-                    String::new()
-                } else {
-                    let ffi_ret = self.codegen_ffi_ret(service_def_id, method);
-                    let ret_ty_name = self.codegen_item_ty(&method.ret.kind);
-                    format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret} {{ unimplemented!() }}")
-                };
-
-                let generic_signature = if self.context.is_empty_ty(&method.ret.kind) {
-                    String::new()
-                } else {
-                    "<T: Default>".to_string()
-                };
-                let args_ident = self.codegen_ffi_args_ident(service_def_id, method);
-                format!(
-                    r###"unsafe fn {method_name}{generic_signature}({args}) -> {ret} {{
-                    ::fcplug::ABIResult::from({service_name_lower}_{method_name}({args_ident}))
-                }}
-                {set_ret_fn}
-                "###
-                )
-            }
-        }
-    }
     pub(crate) fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         match self.context.service_type(def_id) {
             ServiceType::RustFfi => self.codegen_rustffi_service_impl(def_id, stream, s),
@@ -61,12 +26,29 @@ impl RustCodegenBackend {
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
-        let ust = self.config.rust_impl_name();
+        let ust = self.config.rust_mod_impl_name();
 
-        let rust_mod_path = self.config.rust_mod_path();
+        let mut trait_methods = String::new();
+        let mut impl_trait_methods = String::new();
+        s.methods
+            .iter()
+            .for_each(|method| {
+                let method_name = (&**method.name).fn_ident();
+                let args = self.codegen_method_args(def_id, method);
+                let ret = self.codegen_method_ret(def_id, method);
+                trait_methods.push_str(&format!("fn {method_name}({args}) -> {ret};\n"));
+                impl_trait_methods.push_str(&format!("fn {method_name}({args}) -> {ret} {{ todo!() }}\n"));
+            });
+        stream.push_str(&format! {r#"
+        pub(super) trait {name} {{
+            {trait_methods}
+        }}
+        "#});
         self.rust_impl_rustffi_code.borrow_mut().push_str(&format!(
             r###"
-            impl {rust_mod_path}::{name} for {rust_mod_path}::{ust} {{}}
+            impl {name} for {ust} {{
+                {impl_trait_methods}
+            }}
             "###
         ));
 
@@ -81,7 +63,7 @@ impl RustCodegenBackend {
                     format!(
                         r###"#[no_mangle]
                 #[inline]
-                pub extern "C" fn {name_lower}_{fn_name}({args}) -> {ret} {{
+                extern "C" fn {name_lower}_{fn_name}({args}) -> {ret} {{
                     {ret}::from(<{ust} as {name}>::{fn_name}({args_ident}))
                 }}
                 "###
@@ -94,6 +76,60 @@ impl RustCodegenBackend {
     fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
+        let ust = self.config.rust_mod_impl_name();
+
+        let methods = s.methods
+            .iter()
+            .map(|method| {
+                let method_name = (&**method.name).fn_ident();
+                let args = self.codegen_method_args(def_id, method);
+                let ret = self.codegen_method_ret(def_id, method);
+                let generic_signature = if self.context.is_empty_ty(&method.ret.kind) {
+                    String::new()
+                } else {
+                    "<T: Default>".to_string()
+                };
+                let args_ident = self.codegen_ffi_args_ident(def_id, method);
+                format!(
+                    r###"unsafe fn {method_name}{generic_signature}({args}) -> {ret} {{
+                    ::fcplug::ABIResult::from({name_lower}_{method_name}({args_ident}))
+                }}
+                "###
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        stream.push_str(&format! {r#"
+        pub trait {name}Call {{
+            {methods}
+        }}
+        "#});
+
+        let mut trait_methods = String::new();
+        let mut impl_trait_methods = String::new();
+        s.methods
+            .iter()
+            .filter(|method| { !self.context.is_empty_ty(&method.ret.kind) && !method.ret.is_scalar() })
+            .for_each(|method| {
+                let method_name = (&**method.name).fn_ident();
+                let ffi_ret = self.codegen_ffi_ret(def_id, method);
+                let ret_ty_name = self.codegen_item_ty(&method.ret.kind);
+                trait_methods.push_str(&format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret};\n"));
+                impl_trait_methods.push_str(&format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret} {{ todo!() }}\n"));
+            });
+        stream.push_str(&format! {r#"
+        pub(super) trait {name} {{
+            {trait_methods}
+        }}
+        "#});
+        self.rust_impl_goffi_code.borrow_mut().push_str(&format!(
+            r###"
+            impl {name} for {ust} {{
+                {impl_trait_methods}
+            }}
+            "###
+        ));
+
         let ffi_fns = s
             .methods
             .iter()
@@ -112,15 +148,6 @@ impl RustCodegenBackend {
         "###
         ));
 
-        let ust = self.config.rust_impl_name();
-
-        let rust_mod_path = self.config.rust_mod_path();
-        self.rust_impl_goffi_code.borrow_mut().push_str(&format!(
-            r###"
-            impl {rust_mod_path}::{name} for {rust_mod_path}::{ust} {{}}
-            "###
-        ));
-
         let store_to_rust_fns = s
             .methods
             .iter()
@@ -131,7 +158,7 @@ impl RustCodegenBackend {
                 format!(
                     r###"#[no_mangle]
                 #[inline]
-                pub extern "C" fn {name_lower}_{fn_name}(buf: ::fcplug::Buffer) -> {ret} {{
+                extern "C" fn {name_lower}_{fn_name}(buf: ::fcplug::Buffer) -> {ret} {{
                     unsafe{{<{ust} as {name}>::{fn_name}(::fcplug::RustFfiArg::from(buf))}}
                 }}
                 "###

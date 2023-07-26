@@ -1,8 +1,9 @@
 #![feature(test)]
+
 extern crate test;
 
-mod echo_gen;
-mod echo_impl;
+mod echo_ffi;
+
 
 #[cfg(test)]
 mod tests {
@@ -11,18 +12,15 @@ mod tests {
     use fcplug::protobuf::PbMessage;
     use fcplug::TryIntoTBytes;
 
-    use crate::echo_gen::{GoFfi, ImplFfi, Ping, Pong};
-
-    use super::*;
+    use crate::echo_ffi::{FfiImpl, GoFfiCall, Ping, Pong};
 
     #[test]
     fn test_call_echo_go() {
-        let req = Ping {
-            msg: "this is ping from rust".to_string(),
-        }
-        .try_into_tbytes::<PbMessage<_>>()
-        .unwrap();
-        let pong = unsafe { ImplFfi::echo_go::<Pong>(req) };
+        let pong = unsafe {
+            FfiImpl::echo_go::<Pong>(Ping {
+                msg: "this is ping from rust".to_string(),
+            }.try_into_tbytes::<PbMessage<_>>().unwrap())
+        };
         println!("{:?}", pong);
     }
 
@@ -31,10 +29,10 @@ mod tests {
         let req = Ping {
             msg: "this is ping from rust".to_string(),
         }
-        .try_into_tbytes::<PbMessage<_>>()
-        .unwrap();
+            .try_into_tbytes::<PbMessage<_>>()
+            .unwrap();
         b.iter(|| {
-            let pong = unsafe { ImplFfi::echo_go::<Vec<u8>>(req.clone()) };
+            let pong = unsafe { FfiImpl::echo_go::<Vec<u8>>(req.clone()) };
             let _ = test::black_box(pong);
         });
     }

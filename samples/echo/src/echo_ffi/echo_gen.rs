@@ -55,21 +55,15 @@ impl ::pilota::prost::Message for Ping {
     }
 }
 
-pub trait GoFfi {
-    unsafe fn echo_go<T: Default>(req: ::fcplug::TBytes<Ping>) -> ::fcplug::ABIResult<T> {
-        ::fcplug::ABIResult::from(goffi_echo_go(::fcplug::Buffer::from_vec(req.bytes)))
-    }
-    unsafe fn echo_go_set_result(go_ret: ::fcplug::RustFfiArg<Pong>) -> ::fcplug::GoFfiResult {
-        unimplemented!()
-    }
-}
-extern "C" {
-    fn goffi_echo_go(req: ::fcplug::Buffer) -> ::fcplug::GoFfiResult;
+pub(super) trait RustFfi {
+    fn echo_rs(req: ::fcplug::RustFfiArg<Ping>) -> ::fcplug::ABIResult<::fcplug::TBytes<Pong>>;
 }
 #[no_mangle]
 #[inline]
-pub extern "C" fn goffi_echo_go_set_result(buf: ::fcplug::Buffer) -> ::fcplug::GoFfiResult {
-    unsafe { <ImplFfi as GoFfi>::echo_go_set_result(::fcplug::RustFfiArg::from(buf)) }
+extern "C" fn rustffi_echo_rs(req: ::fcplug::Buffer) -> ::fcplug::RustFfiResult {
+    ::fcplug::RustFfiResult::from(<FfiImpl as RustFfi>::echo_rs(::fcplug::RustFfiArg::from(
+        req,
+    )))
 }
 #[derive(
     PartialOrd,
@@ -126,20 +120,26 @@ impl ::pilota::prost::Message for Pong {
     }
 }
 
-pub trait RustFfi {
-    fn echo_rs(req: ::fcplug::RustFfiArg<Ping>) -> ::fcplug::ABIResult<::fcplug::TBytes<Pong>> {
-        unimplemented!()
+pub trait GoFfiCall {
+    unsafe fn echo_go<T: Default>(req: ::fcplug::TBytes<Ping>) -> ::fcplug::ABIResult<T> {
+        ::fcplug::ABIResult::from(goffi_echo_go(::fcplug::Buffer::from_vec(req.bytes)))
     }
+}
+
+pub(super) trait GoFfi {
+    unsafe fn echo_go_set_result(go_ret: ::fcplug::RustFfiArg<Pong>) -> ::fcplug::GoFfiResult;
+}
+extern "C" {
+    fn goffi_echo_go(req: ::fcplug::Buffer) -> ::fcplug::GoFfiResult;
 }
 #[no_mangle]
 #[inline]
-pub extern "C" fn rustffi_echo_rs(req: ::fcplug::Buffer) -> ::fcplug::RustFfiResult {
-    ::fcplug::RustFfiResult::from(<ImplFfi as RustFfi>::echo_rs(::fcplug::RustFfiArg::from(
-        req,
-    )))
+extern "C" fn goffi_echo_go_set_result(buf: ::fcplug::Buffer) -> ::fcplug::GoFfiResult {
+    unsafe { <FfiImpl as GoFfi>::echo_go_set_result(::fcplug::RustFfiArg::from(buf)) }
 }
-pub trait Ffi: RustFfi + GoFfi {}
+trait Ffi: RustFfi + GoFfi + GoFfiCall {}
 
-pub(crate) struct ImplFfi;
+pub struct FfiImpl;
 
-impl Ffi for ImplFfi {}
+impl GoFfiCall for FfiImpl {}
+impl Ffi for FfiImpl {}

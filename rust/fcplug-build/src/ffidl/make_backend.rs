@@ -132,7 +132,7 @@ impl CodegenBackend for FFIDLBackend {
         let method = self.fix_empty_params(method);
         self.protobuf
             .codegen_service_method(service_def_id, &method);
-        self.rust.codegen_service_method(service_def_id, &method)
+        String::new()
     }
     fn codegen_enum_impl(&self, def_id: DefId, stream: &mut String, e: &Enum) {
         self.protobuf.codegen_enum_impl(def_id, stream, e);

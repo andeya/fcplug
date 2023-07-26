@@ -80,21 +80,22 @@ impl Config {
             cmd.to_string()
         }
     }
-    pub(crate) fn rust_mod_file(&self) -> PathBuf {
+    pub(crate) fn rust_mod_dir(&self) -> PathBuf {
         self.pkg_dir()
             .join("src")
-            .join(self.file_name_base() + ".rs")
+            .join(self.pkg_name_prefix() + "_ffi")
     }
-    pub(crate) fn rust_impl_file(&self) -> PathBuf {
-        self.pkg_dir()
-            .join("src")
-            .join(self.pkg_name_prefix() + "_impl.rs")
+    pub(crate) fn rust_mod_gen_file(&self) -> PathBuf {
+        self.rust_mod_dir().join(self.file_name_base() + ".rs")
     }
-    pub(crate) fn rust_impl_name(&self) -> &'static str {
-        "ImplFfi"
+    pub(crate) fn rust_mod_impl_file(&self) -> PathBuf {
+        self.rust_mod_dir().join("mod.rs")
     }
-    pub(crate) fn rust_mod_path(&self) -> String {
-        format!("crate::{}", self.file_name_base())
+    pub(crate) fn rust_mod_impl_name(&self) -> &'static str {
+        "FfiImpl"
+    }
+    pub(crate) fn rust_mod_gen_name(&self) -> String {
+        self.file_name_base()
     }
     pub(crate) fn go_mod_file(&self) -> PathBuf {
         self.pkg_dir().join("go.mod")

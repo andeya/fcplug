@@ -134,11 +134,13 @@ impl FFIDL {
     }
 
     fn crate_project(&self) -> anyhow::Result<()> {
-        Ok(fs::create_dir_all(&self.config.go_main_dir())?)
+        fs::create_dir_all(&self.config.go_main_dir())?;
+        fs::create_dir_all(&self.config.rust_mod_dir())?;
+        Ok(())
     }
     fn gen_rust_code(&self) -> anyhow::Result<()> {
-        let rust_mod_file = self.config.rust_mod_file();
-        let rust_impl_file = self.config.rust_impl_file();
+        let rust_mod_gen_file = self.config.rust_mod_gen_file();
+        let rust_mod_impl_file = self.config.rust_mod_impl_file();
 
         pilota_build::Builder::protobuf_with_backend(self.clone())
             // pilota_build::Builder::thrift_with_backend(self.clone())
@@ -149,33 +151,42 @@ impl FFIDL {
                 |_| PredicateResult::GoOn,
             ))
             .ignore_unused(true)
-            .compile([&self.config.idl_file], Output::File(rust_mod_file.clone()));
+            .compile([&self.config.idl_file], Output::File(rust_mod_gen_file.clone()));
 
-        let mut rust_code = fs::read_to_string(&rust_mod_file).unwrap();
+        let mut rust_code = fs::read_to_string(&rust_mod_gen_file).unwrap();
         if !self.has_rustffi {
-            rust_code.push_str(&format!("pub trait RustFfi {{}}"));
+            rust_code.push_str(&format!("pub(super) trait RustFfi {{}}"));
         }
         if !self.has_goffi {
-            rust_code.push_str(&format!("pub trait GoFfi {{}}"));
+            rust_code.push_str(&format!("pub(super) trait GoFfi {{}}"));
+            rust_code.push_str(&format!("pub trait GoFfiCall {{}}"));
         }
-        let rust_impl_name = self.config.rust_impl_name();
+        let rust_impl_name = self.config.rust_mod_impl_name();
         rust_code.push_str(&format!(
-            r###"pub trait Ffi: RustFfi + GoFfi {{}}
+            r###"trait Ffi: RustFfi + GoFfi + GoFfiCall {{}}
 
-        pub(crate) struct {rust_impl_name};
+        pub struct {rust_impl_name};
 
+        impl GoFfiCall for {rust_impl_name} {{}}
         impl Ffi for {rust_impl_name} {{}}
         "###
         ));
-        fs::write(&rust_mod_file, rust_code).unwrap();
-        fmt_file(rust_mod_file);
+        fs::write(&rust_mod_gen_file, rust_code).unwrap();
+        fmt_file(rust_mod_gen_file);
 
-        if !rust_impl_file.exists() {
+        if !rust_mod_impl_file.exists() {
             let rust_impl_rustffi_code = self.rust_impl_rustffi_code.borrow();
             let rust_impl_goffi_code = self.rust_impl_goffi_code.borrow();
+            let mod_gen_name = self.config.rust_mod_gen_name();
+
             fs::write(
-                &rust_impl_file,
-                &format!(r###"
+                &rust_mod_impl_file,
+                &format!(r###"#![allow(unused_variables)]
+
+                pub use {mod_gen_name}::*;
+
+                mod {mod_gen_name};
+
                 {rust_impl_rustffi_code}
 
                 {rust_impl_goffi_code}
@@ -183,7 +194,7 @@ impl FFIDL {
                 ),
             )
                 .unwrap();
-            fmt_file(rust_impl_file);
+            fmt_file(rust_mod_impl_file);
         }
         Ok(())
     }
@@ -376,7 +387,7 @@ impl FFIDL {
     }
     fn gen_rust_clib(&self) -> anyhow::Result<()> {
         cbindgen::Builder::new()
-            .with_src(self.config.rust_mod_file())
+            .with_src(self.config.rust_mod_gen_file())
             .with_language(cbindgen::Language::C)
             .with_after_include(
                 r###"

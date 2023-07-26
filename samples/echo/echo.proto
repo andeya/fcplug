@@ -17,7 +17,3 @@ service RustFFI {
 service GoFFI {
   rpc echo_go (Ping) returns (Pong) {}
 }
-
-message Pong2 {
-  string msg = 1;
-}
