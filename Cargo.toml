@@ -21,7 +21,7 @@ exclude = []
 
 [workspace.package]
 edition = "2021"
-version = "0.3.6"
+version = "0.3.7"
 authors = ["Andeya <andeyalee@outlook.com>"]
 description = "Foreign-Clang-Plugin solution, such as solving rust and go two-way calls"
 repository = "https://github.com/andeya/fcplug"
@@ -56,6 +56,8 @@ pilota-build = { version = "0.7.8", package = "pilota-build2" }
 pilota = "0.7.0"
 serde = "1"
 serde_json = "1"
+walkdir = "2.3.3"
+md5 = "0.7.0"
 
 [patch.crates-io]
 fcplug-build = { path = "rust/fcplug-build" }

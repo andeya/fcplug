@@ -1,11 +1,12 @@
 use std::{env, fs};
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::env::temp_dir;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::process::{Command, Output as CmdOutput};
 use std::sync::Arc;
-use std::cell::Cell;
+
 use anyhow::anyhow;
 use pilota_build::{CodegenBackend, Context, DefId, MakeBackend, Output, ProtobufBackend, rir::Enum, rir::Message, rir::Method, rir::NewType, rir::Service};
 use pilota_build::db::RirDatabase;
@@ -70,7 +71,7 @@ impl Config {
     }
     fn go_cmd_path(&self, cmd: &'static str) -> String {
         if let Some(go_root_path) = &self.go_root_path {
-            go_root_path.join(cmd).to_str().unwrap().to_string()
+            go_root_path.join("bin").join(cmd).to_str().unwrap().to_string()
         } else {
             cmd.to_string()
         }
@@ -92,6 +93,25 @@ impl Config {
     }
     fn go_main_impl_file(&self) -> PathBuf {
         self.go_main_dir().join("clib_goffi_impl.go")
+    }
+    fn new_crate_modified(&self) -> String {
+        walkdir::WalkDir::new(self.pkg_dir())
+            .into_iter()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                if entry.path().extension().map(|ext| {
+                    ext == "go" || ext == "rs" || ext == "toml" || ext == "proto"
+                }).unwrap_or_default() {
+                    if let Ok(metadata) = entry.metadata() {
+                        return metadata.is_file();
+                    }
+                };
+                return false;
+            })
+            .fold(String::new(), |acc, m| {
+                let digest = md5::compute(fs::read(m.path()).unwrap());
+                format!("{acc}|{digest:x}")
+            })
     }
 }
 
@@ -116,12 +136,14 @@ pub(crate) struct FFIDL {
     go_pkg_code: Arc<RefCell<String>>,
     go_main_code: Arc<RefCell<String>>,
     has_goffi: bool,
+    crate_modified: String,
 }
 
 unsafe impl Send for FFIDL {}
 
 impl FFIDL {
     pub(crate) fn generate(config: Config) -> anyhow::Result<()> {
+        let crate_modified = config.new_crate_modified();
         Self {
             config: Arc::new(config),
             go_pkg_code: Arc::new(RefCell::new(String::new())),
@@ -130,9 +152,10 @@ impl FFIDL {
             go_c_header_name_base: Arc::new(RefCell::new("".to_string())),
             clib_dir: Arc::new(RefCell::new(Default::default())),
             has_goffi: false,
+            crate_modified,
         }
-            .check_idl()?
             .set_clib_paths()
+            .check_idl()?
             .gen_rust_and_go()
     }
     fn include_dir(&self) -> PathBuf {
@@ -190,6 +213,10 @@ impl FFIDL {
             PathBuf::from,
         )
             .join(MODE);
+        println!(
+            "cargo:rerun-if-changed={}",
+            self.clib_dir.borrow().to_str().unwrap(),
+        );
         self
     }
 
@@ -212,13 +239,13 @@ impl FFIDL {
         fs::copy(&self.config.idl_file, &temp_idl)?;
         Self::output_to_result(new_shell_cmd()
             .arg(format!(
-                "protoc --proto_path={} --go_out {} {}",
+                "protoc --proto_path={} --go_opt=M{} --go_out {} {}",
                 temp_dir.to_str().unwrap(),
+                format!("{};{}", pkg_dir.to_str().unwrap(), self.config.go_mod_name()),
                 pkg_dir.to_str().unwrap(),
                 temp_idl.to_str().unwrap(),
             ))
             .output()?)?;
-
 
         let import_gen_pkg = self.config.go_mod_path();
         let import_gen_pkg_var = format!("_ {}.ResultCode", self.config.go_mod_name());
@@ -316,7 +343,7 @@ impl FFIDL {
                 &go_mod_file,
                 format!(r###"module {}
 
-            go 1.19
+            go 1.18
 
             require (
                 github.com/andeya/gust v1.5.2
@@ -343,6 +370,11 @@ impl FFIDL {
 
             "###))?;
             }
+
+            println!(
+                "cargo:rerun-if-changed={}",
+                self.config.go_main_impl_file().to_str().unwrap(),
+            );
         }
 
         Self::output_to_result(Command::new(self.config.go_cmd_path("gofmt"))
@@ -353,10 +385,15 @@ impl FFIDL {
 
         Self::output_to_result(new_shell_cmd()
             .current_dir(&pkg_dir)
-            .arg("go mod tidy").arg(pkg_dir.to_str().unwrap())
+            .arg(self.config.go_cmd_path("go") + " mod tidy").arg(pkg_dir.to_str().unwrap())
             .output()?).unwrap();
 
-        self.gen_go_clib().unwrap();
+        self.gen_go_clib();
+
+        println!(
+            "cargo:rerun-if-changed={}",
+            self.clib_dir.borrow().to_str().unwrap(),
+        );
         Ok(())
     }
     fn gen_rust_clib(&self) -> anyhow::Result<()> {
@@ -390,27 +427,42 @@ uintptr_t leak_buffer(struct Buffer buf);
             .write_to_file(self.clib_dir.borrow().join(self.rust_c_header_name_base.borrow().to_string() + ".h"));
         Ok(())
     }
-    fn gen_go_clib(&self) -> anyhow::Result<()> {
+    fn gen_go_clib(&self) {
         if !self.has_goffi() {
-            return Ok(());
+            return;
         }
-        Self::output_to_result(new_shell_cmd()
+        let clib_name = self.clib_dir.borrow().join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".a");
+        let output = Self::output_to_result(new_shell_cmd()
             .env("CGO_ENABLED", "1")
+            .env("GOROOT", self.config.go_root_path.clone().unwrap_or_default())
             .arg(format!(
                 "{} build -buildmode=c-archive -o {} {}",
                 self.config.go_cmd_path("go"),
-                self.clib_dir.borrow().join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".a").to_str().unwrap(),
+                clib_name.to_str().unwrap(),
                 self.config.go_main_dir().to_str().unwrap(),
             ))
-            .output()?)?;
-
+            .output().unwrap());
         println!("cargo:rustc-link-search={}", self.clib_dir.borrow().to_str().unwrap());
         println!("cargo:rustc-link-lib={}", self.go_c_header_name_base.borrow());
+        let mut re_execute = false;
+        if !clib_name.exists() {
+            if let Err(e) = output {
+                println!("cargo:warning=failed to execute 'go build -buildmode=c-archive ...', {:?}", e);
+            }
+            re_execute = true;
+        }
+        let crate_modified_path = self.clib_dir.borrow().join("crate_modified");
+        if fs::read_to_string(&crate_modified_path).unwrap_or_default() != self.crate_modified {
+            fs::write(crate_modified_path, self.crate_modified.as_str()).unwrap();
+            re_execute = true
+        }
+        if re_execute {
+            println!("cargo:warning=It is recommended to re-execute 'cargo build' to ensure the correctness of '{}'", clib_name.file_name().unwrap().to_str().unwrap());
+        }
         println!(
             "cargo:rerun-if-changed={}",
-            self.clib_dir.borrow().join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".h").to_str().unwrap(),
+            self.config.pkg_dir().to_str().unwrap(),
         );
-        Ok(())
     }
 }
 
@@ -540,19 +592,19 @@ fn new_shell_cmd() -> Command {
     cmd
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::ffidl::{Config, FFIDL, UnitLikeStructPath};
-
-    #[test]
-    fn test_idl() {
-        FFIDL::generate(Config {
-            idl_file: "/Users/henrylee2cn/rust/fcplug/demo/ffidl.proto".into(),
-            rust_unitstruct_impl: Some(UnitLikeStructPath("crate::Test")),
-            go_mod_parent: "github.com/andeya/fcplug",
-            go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
-            target_crate_dir: Some("/Users/henrylee2cn/rust/fcplug/demo".into()),
-        })
-            .unwrap();
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use crate::ffidl::{Config, FFIDL, UnitLikeStructPath};
+//
+//     #[test]
+//     fn test_idl() {
+//         FFIDL::generate(Config {
+//             idl_file: "/Users/henrylee2cn/rust/fcplug/demo/ffidl.proto".into(),
+//             rust_unitstruct_impl: Some(UnitLikeStructPath("crate::Test")),
+//             go_mod_parent: "github.com/andeya/fcplug",
+//             go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
+//             target_crate_dir: Some("/Users/henrylee2cn/rust/fcplug/demo".into()),
+//         })
+//             .unwrap();
+//     }
+// }

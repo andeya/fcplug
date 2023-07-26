@@ -1,6 +1,6 @@
 module github.com/andeya/fcplug/samples/echo
 
-go 1.19
+go 1.18
 
 require (
 	github.com/andeya/gust v1.5.2

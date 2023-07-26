@@ -5,3 +5,6 @@
 
 /target
 /Cargo.lock
+
+go.work.sum
+go.sum
