@@ -19,7 +19,7 @@ See the [echo](https://github.com/andeya/fcplug/raw/HEAD/samples/echo)
 
 ## Benchmark
 
-[See benchmark code](https://github.com/andeya/fcplug/raw/HEAD/demo/main_test.go)
+[See benchmark code](https://github.com/andeya/fcplug/blob/HEAD/samples/echo/go_call_rust_test.go)
 
 ```text
 goos: darwin

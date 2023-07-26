@@ -176,7 +176,7 @@ const RC_UNKNOWN: ResultCode = -128;
 
 pub type ABIResult<T> = Result<T, ResultMsg>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TBytes<T> {
     pub bytes: Vec<u8>,
     _p: std::marker::PhantomData<T>,
@@ -335,8 +335,8 @@ impl RustFfiResult {
     }
     #[inline]
     pub(crate) fn from_err(mut ret_msg: ResultMsg) -> Self {
-        let err = ret_msg.msg.to_string();
         #[cfg(debug_assertions)]{
+            let err = ret_msg.msg.to_string();
             error!("{}", err);
         }
         if ret_msg.code == 0 {

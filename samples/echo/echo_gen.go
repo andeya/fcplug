@@ -3,8 +3,8 @@
 package echo
 
 /*
-   #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/debug
-   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/debug -lecho
+   #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/release
+   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/release -lecho
 
    #include "echo.h"
 */
