@@ -60,7 +60,7 @@ pub(super) trait RustFfi {
 }
 #[no_mangle]
 #[inline]
-extern "C" fn rustffi_echo_rs(req: ::fcplug::Buffer) -> ::fcplug::RustFfiResult {
+pub extern "C" fn rustffi_echo_rs(req: ::fcplug::Buffer) -> ::fcplug::RustFfiResult {
     ::fcplug::RustFfiResult::from(<FfiImpl as RustFfi>::echo_rs(::fcplug::RustFfiArg::from(
         req,
     )))
@@ -134,7 +134,7 @@ extern "C" {
 }
 #[no_mangle]
 #[inline]
-extern "C" fn goffi_echo_go_set_result(buf: ::fcplug::Buffer) -> ::fcplug::GoFfiResult {
+pub extern "C" fn goffi_echo_go_set_result(buf: ::fcplug::Buffer) -> ::fcplug::GoFfiResult {
     unsafe { <FfiImpl as GoFfi>::echo_go_set_result(::fcplug::RustFfiArg::from(buf)) }
 }
 trait Ffi: RustFfi + GoFfi + GoFfiCall {}

@@ -63,7 +63,7 @@ impl RustCodegenBackend {
                     format!(
                         r###"#[no_mangle]
                 #[inline]
-                extern "C" fn {name_lower}_{fn_name}({args}) -> {ret} {{
+                pub extern "C" fn {name_lower}_{fn_name}({args}) -> {ret} {{
                     {ret}::from(<{ust} as {name}>::{fn_name}({args_ident}))
                 }}
                 "###
@@ -158,7 +158,7 @@ impl RustCodegenBackend {
                 format!(
                     r###"#[no_mangle]
                 #[inline]
-                extern "C" fn {name_lower}_{fn_name}(buf: ::fcplug::Buffer) -> {ret} {{
+                pub extern "C" fn {name_lower}_{fn_name}(buf: ::fcplug::Buffer) -> {ret} {{
                     unsafe{{<{ust} as {name}>::{fn_name}(::fcplug::RustFfiArg::from(buf))}}
                 }}
                 "###
