@@ -6,8 +6,9 @@ use std::process::{Command, Output as CmdOutput};
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use pilota_build::Output;
+use pilota_build::fmt::fmt_file;
 use pilota_build::ir::ItemKind;
+use pilota_build::Output;
 use pilota_build::parser::{Parser, ProtobufParser};
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 
@@ -167,25 +168,23 @@ impl FFIDL {
         "###
         ));
         fs::write(&rust_mod_file, rust_code).unwrap();
+        fmt_file(rust_mod_file);
 
         if !rust_impl_file.exists() {
             let rust_impl_rustffi_code = self.rust_impl_rustffi_code.borrow();
             let rust_impl_goffi_code = self.rust_impl_goffi_code.borrow();
             fs::write(
                 &rust_impl_file,
-                &format!(
-                    r###"
+                &format!(r###"
                 {rust_impl_rustffi_code}
 
                 {rust_impl_goffi_code}
-
-            "###
+                "###
                 ),
             )
                 .unwrap();
+            fmt_file(rust_impl_file);
         }
-
-        Self::output_to_result(new_shell_cmd().arg("cargo fmt").output()?)?;
         Ok(())
     }
 
