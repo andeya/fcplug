@@ -59,7 +59,9 @@ pub trait GoFfi {
     unsafe fn echo_go<T: Default>(req: ::fcplug::TBytes<Ping>) -> ::fcplug::ABIResult<T> {
         ::fcplug::ABIResult::from(goffi_echo_go(::fcplug::Buffer::from_vec(req.bytes)))
     }
-    unsafe fn echo_go_set_result(go_ret: ::fcplug::RustFfiArg<Pong>) -> ::fcplug::GoFfiResult;
+    unsafe fn echo_go_set_result(go_ret: ::fcplug::RustFfiArg<Pong>) -> ::fcplug::GoFfiResult {
+        unimplemented!()
+    }
 }
 extern "C" {
     fn goffi_echo_go(req: ::fcplug::Buffer) -> ::fcplug::GoFfiResult;
@@ -67,7 +69,7 @@ extern "C" {
 #[no_mangle]
 #[inline]
 pub extern "C" fn goffi_echo_go_set_result(buf: ::fcplug::Buffer) -> ::fcplug::GoFfiResult {
-    unsafe { <crate::ImplFfi as GoFfi>::echo_go_set_result(::fcplug::RustFfiArg::from(buf)) }
+    unsafe { <ImplFfi as GoFfi>::echo_go_set_result(::fcplug::RustFfiArg::from(buf)) }
 }
 #[derive(
     PartialOrd,
@@ -125,12 +127,19 @@ impl ::pilota::prost::Message for Pong {
 }
 
 pub trait RustFfi {
-    fn echo_rs(req: ::fcplug::RustFfiArg<Ping>) -> ::fcplug::ABIResult<::fcplug::TBytes<Pong>>;
+    fn echo_rs(req: ::fcplug::RustFfiArg<Ping>) -> ::fcplug::ABIResult<::fcplug::TBytes<Pong>> {
+        unimplemented!()
+    }
 }
 #[no_mangle]
 #[inline]
 pub extern "C" fn rustffi_echo_rs(req: ::fcplug::Buffer) -> ::fcplug::RustFfiResult {
-    ::fcplug::RustFfiResult::from(<crate::ImplFfi as RustFfi>::echo_rs(
-        ::fcplug::RustFfiArg::from(req),
-    ))
+    ::fcplug::RustFfiResult::from(<ImplFfi as RustFfi>::echo_rs(::fcplug::RustFfiArg::from(
+        req,
+    )))
 }
+pub trait Ffi: RustFfi + GoFfi {}
+
+pub(crate) struct ImplFfi;
+
+impl Ffi for ImplFfi {}
