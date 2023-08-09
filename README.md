@@ -4,10 +4,14 @@ Foreign-Clang-Plugin solution, such as solving rust and go two-way calls.
 
 ## Features
 
-| ⇊Caller \ Callee⇉ |  Go  | Rust |
-|-------------------|:----:|:----:|
-| Go                |  -   |  ✅   |
-| Rust              |  ✅ |  -   |
+| ⇊Caller \ Callee⇉ | Go | Rust |
+|-------------------|:--:|:----:|
+| Go                | -  |  ✅   |
+| Rust              | ✅  |  -   |
+
+- Protobuf IDL serialization solution: Supported!
+- Thrift IDL serialization solution: In development...
+- No serialization solution: In development...
 
 ## Schematic
 
