@@ -139,9 +139,11 @@ impl FFIDL {
     fn set_clib_paths(self) -> Self {
         *self.rust_c_header_name_base.borrow_mut() =
             env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
+
         *self.go_c_header_name_base.borrow_mut() =
             "go_".to_string() + &env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
-        *self.clib_dir.borrow_mut() = env::var("CARGO_TARGET_DIR")
+
+        let target_dir = env::var("CARGO_TARGET_DIR")
             .map_or_else(
                 |_| {
                     PathBuf::from(
@@ -151,8 +153,16 @@ impl FFIDL {
                         .join("target")
                 },
                 PathBuf::from,
-            )
-            .join(MODE);
+            );
+
+
+        let target = env::var("TARGET").unwrap();
+        *self.clib_dir.borrow_mut() = if target_dir.join(&target).is_dir() {
+            target_dir.join(&target)
+        } else {
+            target_dir
+        }.join(MODE);
+
         println!(
             "cargo:rerun-if-changed={}",
             self.clib_dir.borrow().to_str().unwrap(),

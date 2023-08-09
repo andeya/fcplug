@@ -3,8 +3,8 @@
 package main
 
 /*
-   #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/release
-   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/release -lecho_pb
+   #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/x86_64-unknown-linux-gnu/debug
+   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/x86_64-unknown-linux-gnu/debug -lecho_pb
 
    #include "echo_pb.h"
 */
