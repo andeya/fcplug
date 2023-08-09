@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v4.23.2
-// source: echo.proto
+// source: echo_pb.proto
 
-package echo
+package echo_pb
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -31,7 +31,7 @@ type Ping struct {
 func (x *Ping) Reset() {
 	*x = Ping{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_echo_proto_msgTypes[0]
+		mi := &file_echo_pb_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -44,7 +44,7 @@ func (x *Ping) String() string {
 func (*Ping) ProtoMessage() {}
 
 func (x *Ping) ProtoReflect() protoreflect.Message {
-	mi := &file_echo_proto_msgTypes[0]
+	mi := &file_echo_pb_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *Ping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ping.ProtoReflect.Descriptor instead.
 func (*Ping) Descriptor() ([]byte, []int) {
-	return file_echo_proto_rawDescGZIP(), []int{0}
+	return file_echo_pb_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Ping) GetMsg() string {
@@ -78,7 +78,7 @@ type Pong struct {
 func (x *Pong) Reset() {
 	*x = Pong{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_echo_proto_msgTypes[1]
+		mi := &file_echo_pb_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -91,7 +91,7 @@ func (x *Pong) String() string {
 func (*Pong) ProtoMessage() {}
 
 func (x *Pong) ProtoReflect() protoreflect.Message {
-	mi := &file_echo_proto_msgTypes[1]
+	mi := &file_echo_pb_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -104,7 +104,7 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pong.ProtoReflect.Descriptor instead.
 func (*Pong) Descriptor() ([]byte, []int) {
-	return file_echo_proto_rawDescGZIP(), []int{1}
+	return file_echo_pb_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Pong) GetMsg() string {
@@ -114,45 +114,46 @@ func (x *Pong) GetMsg() string {
 	return ""
 }
 
-var File_echo_proto protoreflect.FileDescriptor
+var File_echo_pb_proto protoreflect.FileDescriptor
 
-var file_echo_proto_rawDesc = []byte{
-	0x0a, 0x0a, 0x65, 0x63, 0x68, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x04, 0x65, 0x63,
-	0x68, 0x6f, 0x22, 0x18, 0x0a, 0x04, 0x50, 0x69, 0x6e, 0x67, 0x12, 0x10, 0x0a, 0x03, 0x6d, 0x73,
-	0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6d, 0x73, 0x67, 0x22, 0x18, 0x0a, 0x04,
-	0x50, 0x6f, 0x6e, 0x67, 0x12, 0x10, 0x0a, 0x03, 0x6d, 0x73, 0x67, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x03, 0x6d, 0x73, 0x67, 0x32, 0x2e, 0x0a, 0x07, 0x52, 0x75, 0x73, 0x74, 0x46, 0x46,
-	0x49, 0x12, 0x23, 0x0a, 0x07, 0x65, 0x63, 0x68, 0x6f, 0x5f, 0x72, 0x73, 0x12, 0x0a, 0x2e, 0x65,
-	0x63, 0x68, 0x6f, 0x2e, 0x50, 0x69, 0x6e, 0x67, 0x1a, 0x0a, 0x2e, 0x65, 0x63, 0x68, 0x6f, 0x2e,
-	0x50, 0x6f, 0x6e, 0x67, 0x22, 0x00, 0x32, 0x2c, 0x0a, 0x05, 0x47, 0x6f, 0x46, 0x46, 0x49, 0x12,
-	0x23, 0x0a, 0x07, 0x65, 0x63, 0x68, 0x6f, 0x5f, 0x67, 0x6f, 0x12, 0x0a, 0x2e, 0x65, 0x63, 0x68,
-	0x6f, 0x2e, 0x50, 0x69, 0x6e, 0x67, 0x1a, 0x0a, 0x2e, 0x65, 0x63, 0x68, 0x6f, 0x2e, 0x50, 0x6f,
-	0x6e, 0x67, 0x22, 0x00, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x2f, 0x3b, 0x65, 0x63, 0x68, 0x6f, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+var file_echo_pb_proto_rawDesc = []byte{
+	0x0a, 0x0d, 0x65, 0x63, 0x68, 0x6f, 0x5f, 0x70, 0x62, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12,
+	0x07, 0x65, 0x63, 0x68, 0x6f, 0x5f, 0x70, 0x62, 0x22, 0x18, 0x0a, 0x04, 0x50, 0x69, 0x6e, 0x67,
+	0x12, 0x10, 0x0a, 0x03, 0x6d, 0x73, 0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6d,
+	0x73, 0x67, 0x22, 0x18, 0x0a, 0x04, 0x50, 0x6f, 0x6e, 0x67, 0x12, 0x10, 0x0a, 0x03, 0x6d, 0x73,
+	0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6d, 0x73, 0x67, 0x32, 0x34, 0x0a, 0x07,
+	0x52, 0x75, 0x73, 0x74, 0x46, 0x46, 0x49, 0x12, 0x29, 0x0a, 0x07, 0x65, 0x63, 0x68, 0x6f, 0x5f,
+	0x72, 0x73, 0x12, 0x0d, 0x2e, 0x65, 0x63, 0x68, 0x6f, 0x5f, 0x70, 0x62, 0x2e, 0x50, 0x69, 0x6e,
+	0x67, 0x1a, 0x0d, 0x2e, 0x65, 0x63, 0x68, 0x6f, 0x5f, 0x70, 0x62, 0x2e, 0x50, 0x6f, 0x6e, 0x67,
+	0x22, 0x00, 0x32, 0x32, 0x0a, 0x05, 0x47, 0x6f, 0x46, 0x46, 0x49, 0x12, 0x29, 0x0a, 0x07, 0x65,
+	0x63, 0x68, 0x6f, 0x5f, 0x67, 0x6f, 0x12, 0x0d, 0x2e, 0x65, 0x63, 0x68, 0x6f, 0x5f, 0x70, 0x62,
+	0x2e, 0x50, 0x69, 0x6e, 0x67, 0x1a, 0x0d, 0x2e, 0x65, 0x63, 0x68, 0x6f, 0x5f, 0x70, 0x62, 0x2e,
+	0x50, 0x6f, 0x6e, 0x67, 0x22, 0x00, 0x42, 0x0c, 0x5a, 0x0a, 0x2e, 0x2f, 0x3b, 0x65, 0x63, 0x68,
+	0x6f, 0x5f, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
-	file_echo_proto_rawDescOnce sync.Once
-	file_echo_proto_rawDescData = file_echo_proto_rawDesc
+	file_echo_pb_proto_rawDescOnce sync.Once
+	file_echo_pb_proto_rawDescData = file_echo_pb_proto_rawDesc
 )
 
-func file_echo_proto_rawDescGZIP() []byte {
-	file_echo_proto_rawDescOnce.Do(func() {
-		file_echo_proto_rawDescData = protoimpl.X.CompressGZIP(file_echo_proto_rawDescData)
+func file_echo_pb_proto_rawDescGZIP() []byte {
+	file_echo_pb_proto_rawDescOnce.Do(func() {
+		file_echo_pb_proto_rawDescData = protoimpl.X.CompressGZIP(file_echo_pb_proto_rawDescData)
 	})
-	return file_echo_proto_rawDescData
+	return file_echo_pb_proto_rawDescData
 }
 
-var file_echo_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_echo_proto_goTypes = []interface{}{
-	(*Ping)(nil), // 0: echo.Ping
-	(*Pong)(nil), // 1: echo.Pong
+var file_echo_pb_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_echo_pb_proto_goTypes = []interface{}{
+	(*Ping)(nil), // 0: echo_pb.Ping
+	(*Pong)(nil), // 1: echo_pb.Pong
 }
-var file_echo_proto_depIdxs = []int32{
-	0, // 0: echo.RustFFI.echo_rs:input_type -> echo.Ping
-	0, // 1: echo.GoFFI.echo_go:input_type -> echo.Ping
-	1, // 2: echo.RustFFI.echo_rs:output_type -> echo.Pong
-	1, // 3: echo.GoFFI.echo_go:output_type -> echo.Pong
+var file_echo_pb_proto_depIdxs = []int32{
+	0, // 0: echo_pb.RustFFI.echo_rs:input_type -> echo_pb.Ping
+	0, // 1: echo_pb.GoFFI.echo_go:input_type -> echo_pb.Ping
+	1, // 2: echo_pb.RustFFI.echo_rs:output_type -> echo_pb.Pong
+	1, // 3: echo_pb.GoFFI.echo_go:output_type -> echo_pb.Pong
 	2, // [2:4] is the sub-list for method output_type
 	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -160,13 +161,13 @@ var file_echo_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_echo_proto_init() }
-func file_echo_proto_init() {
-	if File_echo_proto != nil {
+func init() { file_echo_pb_proto_init() }
+func file_echo_pb_proto_init() {
+	if File_echo_pb_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_echo_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_echo_pb_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Ping); i {
 			case 0:
 				return &v.state
@@ -178,7 +179,7 @@ func file_echo_proto_init() {
 				return nil
 			}
 		}
-		file_echo_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_echo_pb_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Pong); i {
 			case 0:
 				return &v.state
@@ -195,18 +196,18 @@ func file_echo_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_echo_proto_rawDesc,
+			RawDescriptor: file_echo_pb_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
-		GoTypes:           file_echo_proto_goTypes,
-		DependencyIndexes: file_echo_proto_depIdxs,
-		MessageInfos:      file_echo_proto_msgTypes,
+		GoTypes:           file_echo_pb_proto_goTypes,
+		DependencyIndexes: file_echo_pb_proto_depIdxs,
+		MessageInfos:      file_echo_pb_proto_msgTypes,
 	}.Build()
-	File_echo_proto = out.File
-	file_echo_proto_rawDesc = nil
-	file_echo_proto_goTypes = nil
-	file_echo_proto_depIdxs = nil
+	File_echo_pb_proto = out.File
+	file_echo_pb_proto_rawDesc = nil
+	file_echo_pb_proto_goTypes = nil
+	file_echo_pb_proto_depIdxs = nil
 }

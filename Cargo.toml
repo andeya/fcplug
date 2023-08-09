@@ -15,7 +15,8 @@ resolver = "2"
 members = [
     "rust/fcplug",
     "rust/fcplug-build",
-    "samples/echo",
+    "samples/echo_pb",
+#    "samples/echo_thrift",
 ]
 exclude = []
 

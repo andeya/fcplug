@@ -1,3 +1,4 @@
 use (
-	./samples/echo
+	./samples/echo_pb
+	//./samples/echo_thrift
 )

@@ -1,5 +1,5 @@
 [package]
-name = "echo"
+name = "echo_pb"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

@@ -1,4 +1,4 @@
-module github.com/andeya/fcplug/samples/echo
+module github.com/andeya/fcplug/samples/echo_thrift
 
 go 1.18
 
