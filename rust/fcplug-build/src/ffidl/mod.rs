@@ -15,6 +15,7 @@ use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 pub use config::{Config, GoObjectPath, UnitLikeStructPath};
 
 use crate::ffidl::config::IdlType;
+use crate::os_arch::get_go_os_arch_from_env;
 
 mod gen_go;
 mod gen_rust;
@@ -547,8 +548,18 @@ uintptr_t leak_buffer(struct Buffer buf);
             .clib_dir
             .borrow()
             .join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".a");
+
+        let mut cmd = new_shell_cmd();
+        match get_go_os_arch_from_env() {
+            Ok((os, arch)) => {
+                cmd
+                    .env("GOOS", os.as_ref())
+                    .env("GOARCH", arch.as_ref());
+            }
+            Err(e) => { println!("cargo:warning={e}") }
+        }
         let output = Self::output_to_result(
-            new_shell_cmd()
+            cmd
                 .env("CGO_ENABLED", "1")
                 .env(
                     "GOROOT",

@@ -27,3 +27,4 @@ anyhow = { workspace = true }
 pilota-build = { workspace = true }
 walkdir = { workspace = true }
 md5 = { workspace = true }
+strum = { workspace = true }
