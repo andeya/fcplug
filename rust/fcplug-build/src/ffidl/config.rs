@@ -9,6 +9,7 @@ pub struct Config {
     pub idl_file: PathBuf,
     /// Target crate directory for code generation
     pub target_crate_dir: Option<PathBuf>,
+    /// go command dir, default to find from $GOROOT > $PATH
     pub go_root_path: Option<PathBuf>,
     pub go_mod_parent: &'static str,
 }

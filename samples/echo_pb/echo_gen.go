@@ -3,8 +3,8 @@
 package echo_pb
 
 /*
-   #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/x86_64-apple-darwin/release
-   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/x86_64-apple-darwin/release -lecho_pb
+   #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/debug
+   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/debug -lecho_pb
 
    #include "echo_pb.h"
 */
@@ -18,7 +18,7 @@ import (
 
 	"github.com/andeya/gust/valconv"
 	"github.com/bytedance/sonic"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 var (

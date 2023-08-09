@@ -171,12 +171,17 @@ impl FFIDL {
         self
     }
 
-    fn output_to_result(output: CmdOutput) -> anyhow::Result<()> {
-        if !output.status.success() {
-            eprintln!("{:?}", output);
-            return Err(anyhow!(format!("{:?}", output)));
+    fn output_to_result(output: CmdOutput, check_fail: impl FnOnce(&CmdOutput) -> bool) -> anyhow::Result<()> {
+        if !output.status.success() || check_fail(&output) {
+            eprintln!("{output:?}");
+            println!("cargo:warning={output:?}");
+            std::process::exit(output.status.code().unwrap_or(-1));
         } else {
-            println!("{:?}", output);
+            if output.stderr.is_empty() {
+                println!("{output:?}");
+            } else {
+                println!("cargo:warning={:?}", String::from_utf8(output.stderr.clone()).unwrap_or(format!("{output:?}")));
+            }
         }
         Ok(())
     }
@@ -276,6 +281,7 @@ impl FFIDL {
                         .arg(format!("--go_out={pkg_dir_str}"))
                         .arg(temp_idl_str)
                         .output()?,
+                    |_| false,
                 )
             }
             IdlType::Thrift => {
@@ -288,6 +294,7 @@ impl FFIDL {
                         .arg(format!("-o={}", temp_dir.join("gen-thrift").to_str().unwrap()))
                         .arg(&temp_idl_str)
                         .output()?,
+                    |_| false,
                 )?;
                 fs::copy(
                     temp_dir.join("gen-thrift").join(&go_mod_name).join(&format!("{go_mod_name}.go")),
@@ -371,7 +378,7 @@ impl FFIDL {
 
                 "github.com/andeya/gust/valconv"
                 "github.com/bytedance/sonic"
-                "github.com/golang/protobuf/proto"
+                "google.golang.org/protobuf/proto"
             )
 
             var (
@@ -407,7 +414,7 @@ impl FFIDL {
             require (
                 github.com/andeya/gust v1.5.2
                 github.com/bytedance/sonic v1.9.2
-                github.com/golang/protobuf v1.5.3
+                google.golang.org/protobuf v1.26.0
                 github.com/apache/thrift v0.13.0
             )
 
@@ -422,6 +429,7 @@ impl FFIDL {
                     .arg("get")
                     .arg("github.com/andeya/gust@v1.5.2")
                     .output()?,
+                |_| false,
             )
                 .unwrap();
             Self::output_to_result(
@@ -430,24 +438,29 @@ impl FFIDL {
                     .arg("get")
                     .arg("github.com/bytedance/sonic@latest")
                     .output()?,
+                |_| false,
             )
                 .unwrap();
-            Self::output_to_result(
-                Command::new(self.config.go_cmd_path("go"))
-                    .env("GO111MODULE", "on")
-                    .arg("get")
-                    .arg("github.com/golang/protobuf@v1.5.3")
-                    .output()?,
-            )
-                .unwrap();
-            Self::output_to_result(
-                Command::new(self.config.go_cmd_path("go"))
-                    .env("GO111MODULE", "on")
-                    .arg("get")
-                    .arg("github.com/apache/thrift@v0.13.0")
-                    .output()?,
-            )
-                .unwrap();
+            match self.config.idl_type() {
+                IdlType::Proto => Self::output_to_result(
+                    Command::new(self.config.go_cmd_path("go"))
+                        .env("GO111MODULE", "on")
+                        .arg("get")
+                        .arg("google.golang.org/protobuf@v1.26.0")
+                        .output()?,
+                    |_| false,
+                )
+                    .unwrap(),
+                IdlType::Thrift => Self::output_to_result(
+                    Command::new(self.config.go_cmd_path("go"))
+                        .env("GO111MODULE", "on")
+                        .arg("get")
+                        .arg("github.com/apache/thrift@v0.13.0")
+                        .output()?,
+                    |_| false,
+                )
+                    .unwrap(),
+            }
         }
 
         if self.has_goffi {
@@ -483,6 +496,7 @@ impl FFIDL {
                 .arg("-w")
                 .arg(&pkg_dir_str)
                 .output()?,
+            |_| false,
         )
             .unwrap();
 
@@ -492,6 +506,7 @@ impl FFIDL {
                 .arg(self.config.go_cmd_path("go") + " mod tidy")
                 .arg(&pkg_dir_str)
                 .output()?,
+            |_| false,
         )
             .unwrap();
 
@@ -573,7 +588,9 @@ uintptr_t leak_buffer(struct Buffer buf);
                 ))
                 .output()
                 .unwrap(),
-        );
+            |output| {
+                format!("{output:?}").contains(".h' file not found")
+            });
         println!(
             "cargo:rustc-link-search={}",
             self.clib_dir.borrow().to_str().unwrap()
