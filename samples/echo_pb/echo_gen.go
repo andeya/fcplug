@@ -3,8 +3,8 @@
 package echo_pb
 
 /*
-   #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/debug
-   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/debug -lecho_pb
+   #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/x86_64-apple-darwin/release
+   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/x86_64-apple-darwin/release -lecho_pb
 
    #include "echo_pb.h"
 */
@@ -49,12 +49,14 @@ type TBytes[T any] struct {
 }
 
 // TBytesFromBytes new TBytes from bytes
+//
 //go:inline
 func TBytesFromBytes[T any](bytes []byte) TBytes[T] {
 	return TBytes[T]{bytes: bytes}
 }
 
 // TBytesFromString new TBytes from string
+//
 //go:inline
 func TBytesFromString[T any](s string) TBytes[T] {
 	return TBytes[T]{bytes: valconv.StringToReadonlyBytes[string](s)}

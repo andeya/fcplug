@@ -1,5 +1,6 @@
 use std::{env, fs};
 use std::path::PathBuf;
+use std::str::FromStr;
 
 const CGOBIN: &'static str = "cgobin";
 
@@ -83,6 +84,14 @@ impl Config {
     pub(crate) fn go_cmd_path(&self, cmd: &'static str) -> String {
         if let Some(go_root_path) = &self.go_root_path {
             go_root_path
+                .join("bin")
+                .join(cmd)
+                .to_str()
+                .unwrap()
+                .to_string()
+        } else if let Ok(go_root_path) = env::var("GOROOT") {
+            PathBuf::from_str(&go_root_path)
+                .unwrap()
                 .join("bin")
                 .join(cmd)
                 .to_str()
