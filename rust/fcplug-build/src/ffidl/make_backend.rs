@@ -2,14 +2,15 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use pilota_build::{
-    CodegenBackend, Context, DefId, MakeBackend, ProtobufBackend, rir::Enum,
-    rir::Message, rir::Method, rir::NewType, rir::Service,
+    CodegenBackend, Context, DefId, MakeBackend, ProtobufBackend, rir::Enum, rir::Message,
+    rir::Method, rir::NewType, rir::Service, ThriftBackend,
 };
 use pilota_build::db::RirDatabase;
 use pilota_build::rir::{Arg, Item};
 use pilota_build::ty::TyKind;
 
 use crate::Config;
+use crate::ffidl::config::IdlType;
 use crate::ffidl::FFIDL;
 use crate::ffidl::gen_go::GoCodegenBackend;
 use crate::ffidl::gen_rust::RustCodegenBackend;
@@ -18,9 +19,12 @@ impl MakeBackend for FFIDL {
     type Target = FFIDLBackend;
 
     fn make_backend(self, context: Context) -> Self::Target {
+        let thrift = ThriftBackend::new(context.clone());
         let protobuf = ProtobufBackend::new(context.clone());
         let context = Arc::new(context);
         FFIDLBackend {
+            thrift,
+            protobuf,
             rust: RustCodegenBackend {
                 config: self.config.clone(),
                 context: Cx(context.clone()),
@@ -33,7 +37,6 @@ impl MakeBackend for FFIDL {
                 go_pkg_code: self.go_pkg_code.clone(),
                 go_main_code: self.go_main_code.clone(),
             },
-            protobuf,
             context: Cx(context),
             config: self.config,
         }
@@ -49,6 +52,7 @@ pub struct FFIDLBackend {
     rust: RustCodegenBackend,
     go: GoCodegenBackend,
     protobuf: ProtobufBackend,
+    thrift: ThriftBackend,
 }
 
 unsafe impl Send for FFIDLBackend {}
@@ -114,7 +118,10 @@ impl CodegenBackend for FFIDLBackend {
         self.context.0.as_ref()
     }
     fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
-        self.protobuf.codegen_struct_impl(def_id, stream, s)
+        match self.config.idl_type() {
+            IdlType::Proto => self.protobuf.codegen_struct_impl(def_id, stream, s),
+            IdlType::Thrift => self.thrift.codegen_struct_impl(def_id, stream, s),
+        }
     }
     fn codegen_service_impl(&self, service_def_id: DefId, stream: &mut String, s: &Service) {
         let mut s = s.clone();

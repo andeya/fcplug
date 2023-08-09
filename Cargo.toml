@@ -63,4 +63,4 @@ md5 = "0.7.0"
 [patch.crates-io]
 fcplug-build = { path = "rust/fcplug-build" }
 fcplug = { path = "rust/fcplug" }
-#pilota-build = { path = "../pilota-build", package = "pilota-build2" }
+pilota-build = { path = "../pilota-build", package = "pilota-build2" }

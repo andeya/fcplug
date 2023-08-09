@@ -12,6 +12,11 @@ pub struct Config {
     pub go_mod_parent: &'static str,
 }
 
+pub(crate) enum IdlType {
+    Proto,
+    Thrift,
+}
+
 /// unit-like struct path, e.g. `::mycrate::Abc`
 #[derive(Debug, Clone)]
 pub struct UnitLikeStructPath(pub &'static str);
@@ -25,6 +30,13 @@ pub struct GoObjectPath {
 }
 
 impl Config {
+    pub(crate) fn idl_type(&self) -> IdlType {
+        match self.idl_file.extension().unwrap().to_str().unwrap() {
+            "proto" => IdlType::Proto,
+            "thrift" => IdlType::Thrift,
+            _ => IdlType::Proto,
+        }
+    }
     pub(crate) fn pkg_dir(&self) -> PathBuf {
         if let Some(target_crate_dir) = &self.target_crate_dir {
             target_crate_dir.clone()

@@ -15,46 +15,134 @@
 pub struct Ping {
     pub msg: ::std::string::String,
 }
-impl ::pilota::prost::Message for Ping {
-    #[inline]
-    fn encoded_len(&self) -> usize {
-        0 + ::pilota::prost::encoding::string::encoded_len(1, &self.msg)
+#[::async_trait::async_trait]
+impl ::pilota::thrift::Message for Ping {
+    fn encode<T: ::pilota::thrift::TOutputProtocol>(
+        &self,
+        protocol: &mut T,
+    ) -> ::std::result::Result<(), ::pilota::thrift::EncodeError> {
+        #[allow(unused_imports)]
+        use ::pilota::thrift::TOutputProtocolExt;
+        let struct_ident = ::pilota::thrift::TStructIdentifier { name: "Ping" };
+
+        protocol.write_struct_begin(&struct_ident)?;
+        protocol.write_string_field(1, &&self.msg)?;
+        protocol.write_field_stop()?;
+        protocol.write_struct_end()?;
+        Ok(())
     }
 
-    #[allow(unused_variables)]
-    fn encode_raw<B>(&self, buf: &mut B)
-    where
-        B: ::pilota::prost::bytes::BufMut,
-    {
-        ::pilota::prost::encoding::string::encode(1, &self.msg, buf);
-    }
+    fn decode<T: ::pilota::thrift::TInputProtocol>(
+        protocol: &mut T,
+    ) -> ::std::result::Result<Self, ::pilota::thrift::DecodeError> {
+        let mut msg = None;
 
-    #[allow(unused_variables)]
-    fn merge_field<B>(
-        &mut self,
-        tag: u32,
-        wire_type: ::pilota::prost::encoding::WireType,
-        buf: &mut B,
-        ctx: ::pilota::prost::encoding::DecodeContext,
-    ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-    where
-        B: ::pilota::prost::bytes::Buf,
-    {
-        const STRUCT_NAME: &'static str = stringify!(Ping);
-        match tag {
-            1 => {
-                let mut _inner_pilota_value = &mut self.msg;
-                ::pilota::prost::encoding::string::merge(wire_type, _inner_pilota_value, buf, ctx)
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(msg));
-                        error
-                    })
+        let mut __pilota_decoding_field_id = None;
+
+        protocol.read_struct_begin()?;
+        if let Err(err) = (|| {
+            loop {
+                let field_ident = protocol.read_field_begin()?;
+                if field_ident.field_type == ::pilota::thrift::TType::Stop {
+                    break;
+                }
+                __pilota_decoding_field_id = field_ident.id;
+                match field_ident.id {
+                    Some(1) if field_ident.field_type == ::pilota::thrift::TType::Binary => {
+                        msg = Some(protocol.read_string()?);
+                    }
+                    _ => {
+                        protocol.skip(field_ident.field_type)?;
+                    }
+                }
+
+                protocol.read_field_end()?;
             }
-            _ => ::pilota::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+            Ok::<_, ::pilota::thrift::DecodeError>(())
+        })() {
+            if let Some(field_id) = __pilota_decoding_field_id {
+                return Err(::pilota::thrift::DecodeError::new(
+                    ::pilota::thrift::DecodeErrorKind::WithContext(::std::boxed::Box::new(err)),
+                    format!("decode struct `Ping` field(#{}) failed", field_id),
+                ));
+            } else {
+                return Err(err);
+            }
+        };
+        protocol.read_struct_end()?;
+
+        let Some(msg) = msg else {
+            return Err(::pilota::thrift::DecodeError::new(
+                ::pilota::thrift::DecodeErrorKind::InvalidData,
+                "field msg is required".to_string(),
+            ));
+        };
+
+        let data = Self { msg };
+        Ok(data)
+    }
+
+    async fn decode_async<T: ::pilota::thrift::TAsyncInputProtocol>(
+        protocol: &mut T,
+    ) -> ::std::result::Result<Self, ::pilota::thrift::DecodeError> {
+        let mut msg = None;
+
+        let mut __pilota_decoding_field_id = None;
+
+        protocol.read_struct_begin().await?;
+        if let Err(err) = async {
+            loop {
+                let field_ident = protocol.read_field_begin().await?;
+                if field_ident.field_type == ::pilota::thrift::TType::Stop {
+                    break;
+                }
+                __pilota_decoding_field_id = field_ident.id;
+                match field_ident.id {
+                    Some(1) if field_ident.field_type == ::pilota::thrift::TType::Binary => {
+                        msg = Some(protocol.read_string().await?);
+                    }
+                    _ => {
+                        protocol.skip(field_ident.field_type).await?;
+                    }
+                }
+
+                protocol.read_field_end().await?;
+            }
+            Ok::<_, ::pilota::thrift::DecodeError>(())
         }
+        .await
+        {
+            if let Some(field_id) = __pilota_decoding_field_id {
+                return Err(::pilota::thrift::DecodeError::new(
+                    ::pilota::thrift::DecodeErrorKind::WithContext(::std::boxed::Box::new(err)),
+                    format!("decode struct `Ping` field(#{}) failed", field_id),
+                ));
+            } else {
+                return Err(err);
+            }
+        };
+        protocol.read_struct_end().await?;
+
+        let Some(msg) = msg else {
+            return Err(::pilota::thrift::DecodeError::new(
+                ::pilota::thrift::DecodeErrorKind::InvalidData,
+                "field msg is required".to_string(),
+            ));
+        };
+
+        let data = Self { msg };
+        Ok(data)
+    }
+
+    fn size<T: ::pilota::thrift::TLengthProtocol>(&self, protocol: &mut T) -> usize {
+        #[allow(unused_imports)]
+        use ::pilota::thrift::TLengthProtocolExt;
+        protocol.write_struct_begin_len(&::pilota::thrift::TStructIdentifier { name: "Ping" })
+            + protocol.write_string_field_len(Some(1), &&self.msg)
+            + protocol.write_field_stop_len()
+            + protocol.write_struct_end_len()
     }
 }
-
 pub(super) trait RustFfi {
     fn echo_rs(req: ::fcplug::RustFfiArg<Ping>) -> ::fcplug::ABIResult<::fcplug::TBytes<Pong>>;
 }
@@ -80,46 +168,134 @@ pub extern "C" fn rustffi_echo_rs(req: ::fcplug::Buffer) -> ::fcplug::RustFfiRes
 pub struct Pong {
     pub msg: ::std::string::String,
 }
-impl ::pilota::prost::Message for Pong {
-    #[inline]
-    fn encoded_len(&self) -> usize {
-        0 + ::pilota::prost::encoding::string::encoded_len(1, &self.msg)
+#[::async_trait::async_trait]
+impl ::pilota::thrift::Message for Pong {
+    fn encode<T: ::pilota::thrift::TOutputProtocol>(
+        &self,
+        protocol: &mut T,
+    ) -> ::std::result::Result<(), ::pilota::thrift::EncodeError> {
+        #[allow(unused_imports)]
+        use ::pilota::thrift::TOutputProtocolExt;
+        let struct_ident = ::pilota::thrift::TStructIdentifier { name: "Pong" };
+
+        protocol.write_struct_begin(&struct_ident)?;
+        protocol.write_string_field(1, &&self.msg)?;
+        protocol.write_field_stop()?;
+        protocol.write_struct_end()?;
+        Ok(())
     }
 
-    #[allow(unused_variables)]
-    fn encode_raw<B>(&self, buf: &mut B)
-    where
-        B: ::pilota::prost::bytes::BufMut,
-    {
-        ::pilota::prost::encoding::string::encode(1, &self.msg, buf);
-    }
+    fn decode<T: ::pilota::thrift::TInputProtocol>(
+        protocol: &mut T,
+    ) -> ::std::result::Result<Self, ::pilota::thrift::DecodeError> {
+        let mut msg = None;
 
-    #[allow(unused_variables)]
-    fn merge_field<B>(
-        &mut self,
-        tag: u32,
-        wire_type: ::pilota::prost::encoding::WireType,
-        buf: &mut B,
-        ctx: ::pilota::prost::encoding::DecodeContext,
-    ) -> ::core::result::Result<(), ::pilota::prost::DecodeError>
-    where
-        B: ::pilota::prost::bytes::Buf,
-    {
-        const STRUCT_NAME: &'static str = stringify!(Pong);
-        match tag {
-            1 => {
-                let mut _inner_pilota_value = &mut self.msg;
-                ::pilota::prost::encoding::string::merge(wire_type, _inner_pilota_value, buf, ctx)
-                    .map_err(|mut error| {
-                        error.push(STRUCT_NAME, stringify!(msg));
-                        error
-                    })
+        let mut __pilota_decoding_field_id = None;
+
+        protocol.read_struct_begin()?;
+        if let Err(err) = (|| {
+            loop {
+                let field_ident = protocol.read_field_begin()?;
+                if field_ident.field_type == ::pilota::thrift::TType::Stop {
+                    break;
+                }
+                __pilota_decoding_field_id = field_ident.id;
+                match field_ident.id {
+                    Some(1) if field_ident.field_type == ::pilota::thrift::TType::Binary => {
+                        msg = Some(protocol.read_string()?);
+                    }
+                    _ => {
+                        protocol.skip(field_ident.field_type)?;
+                    }
+                }
+
+                protocol.read_field_end()?;
             }
-            _ => ::pilota::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+            Ok::<_, ::pilota::thrift::DecodeError>(())
+        })() {
+            if let Some(field_id) = __pilota_decoding_field_id {
+                return Err(::pilota::thrift::DecodeError::new(
+                    ::pilota::thrift::DecodeErrorKind::WithContext(::std::boxed::Box::new(err)),
+                    format!("decode struct `Pong` field(#{}) failed", field_id),
+                ));
+            } else {
+                return Err(err);
+            }
+        };
+        protocol.read_struct_end()?;
+
+        let Some(msg) = msg else {
+            return Err(::pilota::thrift::DecodeError::new(
+                ::pilota::thrift::DecodeErrorKind::InvalidData,
+                "field msg is required".to_string(),
+            ));
+        };
+
+        let data = Self { msg };
+        Ok(data)
+    }
+
+    async fn decode_async<T: ::pilota::thrift::TAsyncInputProtocol>(
+        protocol: &mut T,
+    ) -> ::std::result::Result<Self, ::pilota::thrift::DecodeError> {
+        let mut msg = None;
+
+        let mut __pilota_decoding_field_id = None;
+
+        protocol.read_struct_begin().await?;
+        if let Err(err) = async {
+            loop {
+                let field_ident = protocol.read_field_begin().await?;
+                if field_ident.field_type == ::pilota::thrift::TType::Stop {
+                    break;
+                }
+                __pilota_decoding_field_id = field_ident.id;
+                match field_ident.id {
+                    Some(1) if field_ident.field_type == ::pilota::thrift::TType::Binary => {
+                        msg = Some(protocol.read_string().await?);
+                    }
+                    _ => {
+                        protocol.skip(field_ident.field_type).await?;
+                    }
+                }
+
+                protocol.read_field_end().await?;
+            }
+            Ok::<_, ::pilota::thrift::DecodeError>(())
         }
+        .await
+        {
+            if let Some(field_id) = __pilota_decoding_field_id {
+                return Err(::pilota::thrift::DecodeError::new(
+                    ::pilota::thrift::DecodeErrorKind::WithContext(::std::boxed::Box::new(err)),
+                    format!("decode struct `Pong` field(#{}) failed", field_id),
+                ));
+            } else {
+                return Err(err);
+            }
+        };
+        protocol.read_struct_end().await?;
+
+        let Some(msg) = msg else {
+            return Err(::pilota::thrift::DecodeError::new(
+                ::pilota::thrift::DecodeErrorKind::InvalidData,
+                "field msg is required".to_string(),
+            ));
+        };
+
+        let data = Self { msg };
+        Ok(data)
+    }
+
+    fn size<T: ::pilota::thrift::TLengthProtocol>(&self, protocol: &mut T) -> usize {
+        #[allow(unused_imports)]
+        use ::pilota::thrift::TLengthProtocolExt;
+        protocol.write_struct_begin_len(&::pilota::thrift::TStructIdentifier { name: "Pong" })
+            + protocol.write_string_field_len(Some(1), &&self.msg)
+            + protocol.write_field_stop_len()
+            + protocol.write_struct_end_len()
     }
 }
-
 pub trait GoFfiCall {
     unsafe fn echo_go<T: Default>(req: ::fcplug::TBytes<Ping>) -> ::fcplug::ABIResult<T> {
         ::fcplug::ABIResult::from(goffi_echo_go(::fcplug::Buffer::from_vec(req.bytes)))

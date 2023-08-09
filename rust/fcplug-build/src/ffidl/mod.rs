@@ -9,10 +9,12 @@ use anyhow::anyhow;
 use pilota_build::fmt::fmt_file;
 use pilota_build::ir::ItemKind;
 use pilota_build::Output;
-use pilota_build::parser::{Parser, ProtobufParser};
+use pilota_build::parser::{Parser, ProtobufParser, ThriftParser};
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 
 pub use config::{Config, GoObjectPath, UnitLikeStructPath};
+
+use crate::ffidl::config::IdlType;
 
 mod gen_go;
 mod gen_rust;
@@ -65,41 +67,54 @@ impl FFIDL {
         self.config.idl_file.parent().unwrap().to_path_buf()
     }
     fn check_idl(mut self) -> anyhow::Result<Self> {
-        let mut parser = ProtobufParser::default();
-        // let mut parser = ThriftParser::default();
-        Parser::include_dirs(&mut parser, vec![self.include_dir()]);
-        Parser::input(&mut parser, &self.config.idl_file);
-        let (descs, mut ret) = parser.parse_and_typecheck();
-        for desc in descs {
-            if desc.package.is_some() {
-                return Err(anyhow!("IDL-Check: The 'package' should not be configured"));
-            }
-            if let Some(opt) = desc.options.as_ref() {
-                if opt.go_package.is_some() {
-                    return Err(anyhow!("IDL-Check: The 'option go_package' should not be configured"));
+        let mut ret = match self.config.idl_type() {
+            IdlType::Proto => {
+                let mut parser = ProtobufParser::default();
+                Parser::include_dirs(&mut parser, vec![self.include_dir()]);
+                Parser::input(&mut parser, &self.config.idl_file);
+                let (descs, ret) = parser.parse_and_typecheck();
+                for desc in descs {
+                    if desc.package.is_some() {
+                        return Err(anyhow!("IDL-Check: The 'package' should not be configured"));
+                    }
+                    if let Some(opt) = desc.options.as_ref() {
+                        if opt.go_package.is_some() {
+                            return Err(anyhow!("IDL-Check: The 'option go_package' should not be configured"));
+                        }
+                    }
                 }
+                ret
             }
-        }
+            IdlType::Thrift => {
+                let mut parser = ThriftParser::default();
+                Parser::include_dirs(&mut parser, vec![self.include_dir()]);
+                Parser::input(&mut parser, &self.config.idl_file);
+                let ret = parser.parse();
+                ret
+            }
+        };
+
         let file = ret.files.pop().unwrap();
         if !file.uses.is_empty() {
-            return Err(anyhow!("IDL-Check: Does not support Protobuf 'import'."));
+            match self.config.idl_type() {
+                IdlType::Proto => { return Err(anyhow!("IDL-Check: Does not support Protobuf 'import'.")); }
+                IdlType::Thrift => { return Err(anyhow!("IDL-Check: Does not support Thrift 'include'.")); }
+            }
         }
         for item in &file.items {
             match &item.kind {
                 ItemKind::Message(_) => {}
-                ItemKind::Service(service_item) => {
-                    match service_item.name.to_lowercase().as_str() {
-                        "goffi" => self.has_goffi = true,
-                        "rustffi" => self.has_rustffi = true,
-                        _ => {
-                            return Err(anyhow!(
+                ItemKind::Service(service_item) => match service_item.name.to_lowercase().as_str() {
+                    "goffi" => self.has_goffi = true,
+                    "rustffi" => self.has_rustffi = true,
+                    _ => {
+                        return Err(anyhow!(
                                 "IDL-Check: Protobuf Service name can only be: 'GoFFI', 'RustFFI'."
                             ));
-                        }
                     }
                 }
-                _ => {
-                    return Err(anyhow!(
+                _ => match self.config.idl_type() {
+                    IdlType::Proto => return Err(anyhow!(
                         "IDL-Check: Protobuf Item '{}' not supported.",
                         format!("{:?}", item)
                             .trim_start_matches("Item { kind: ")
@@ -107,7 +122,15 @@ impl FFIDL {
                             .unwrap()
                             .0
                             .to_lowercase()
-                    ));
+                    )),
+                    IdlType::Thrift => return Err(anyhow!(
+                        "Thrift Item '{}' not supported.",
+                        format!("{:?}", item)
+                            .split_once("(")
+                            .unwrap()
+                            .0
+                            .to_lowercase()
+                    )),
                 }
             }
         }
@@ -139,6 +162,7 @@ impl FFIDL {
 
     fn output_to_result(output: CmdOutput) -> anyhow::Result<()> {
         if !output.status.success() {
+            eprintln!("{:?}", output);
             return Err(anyhow!(format!("{:?}", output)));
         } else {
             println!("{:?}", output);
@@ -154,17 +178,26 @@ impl FFIDL {
     fn gen_rust_code(&self) -> anyhow::Result<()> {
         let rust_mod_gen_file = self.config.rust_mod_gen_file();
         let rust_mod_impl_file = self.config.rust_mod_impl_file();
-
-        pilota_build::Builder::protobuf_with_backend(self.clone())
-            // pilota_build::Builder::thrift_with_backend(self.clone())
-            .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
-            .include_dirs(vec![self.include_dir()])
-            .plugin(AutoDerivePlugin::new(
-                Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
-                |_| PredicateResult::GoOn,
-            ))
-            .ignore_unused(true)
-            .compile([&self.config.idl_file], Output::File(rust_mod_gen_file.clone()));
+        match self.config.idl_type() {
+            IdlType::Proto => pilota_build::Builder::protobuf_with_backend(self.clone())
+                .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
+                .include_dirs(vec![self.include_dir()])
+                .plugin(AutoDerivePlugin::new(
+                    Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
+                    |_| PredicateResult::GoOn,
+                ))
+                .ignore_unused(true)
+                .compile([&self.config.idl_file], Output::File(rust_mod_gen_file.clone())),
+            IdlType::Thrift => pilota_build::Builder::thrift_with_backend(self.clone())
+                .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
+                .include_dirs(vec![self.include_dir()])
+                .plugin(AutoDerivePlugin::new(
+                    Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
+                    |_| PredicateResult::GoOn,
+                ))
+                .ignore_unused(true)
+                .compile([&self.config.idl_file], Output::File(rust_mod_gen_file.clone())),
+        }
 
         let mut rust_code = fs::read_to_string(&rust_mod_gen_file).unwrap();
         if !self.has_rustffi {
@@ -212,25 +245,47 @@ impl FFIDL {
         Ok(())
     }
 
-    fn gen_go_pb_code(&self) -> anyhow::Result<()> {
+    fn gen_go_codec_code(&self) -> anyhow::Result<()> {
         let pkg_dir = self.config.pkg_dir();
         let pkg_dir_str = pkg_dir.to_str().unwrap().to_string();
         let go_mod_name = self.config.go_mod_name();
         let temp_dir = temp_dir();
         let temp_dir_str = temp_dir.to_str().unwrap().to_string();
-        let temp_idl = temp_dir.join(go_mod_name.clone() + ".proto");
-        let temp_idl_str = temp_idl.to_str().unwrap().to_string();
-        fs::write(
-            &temp_idl_str,
-            fs::read_to_string(&self.config.idl_file).unwrap() + &format!("\noption go_package=\"./;{go_mod_name}\";\npackage {go_mod_name};\n"),
-        ).unwrap();
-        Self::output_to_result(
-            Command::new("protoc")
-                .arg(format!("--proto_path={temp_dir_str}"))
-                .arg(format!("--go_out={pkg_dir_str}"))
-                .arg(temp_idl_str)
-                .output()?,
-        )
+        match self.config.idl_type() {
+            IdlType::Proto => {
+                let temp_idl = temp_dir.join(go_mod_name.clone() + ".proto");
+                let temp_idl_str = temp_idl.to_str().unwrap().to_string();
+                fs::write(
+                    &temp_idl_str,
+                    fs::read_to_string(&self.config.idl_file).unwrap() + &format!("\noption go_package=\"./;{go_mod_name}\";\npackage {go_mod_name};\n"),
+                ).unwrap();
+                Self::output_to_result(
+                    Command::new("protoc")
+                        .arg(format!("--proto_path={temp_dir_str}"))
+                        .arg(format!("--go_out={pkg_dir_str}"))
+                        .arg(temp_idl_str)
+                        .output()?,
+                )
+            }
+            IdlType::Thrift => {
+                let temp_idl = temp_dir.join(go_mod_name.clone() + ".thrift");
+                let temp_idl_str = temp_idl.to_str().unwrap().to_string();
+                fs::copy(&self.config.idl_file, &temp_idl_str).unwrap();
+                Self::output_to_result(
+                    Command::new("thriftgo")
+                        .arg(format!("-g=go"))
+                        .arg(format!("-o={}", temp_dir.join("gen-thrift").to_str().unwrap()))
+                        .arg(&temp_idl_str)
+                        .output()?,
+                )?;
+                fs::copy(
+                    temp_dir.join("gen-thrift").join(&go_mod_name).join(&format!("{go_mod_name}.go")),
+                    pkg_dir.join(&format!("{go_mod_name}.thrift.go")),
+                )
+                    .unwrap();
+                Ok(())
+            }
+        }
     }
 
     fn gen_rust_and_go(self) -> anyhow::Result<()> {
@@ -239,7 +294,7 @@ impl FFIDL {
         let pkg_dir_str = pkg_dir.to_str().unwrap().to_string();
         let go_mod_name = self.config.go_mod_name();
 
-        self.gen_go_pb_code()?;
+        self.gen_go_codec_code()?;
 
         let import_gen_pkg = self.config.go_mod_path();
         let import_gen_pkg_var = format!("_ {}.ResultCode", go_mod_name);
@@ -342,12 +397,46 @@ impl FFIDL {
                 github.com/andeya/gust v1.5.2
                 github.com/bytedance/sonic v1.9.2
                 github.com/golang/protobuf v1.5.3
+                github.com/apache/thrift v0.13.0
             )
 
             "###,
                     self.config.go_mod_path()
                 ),
             )?;
+        } else {
+            Self::output_to_result(
+                Command::new(self.config.go_cmd_path("go"))
+                    .env("GO111MODULE", "on")
+                    .arg("get")
+                    .arg("github.com/andeya/gust@v1.5.2")
+                    .output()?,
+            )
+                .unwrap();
+            Self::output_to_result(
+                Command::new(self.config.go_cmd_path("go"))
+                    .env("GO111MODULE", "on")
+                    .arg("get")
+                    .arg("github.com/bytedance/sonic@latest")
+                    .output()?,
+            )
+                .unwrap();
+            Self::output_to_result(
+                Command::new(self.config.go_cmd_path("go"))
+                    .env("GO111MODULE", "on")
+                    .arg("get")
+                    .arg("github.com/golang/protobuf@v1.5.3")
+                    .output()?,
+            )
+                .unwrap();
+            Self::output_to_result(
+                Command::new(self.config.go_cmd_path("go"))
+                    .env("GO111MODULE", "on")
+                    .arg("get")
+                    .arg("github.com/apache/thrift@v0.13.0")
+                    .output()?,
+            )
+                .unwrap();
         }
 
         if self.has_goffi {
@@ -507,20 +596,3 @@ fn new_shell_cmd() -> Command {
     cmd.arg(param.1);
     cmd
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use crate::ffidl::{Config, FFIDL, UnitLikeStructPath};
-//
-//     #[test]
-//     fn test_idl() {
-//         FFIDL::generate(Config {
-//             idl_file: "/Users/henrylee2cn/rust/fcplug/demo/ffidl.proto".into(),
-//             rust_unitstruct_impl: Some(UnitLikeStructPath("crate::Test")),
-//             go_mod_parent: "github.com/andeya/fcplug",
-//             go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.19.9/bin".into()),
-//             target_crate_dir: Some("/Users/henrylee2cn/rust/fcplug/demo".into()),
-//         })
-//             .unwrap();
-//     }
-// }
