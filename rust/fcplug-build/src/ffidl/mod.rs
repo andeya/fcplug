@@ -157,9 +157,12 @@ impl FFIDL {
             );
 
 
-        let target = env::var("TARGET").unwrap();
-        *self.clib_dir.borrow_mut() = if target_dir.join(&target).is_dir() {
-            target_dir.join(&target)
+        let full_target_dir = target_dir.join(env::var("TARGET").unwrap());
+        *self.clib_dir.borrow_mut() = if full_target_dir.is_dir() && PathBuf::from(env::var("OUT_DIR").unwrap())
+            .canonicalize()
+            .unwrap()
+            .starts_with(full_target_dir.canonicalize().unwrap()) {
+            full_target_dir
         } else {
             target_dir
         }.join(MODE);
