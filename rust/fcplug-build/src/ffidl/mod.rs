@@ -171,11 +171,13 @@ impl FFIDL {
         self
     }
 
-    fn output_to_result(output: CmdOutput, check_fail: impl FnOnce(&CmdOutput) -> bool) -> anyhow::Result<()> {
-        if !output.status.success() || check_fail(&output) {
+    fn output_to_result(output: CmdOutput, should_exit_when_fail: impl FnOnce(&CmdOutput) -> bool) -> anyhow::Result<()> {
+        if !output.status.success() {
             eprintln!("{output:?}");
             println!("cargo:warning={output:?}");
-            std::process::exit(output.status.code().unwrap_or(-1));
+            if should_exit_when_fail(&output) {
+                std::process::exit(output.status.code().unwrap_or(-1));
+            }
         } else {
             if output.stderr.is_empty() {
                 println!("{output:?}");
@@ -589,7 +591,8 @@ uintptr_t leak_buffer(struct Buffer buf);
                 .output()
                 .unwrap(),
             |output| {
-                format!("{output:?}").contains(".h' file not found")
+                let err_log = String::from_utf8(output.stderr.clone()).unwrap_or(String::new());
+                !err_log.contains(" not found ")
             });
         println!(
             "cargo:rustc-link-search={}",

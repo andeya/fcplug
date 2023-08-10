@@ -49,14 +49,12 @@ type TBytes[T any] struct {
 }
 
 // TBytesFromBytes new TBytes from bytes
-//
 //go:inline
 func TBytesFromBytes[T any](bytes []byte) TBytes[T] {
 	return TBytes[T]{bytes: bytes}
 }
 
 // TBytesFromString new TBytes from string
-//
 //go:inline
 func TBytesFromString[T any](s string) TBytes[T] {
 	return TBytes[T]{bytes: valconv.StringToReadonlyBytes[string](s)}
