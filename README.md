@@ -36,9 +36,9 @@ rustup default nightly
 
 - Install protoc
 
-> Go to [protoc v23.2](https://github.com/protocolbuffers/protobuf/releases/tag/v23.2)
+> Use [protoc v23.2](https://github.com/protocolbuffers/protobuf/releases/tag/v23.2)
 >
-> Go to [protoc-gen-go v1.5.3](https://pkg.go.dev/github.com/golang/protobuf@v1.5.3/protoc-gen-go)
+> Use [protoc-gen-go v1.5.3](https://pkg.go.dev/github.com/golang/protobuf@v1.5.3/protoc-gen-go)
 
 ## Example of use
 
