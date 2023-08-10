@@ -21,8 +21,6 @@ Foreign-Clang-Plugin solution, such as solving rust and go two-way calls.
 
 - Install rust nightly
 
-> https://www.rust-lang.org/learn/get-started
-
 ```shell
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup default nightly
@@ -30,7 +28,7 @@ rustup default nightly
 
 - Install go
 
-> Download https://go.dev/doc/install
+> Download [Go](https://go.dev/doc/install)
 >
 > Version go≥1.18
 >
@@ -38,8 +36,9 @@ rustup default nightly
 
 - Install protoc
 
-> protoc v23.2: https://github.com/protocolbuffers/protobuf/releases/tag/v23.2
-> protoc-gen-go v1.5.3: https://pkg.go.dev/github.com/golang/protobuf@v1.5.3/protoc-gen-go
+> Go to [protoc v23.2](https://github.com/protocolbuffers/protobuf/releases/tag/v23.2)
+>
+> Go to [protoc-gen-go v1.5.3](https://pkg.go.dev/github.com/golang/protobuf@v1.5.3/protoc-gen-go)
 
 ## Example of use
 
@@ -287,6 +286,7 @@ func TestEcho(t *testing.T) {
 	}
 	ret.Free()
 }
+
 ```
 
 ## Asynchronous programming
@@ -294,13 +294,15 @@ func TestEcho(t *testing.T) {
 - Rust Tokio asynchronous function calling Go synchronous function
 
 ```rust
-use tokio::task;
 use fcplug::protobuf::PbMessage;
 use fcplug::TryIntoTBytes;
+use tokio::task;
+
 use crate::echo_ffi::{FfiImpl, GoFfiCall, Ping, Pong};
 
 let pong = task::spawn_blocking(move | | {
-// 开启的任务运行在一个专属的线程池中，这个任务如果阻塞，不会影响到其它任务的完成
+// The opened task runs in a dedicated thread pool. 
+// If this task is blocked, it will not affect the completion of other tasks
 unsafe {
 FfiImpl::echo_go::< Pong > (Ping {
 msg: "this is ping from rust".to_string(),
