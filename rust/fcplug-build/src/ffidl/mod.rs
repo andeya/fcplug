@@ -174,13 +174,23 @@ impl FFIDL {
         self
     }
 
-    fn output_to_result(output: CmdOutput, should_exit_when_fail: impl FnOnce(&CmdOutput) -> bool) -> anyhow::Result<()> {
+    fn rust_clib_a_path(&self) -> PathBuf {
+        self.clib_dir
+            .borrow()
+            .join("lib".to_string() + self.rust_c_header_name_base.borrow().as_str() + ".a")
+    }
+
+    fn rust_clib_h_path(&self) -> PathBuf {
+        self.clib_dir
+            .borrow()
+            .join(self.rust_c_header_name_base.borrow().to_string() + ".h")
+    }
+
+    fn deal_output(output: CmdOutput) {
         if !output.status.success() {
             eprintln!("{output:?}");
             println!("cargo:warning={output:?}");
-            if should_exit_when_fail(&output) {
-                std::process::exit(output.status.code().unwrap_or(-1));
-            }
+            std::process::exit(output.status.code().unwrap_or(-1));
         } else {
             if output.stderr.is_empty() {
                 println!("{output:?}");
@@ -188,7 +198,6 @@ impl FFIDL {
                 println!("cargo:warning={:?}", String::from_utf8(output.stderr.clone()).unwrap_or(format!("{output:?}")));
             }
         }
-        Ok(())
     }
 
     fn crate_project(&self) -> anyhow::Result<()> {
@@ -280,35 +289,33 @@ impl FFIDL {
                     &temp_idl_str,
                     fs::read_to_string(&self.config.idl_file).unwrap() + &format!("\noption go_package=\"./;{go_mod_name}\";\npackage {go_mod_name};\n"),
                 ).unwrap();
-                Self::output_to_result(
+                Self::deal_output(
                     Command::new("protoc")
                         .arg(format!("--proto_path={temp_dir_str}"))
                         .arg(format!("--go_out={pkg_dir_str}"))
                         .arg(temp_idl_str)
                         .output()?,
-                    |_| false,
-                )
+                );
             }
             IdlType::Thrift => {
                 let temp_idl = temp_dir.join(go_mod_name.clone() + ".thrift");
                 let temp_idl_str = temp_idl.to_str().unwrap().to_string();
                 fs::copy(&self.config.idl_file, &temp_idl_str).unwrap();
-                Self::output_to_result(
+                Self::deal_output(
                     Command::new("thriftgo")
                         .arg(format!("-g=go"))
                         .arg(format!("-o={}", temp_dir.join("gen-thrift").to_str().unwrap()))
                         .arg(&temp_idl_str)
                         .output()?,
-                    |_| false,
-                )?;
+                );
                 fs::copy(
                     temp_dir.join("gen-thrift").join(&go_mod_name).join(&format!("{go_mod_name}.go")),
                     pkg_dir.join(&format!("{go_mod_name}.thrift.go")),
                 )
                     .unwrap();
-                Ok(())
             }
-        }
+        };
+        Ok(())
     }
 
     fn gen_rust_and_go(self) -> anyhow::Result<()> {
@@ -428,43 +435,35 @@ impl FFIDL {
                 ),
             )?;
         } else {
-            Self::output_to_result(
+            Self::deal_output(
                 Command::new(self.config.go_cmd_path("go"))
                     .env("GO111MODULE", "on")
                     .arg("get")
                     .arg("github.com/andeya/gust@v1.5.2")
                     .output()?,
-                |_| false,
-            )
-                .unwrap();
-            Self::output_to_result(
+            );
+            Self::deal_output(
                 Command::new(self.config.go_cmd_path("go"))
                     .env("GO111MODULE", "on")
                     .arg("get")
                     .arg("github.com/bytedance/sonic@latest")
                     .output()?,
-                |_| false,
-            )
-                .unwrap();
+            );
             match self.config.idl_type() {
-                IdlType::Proto => Self::output_to_result(
+                IdlType::Proto => Self::deal_output(
                     Command::new(self.config.go_cmd_path("go"))
                         .env("GO111MODULE", "on")
                         .arg("get")
                         .arg("google.golang.org/protobuf@v1.26.0")
                         .output()?,
-                    |_| false,
-                )
-                    .unwrap(),
-                IdlType::Thrift => Self::output_to_result(
+                ),
+                IdlType::Thrift => Self::deal_output(
                     Command::new(self.config.go_cmd_path("go"))
                         .env("GO111MODULE", "on")
                         .arg("get")
                         .arg("github.com/apache/thrift@v0.13.0")
                         .output()?,
-                    |_| false,
-                )
-                    .unwrap(),
+                ),
             }
         }
 
@@ -495,25 +494,21 @@ impl FFIDL {
             );
         }
 
-        Self::output_to_result(
+        Self::deal_output(
             Command::new(self.config.go_cmd_path("gofmt"))
                 .arg("-l")
                 .arg("-w")
                 .arg(&pkg_dir_str)
                 .output()?,
-            |_| false,
-        )
-            .unwrap();
+        );
 
-        Self::output_to_result(
+        Self::deal_output(
             new_shell_cmd()
                 .current_dir(&pkg_dir)
                 .arg(self.config.go_cmd_path("go") + " mod tidy")
                 .arg(&pkg_dir_str)
                 .output()?,
-            |_| false,
-        )
-            .unwrap();
+        );
 
         self.gen_go_clib();
 
@@ -553,11 +548,7 @@ uintptr_t leak_buffer(struct Buffer buf);
 "###,
             )
             .generate()?
-            .write_to_file(
-                self.clib_dir
-                    .borrow()
-                    .join(self.rust_c_header_name_base.borrow().to_string() + ".h"),
-            );
+            .write_to_file(self.rust_clib_h_path());
         Ok(())
     }
     fn gen_go_clib(&self) {
@@ -568,60 +559,51 @@ uintptr_t leak_buffer(struct Buffer buf);
             .clib_dir
             .borrow()
             .join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".a");
-
-        let mut cmd = new_shell_cmd();
-        match get_go_os_arch_from_env() {
-            Ok((os, arch)) => {
+        let clib_name_str = clib_name.file_name().unwrap().to_str().unwrap();
+        if !self.rust_clib_a_path().exists() {
+            println!("cargo:warning='{}' file does not exist, should re-execute 'cargo build'", clib_name_str);
+        } else {
+            let mut cmd = new_shell_cmd();
+            match get_go_os_arch_from_env() {
+                Ok((os, arch)) => {
+                    cmd
+                        .env("GOOS", os.as_ref())
+                        .env("GOARCH", arch.as_ref());
+                }
+                Err(e) => { println!("cargo:warning={e}") }
+            }
+            Self::deal_output(
                 cmd
-                    .env("GOOS", os.as_ref())
-                    .env("GOARCH", arch.as_ref());
+                    .env("CGO_ENABLED", "1")
+                    .env(
+                        "GOROOT",
+                        self.config.go_root_path.clone().unwrap_or_default(),
+                    )
+                    .arg(format!(
+                        "{} build -buildmode=c-archive -o {} {}",
+                        self.config.go_cmd_path("go"),
+                        clib_name.to_str().unwrap(),
+                        self.config.go_main_dir().to_str().unwrap(),
+                    ))
+                    .output()
+                    .unwrap(),
+            );
+            if !clib_name.exists() {
+                println!("cargo:warning=failed to execute 'go build -buildmode=c-archive', should re-execute 'cargo build' to ensure the correctness of '{}'", clib_name_str);
             }
-            Err(e) => { println!("cargo:warning={e}") }
-        }
-        let output = Self::output_to_result(
-            cmd
-                .env("CGO_ENABLED", "1")
-                .env(
-                    "GOROOT",
-                    self.config.go_root_path.clone().unwrap_or_default(),
-                )
-                .arg(format!(
-                    "{} build -buildmode=c-archive -o {} {}",
-                    self.config.go_cmd_path("go"),
-                    clib_name.to_str().unwrap(),
-                    self.config.go_main_dir().to_str().unwrap(),
-                ))
-                .output()
-                .unwrap(),
-            |output| {
-                let err_log = String::from_utf8(output.stderr.clone()).unwrap_or(String::new());
-                !err_log.contains(" not found ")
-            });
-        println!(
-            "cargo:rustc-link-search={}",
-            self.clib_dir.borrow().to_str().unwrap()
-        );
-        println!(
-            "cargo:rustc-link-lib={}",
-            self.go_c_header_name_base.borrow()
-        );
-        let mut re_execute = false;
-        if !clib_name.exists() {
-            if let Err(e) = output {
-                println!(
-                    "cargo:warning=failed to execute 'go build -buildmode=c-archive ...', {:?}",
-                    e
-                );
-            }
-            re_execute = true;
+            println!(
+                "cargo:rustc-link-search={}",
+                self.clib_dir.borrow().to_str().unwrap()
+            );
+            println!(
+                "cargo:rustc-link-lib={}",
+                self.go_c_header_name_base.borrow()
+            );
         }
         let crate_modified_path = self.clib_dir.borrow().join("crate_modified");
         if fs::read_to_string(&crate_modified_path).unwrap_or_default() != self.crate_modified {
             fs::write(crate_modified_path, self.crate_modified.as_str()).unwrap();
-            re_execute = true
-        }
-        if re_execute {
-            println!("cargo:warning=It is recommended to re-execute 'cargo build' to ensure the correctness of '{}'", clib_name.file_name().unwrap().to_str().unwrap());
+            println!("cargo:warning=The crate files has changed, it is recommended to re-execute 'cargo build' to ensure the correctness of '{}'", clib_name_str);
         }
         println!(
             "cargo:rerun-if-changed={}",

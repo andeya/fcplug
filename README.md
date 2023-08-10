@@ -31,9 +31,9 @@ rustup default nightly
 - Install go
 
 > Download https://go.dev/doc/install
-> 
+>
 > Version go≥1.18
-> 
+>
 > Set environment variables: `CGO_ENABLED=1`
 
 - Install protoc
@@ -49,7 +49,7 @@ See the [echo_pb](https://github.com/andeya/fcplug/raw/HEAD/samples/echo_pb)
 
 #### Step 1: create/prepare a crate
 
-> Generally, Fcplug is executed in a Crate's build.sh, 
+> Generally, Fcplug is executed in a Crate's build.sh,
 > and the code is automatically generated to the current Crate.
 
 - If you do not have a Crate, execute the following command to create it:
@@ -133,8 +133,9 @@ cargo build
 
 #### Step 5: Implement the FFI interface
 
-- On the rust side, you need to implement the specific trait RustFfi and trait GoFfi methods in the newly initialized file src/{ffi_name}_ffi/mod.rs. 
-<br/> The complete sample code of the file is as follows:
+- On the rust side, you need to implement the specific trait RustFfi and trait GoFfi methods in the newly initialized
+  file src/{ffi_name}_ffi/mod.rs.
+  <br/> The complete sample code of the file is as follows:
 
 ```rust
 #![allow(unused_variables)]
@@ -168,42 +169,43 @@ impl GoFfi for FfiImpl {
 ```
 
 - Implement the go GoFfi interface in the one-time generated file ./cgobin/clib_goffi_impl.go.
-<br/> The complete sample code of this file is as follows:
+  <br/> The complete sample code of this file is as follows:
 
 ```go
 package main
 
 import (
-    "fmt"
+	"fmt"
 
-    "github.com/andeya/fcplug/samples/echo"
-    "github.com/andeya/gust"
+	"github.com/andeya/fcplug/samples/echo"
+	"github.com/andeya/gust"
 )
 
 func init() {
-    // TODO: Replace with your own implementation, then re-execute `cargo build`
-    GlobalGoFfi = GoFfiImpl{}
+	// TODO: Replace with your own implementation, then re-execute `cargo build`
+	GlobalGoFfi = GoFfiImpl{}
 }
 
 type GoFfiImpl struct{}
 
 func (g GoFfiImpl) EchoGo(req echo.TBytes[echo.Ping]) gust.EnumResult[echo.TBytes[*echo.Pong], ResultMsg] {
-    fmt.Printf("go receive req: %v\n", req.PbUnmarshalUnchecked())
-    return gust.EnumOk[echo.TBytes[*echo.Pong], ResultMsg](echo.TBytesFromPbUnchecked(&echo.Pong{
-       Msg: "this is pong from go",
-    }))
+	fmt.Printf("go receive req: %v\n", req.PbUnmarshalUnchecked())
+	return gust.EnumOk[echo.TBytes[*echo.Pong], ResultMsg](echo.TBytesFromPbUnchecked(&echo.Pong{
+		Msg: "this is pong from go",
+	}))
 }
 ```
 
 #### Step 6: Generate Final Code
 
-Execute `cargo build` `cargo test` or `cargo install` under the current Crate, trigger the execution of build.rs, and generate code.
+Execute `cargo build` `cargo test` or `cargo install` under the current Crate, trigger the execution of build.rs, and
+generate code.
 
-> Note: When GoFfi is defined, after compiling or changing the code for the first time, 
-> a warning similar to the following will occur, 
+> Note: When GoFfi is defined, after compiling or changing the code for the first time,
+> a warning similar to the following will occur,
 > and you should execute cargo build twice at this time
-> 
-> *warning: It is recommended to re-execute 'cargo build' to ensure the correctness of 'libgo_echo.a'*
+>
+> *warning: ... to re-execute 'cargo build' to ensure the correctness of 'libgo_echo.a'*
 
 Therefore, it is recommended to repeat cargo build three times directly in the `build.sh` script
 
@@ -218,7 +220,7 @@ cargo build --release
 #### Step 7: Testing
 
 - Rust calls Go tests, you can add test functions in `lib.rs`,
-<br/>the sample code is as follows:
+  <br/>the sample code is as follows:
 
 ```rust
 #![feature(test)]
@@ -263,27 +265,27 @@ mod tests {
 ```
 
 - Go calls Rust test, add the file `go_call_rust_test.go` in the root directory,
-<br/>the sample code is as follows:
+  <br/>the sample code is as follows:
 
 ```go
 package echo_test
 
 import (
-    "testing"
+	"testing"
 
-    "github.com/andeya/fcplug/samples/echo"
+	"github.com/andeya/fcplug/samples/echo"
 )
 
 func TestEcho(t *testing.T) {
-    ret := echo.GlobalRustFfi.EchoRs(echo.TBytesFromPbUnchecked[*echo.Ping](&echo.Ping{
-       Msg: "this is ping from go",
-    }))
-    if ret.IsOk() {
-       t.Logf("%#v", ret.PbUnmarshalUnchecked())
-    } else {
-       t.Logf("fail: err=%v", ret.AsError())
-    }
-    ret.Free()
+	ret := echo.GlobalRustFfi.EchoRs(echo.TBytesFromPbUnchecked[*echo.Ping](&echo.Ping{
+		Msg: "this is ping from go",
+	}))
+	if ret.IsOk() {
+		t.Logf("%#v", ret.PbUnmarshalUnchecked())
+	} else {
+		t.Logf("fail: err=%v", ret.AsError())
+	}
+	ret.Free()
 }
 ```
 
@@ -297,13 +299,13 @@ use fcplug::protobuf::PbMessage;
 use fcplug::TryIntoTBytes;
 use crate::echo_ffi::{FfiImpl, GoFfiCall, Ping, Pong};
 
-let pong = task::spawn_blocking(move || {
-    // 开启的任务运行在一个专属的线程池中，这个任务如果阻塞，不会影响到其它任务的完成
-    unsafe {
-        FfiImpl::echo_go::<Pong>(Ping {
-            msg: "this is ping from rust".to_string(),
-        }.try_into_tbytes::<PbMessage<_>>().unwrap())
-    }
+let pong = task::spawn_blocking(move | | {
+// 开启的任务运行在一个专属的线程池中，这个任务如果阻塞，不会影响到其它任务的完成
+unsafe {
+FfiImpl::echo_go::< Pong > (Ping {
+msg: "this is ping from rust".to_string(),
+}.try_into_tbytes::< PbMessage < _ > > ().unwrap())
+}
 }).await?;
 
 ```
