@@ -147,10 +147,31 @@ impl FFIDL {
         let target_dir = env::var("CARGO_TARGET_DIR")
             .map_or_else(
                 |_| {
-                    PathBuf::from(
-                        env::var("CARGO_WORKSPACE_DIR")
-                            .unwrap_or(env::var("CARGO_MANIFEST_DIR").unwrap_or_default()),
-                    )
+                    PathBuf::from(env::var("CARGO_WORKSPACE_DIR")
+                        .unwrap_or_else(|_| {
+                            let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap_or_default());
+                            let mdir = env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+                            if out_dir.starts_with(&mdir) {
+                                mdir
+                            } else {
+                                let mut p = PathBuf::new();
+                                let mut coms = Vec::new();
+                                let mut start = false;
+                                for x in out_dir.components().rev() {
+                                    if !start && x.as_os_str() == "target" {
+                                        start = true;
+                                        continue;
+                                    }
+                                    if start {
+                                        coms.insert(0, x);
+                                    }
+                                }
+                                for x in coms {
+                                    p = p.join(x);
+                                }
+                                p.to_str().unwrap().to_string()
+                            }
+                        }))
                         .join("target")
                 },
                 PathBuf::from,
