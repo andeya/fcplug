@@ -7,7 +7,7 @@ use pilota_build::fmt::fmt_file;
 use pilota_build::Output;
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 
-use crate::{deal_output, exit_with_warning, new_shell_cmd};
+use crate::{deal_output, exit_with_warning, GEN_MODE, GenMode, new_shell_cmd};
 use crate::config::{Config, IdlType, WorkConfig};
 use crate::os_arch::get_go_os_arch_from_env;
 
@@ -24,22 +24,28 @@ unsafe impl Send for Generator {}
 
 impl Generator {
     pub(crate) fn generate(config: Config) {
-        let _ = Self {
+        Self {
             config: WorkConfig::new(config),
             go_pkg_code: Arc::new(RefCell::new(String::new())),
             go_main_code: Arc::new(RefCell::new(String::new())),
             rust_impl_rustffi_code: Arc::new(RefCell::new("".to_string())),
             rust_impl_goffi_code: Arc::new(RefCell::new("".to_string())),
         }
-            .gen_code()
-            .inspect_err(|e| {
-                exit_with_warning(255, format!("failed to generate code: {e:?}"))
-            });
+            .gen_code();
     }
-
-    fn gen_code(self) -> anyhow::Result<()> {
+    fn gen_code(self) {
         self.config.create_crate_dir_all();
         self.config.rerun_if_changed();
+        match GEN_MODE {
+            GenMode::Codec => {
+                let _ = self.gen_code_codec().inspect_err(|e| {
+                    exit_with_warning(255, format!("failed to generate code: {e:?}"))
+                });
+            }
+            GenMode::NoCodec => {}
+        }
+    }
+    fn gen_code_codec(self) -> anyhow::Result<()> {
         let pkg_dir = self.config.pkg_dir();
         let pkg_dir_str = pkg_dir.to_str().unwrap().to_string();
         let go_mod_name = self.config.go_mod_name();
