@@ -4,7 +4,6 @@
 
 use std::fmt::Debug;
 use std::io;
-use std::ops::Deref;
 use std::process::Command;
 use std::process::Output as CmdOutput;
 
