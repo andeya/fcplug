@@ -1,6 +1,7 @@
 use pilota_build::{CodegenBackend, Context, DefId};
 use pilota_build::rir::{Enum, Message, Method, NewType, Service};
 
+use crate::exit_with_warning;
 use crate::generator::{GeneraterBackend, Generator};
 
 mod gen_go_no_codec;
@@ -8,7 +9,7 @@ mod gen_rust_no_codec;
 
 impl Generator {
     pub(crate) fn _gen_code(self) {
-        todo!()
+        exit_with_warning(-1, "todo!")
     }
 }
 

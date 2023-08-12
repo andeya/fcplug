@@ -1,10 +1,14 @@
 #![feature(result_option_inspect)]
 #![feature(try_trait_v2)]
+#![allow(dead_code)]
 
 use std::fmt::Debug;
 use std::io;
+use std::ops::Deref;
 use std::process::Command;
 use std::process::Output as CmdOutput;
+
+use backtrace::Backtrace;
 
 pub use config::{Config, GoObjectPath, UnitLikeStructPath};
 
@@ -46,7 +50,14 @@ const CODE_CMD_UNKNOWN: i32 = -2;
 const CODE_IO: i32 = -3;
 
 fn exit_with_warning(code: i32, message: impl AsRef<str>) {
-    println!("cargo:warning={}, backtrace={:?}", message.as_ref(), backtrace::Backtrace::new());
+    let mut frames = vec![];
+    for bf in Backtrace::new().frames()[4..].as_ref() {
+        if bf.symbols().get(0).unwrap().name().unwrap().to_string().starts_with("build_script_build::main::") {
+            break;
+        }
+        frames.push(bf.clone());
+    }
+    println!("cargo:warning={}\nbacktrace:\n{:?}", message.as_ref(), Backtrace::from(frames));
     std::process::exit(code);
 }
 
