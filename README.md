@@ -9,9 +9,9 @@ Foreign-Clang-Plugin solution, such as solving rust and go two-way calls.
 | Go                | -  |  ✅   |
 | Rust              | ✅  |  -   |
 
-- Protobuf IDL serialization solution: Supported!
-- Thrift IDL serialization solution: In development...
-- No serialization solution: In development...
+- Protobuf IDL codec solution: Supported!
+- Thrift IDL codec solution: In development...
+- No codec solution: In development...
 
 ## Schematic
 
@@ -114,8 +114,7 @@ fn main() {
         go_root_path: None,
         go_mod_parent: "github.com/andeya/fcplug/samples",
         target_crate_dir: None,
-    })
-        .unwrap();
+    });
 }
 ```
 

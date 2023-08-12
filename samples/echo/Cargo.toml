@@ -1,0 +1,26 @@
+[package]
+name = "echo"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+fcplug = "0.3"
+pilota = "0.7.0"
+serde = "1"
+serde_json = "1"
+
+[build-dependencies]
+fcplug-build = { version = "0.3", features = ["no-codec"] }

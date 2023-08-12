@@ -11,6 +11,5 @@ fn main() {
         go_root_path: None,
         // go_root_path: Some("/Users/henrylee2cn/.gvm/gos/go1.18.10".into()),
         go_mod_parent: "github.com/andeya/fcplug/samples",
-    })
-    .unwrap();
+    });
 }

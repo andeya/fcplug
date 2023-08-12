@@ -1,4 +1,5 @@
 use (
 	./samples/echo_pb
+	./samples/echo
 	//./samples/echo_thrift
 )

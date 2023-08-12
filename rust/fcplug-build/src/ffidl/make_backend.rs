@@ -119,8 +119,8 @@ impl CodegenBackend for FFIDLBackend {
     }
     fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         match self.config.idl_type() {
-            IdlType::Proto => self.protobuf.codegen_struct_impl(def_id, stream, s),
-            IdlType::Thrift => self.thrift.codegen_struct_impl(def_id, stream, s),
+            IdlType::Proto | IdlType::ProtoNoCodec => self.protobuf.codegen_struct_impl(def_id, stream, s),
+            IdlType::Thrift | IdlType::ThriftNoCodec => self.thrift.codegen_struct_impl(def_id, stream, s),
         }
     }
     fn codegen_service_impl(&self, service_def_id: DefId, stream: &mut String, s: &Service) {

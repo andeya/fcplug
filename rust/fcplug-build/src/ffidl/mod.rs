@@ -1,20 +1,17 @@
-use std::{env, fs};
 use std::cell::RefCell;
 use std::env::temp_dir;
-use std::path::PathBuf;
-use std::process::{Command, Output as CmdOutput};
+use std::fs;
+use std::process::Command;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use pilota_build::fmt::fmt_file;
-use pilota_build::ir::ItemKind;
 use pilota_build::Output;
-use pilota_build::parser::{Parser, ProtobufParser, ThriftParser};
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 
 pub use config::{Config, GoObjectPath, UnitLikeStructPath};
 
-use crate::ffidl::config::IdlType;
+use crate::{deal_output, exit_with_warning, new_shell_cmd};
+use crate::ffidl::config::{CLibConfig, FfiSet, IdlType};
 use crate::os_arch::get_go_os_arch_from_env;
 
 mod gen_go;
@@ -22,325 +19,44 @@ mod gen_rust;
 mod config;
 mod make_backend;
 
-#[cfg(not(debug_assertions))]
-const MODE: &'static str = "release";
-#[cfg(debug_assertions)]
-const MODE: &'static str = "debug";
 
 #[derive(Debug, Clone)]
 pub(crate) struct FFIDL {
+    clib_config: CLibConfig,
+    ffi_set: FfiSet,
     config: Arc<Config>,
-    rust_c_header_name_base: Arc<RefCell<String>>,
-    go_c_header_name_base: Arc<RefCell<String>>,
-    clib_dir: Arc<RefCell<PathBuf>>,
     go_pkg_code: Arc<RefCell<String>>,
     go_main_code: Arc<RefCell<String>>,
-    has_goffi: bool,
-    has_rustffi: bool,
     rust_impl_rustffi_code: Arc<RefCell<String>>,
     rust_impl_goffi_code: Arc<RefCell<String>>,
-    crate_modified: String,
 }
 
 unsafe impl Send for FFIDL {}
 
 impl FFIDL {
-    pub(crate) fn generate(config: Config) -> anyhow::Result<()> {
-        let crate_modified = config.new_crate_modified();
-        Self {
+    pub(crate) fn generate(config: Config) {
+        let _ = Self {
+            clib_config: CLibConfig::new(&config),
+            ffi_set: config.check_idl(),
             config: Arc::new(config),
             go_pkg_code: Arc::new(RefCell::new(String::new())),
             go_main_code: Arc::new(RefCell::new(String::new())),
-            rust_c_header_name_base: Arc::new(RefCell::new("".to_string())),
-            go_c_header_name_base: Arc::new(RefCell::new("".to_string())),
-            clib_dir: Arc::new(RefCell::new(Default::default())),
-            has_goffi: false,
-            has_rustffi: false,
             rust_impl_rustffi_code: Arc::new(RefCell::new("".to_string())),
             rust_impl_goffi_code: Arc::new(RefCell::new("".to_string())),
-            crate_modified,
         }
-            .set_clib_paths()
-            .check_idl()?
-            .gen_rust_and_go()
+            .rerun_if_changed()
+            .gen_code()
+            .inspect_err(|e| {
+                exit_with_warning(255, format!("failed to generate code: {e:?}"))
+            });
     }
-    fn include_dir(&self) -> PathBuf {
-        self.config.idl_file.parent().unwrap().to_path_buf()
-    }
-    fn check_idl(mut self) -> anyhow::Result<Self> {
-        let mut ret = match self.config.idl_type() {
-            IdlType::Proto => {
-                let mut parser = ProtobufParser::default();
-                Parser::include_dirs(&mut parser, vec![self.include_dir()]);
-                Parser::input(&mut parser, &self.config.idl_file);
-                let (descs, ret) = parser.parse_and_typecheck();
-                for desc in descs {
-                    if desc.package.is_some() {
-                        return Err(anyhow!("IDL-Check: The 'package' should not be configured"));
-                    }
-                    if let Some(opt) = desc.options.as_ref() {
-                        if opt.go_package.is_some() {
-                            return Err(anyhow!("IDL-Check: The 'option go_package' should not be configured"));
-                        }
-                    }
-                }
-                ret
-            }
-            IdlType::Thrift => {
-                let mut parser = ThriftParser::default();
-                Parser::include_dirs(&mut parser, vec![self.include_dir()]);
-                Parser::input(&mut parser, &self.config.idl_file);
-                let ret = parser.parse();
-                ret
-            }
-        };
-
-        let file = ret.files.pop().unwrap();
-        if !file.uses.is_empty() {
-            match self.config.idl_type() {
-                IdlType::Proto => { return Err(anyhow!("IDL-Check: Does not support Protobuf 'import'.")); }
-                IdlType::Thrift => { return Err(anyhow!("IDL-Check: Does not support Thrift 'include'.")); }
-            }
-        }
-        for item in &file.items {
-            match &item.kind {
-                ItemKind::Message(_) => {}
-                ItemKind::Service(service_item) => match service_item.name.to_lowercase().as_str() {
-                    "goffi" => self.has_goffi = true,
-                    "rustffi" => self.has_rustffi = true,
-                    _ => {
-                        return Err(anyhow!(
-                                "IDL-Check: Protobuf Service name can only be: 'GoFFI', 'RustFFI'."
-                            ));
-                    }
-                }
-                _ => match self.config.idl_type() {
-                    IdlType::Proto => return Err(anyhow!(
-                        "IDL-Check: Protobuf Item '{}' not supported.",
-                        format!("{:?}", item)
-                            .trim_start_matches("Item { kind: ")
-                            .split_once("(")
-                            .unwrap()
-                            .0
-                            .to_lowercase()
-                    )),
-                    IdlType::Thrift => return Err(anyhow!(
-                        "Thrift Item '{}' not supported.",
-                        format!("{:?}", item)
-                            .split_once("(")
-                            .unwrap()
-                            .0
-                            .to_lowercase()
-                    )),
-                }
-            }
-        }
-        Ok(self)
-    }
-    fn set_clib_paths(self) -> Self {
-        *self.rust_c_header_name_base.borrow_mut() =
-            env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
-
-        *self.go_c_header_name_base.borrow_mut() =
-            "go_".to_string() + &env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
-
-        let target_dir = env::var("CARGO_TARGET_DIR")
-            .map_or_else(
-                |_| {
-                    PathBuf::from(env::var("CARGO_WORKSPACE_DIR")
-                        .unwrap_or_else(|_| {
-                            let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap_or_default());
-                            let mdir = env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
-                            if out_dir.starts_with(&mdir) {
-                                mdir
-                            } else {
-                                let mut p = PathBuf::new();
-                                let mut coms = Vec::new();
-                                let mut start = false;
-                                for x in out_dir.components().rev() {
-                                    if !start && x.as_os_str() == "target" {
-                                        start = true;
-                                        continue;
-                                    }
-                                    if start {
-                                        coms.insert(0, x);
-                                    }
-                                }
-                                for x in coms {
-                                    p = p.join(x);
-                                }
-                                p.to_str().unwrap().to_string()
-                            }
-                        }))
-                        .join("target")
-                },
-                PathBuf::from,
-            );
-
-
-        let full_target_dir = target_dir.join(env::var("TARGET").unwrap());
-        *self.clib_dir.borrow_mut() = if full_target_dir.is_dir() && PathBuf::from(env::var("OUT_DIR").unwrap())
-            .canonicalize()
-            .unwrap()
-            .starts_with(full_target_dir.canonicalize().unwrap()) {
-            full_target_dir
-        } else {
-            target_dir
-        }.join(MODE);
-
-        println!(
-            "cargo:rerun-if-changed={}",
-            self.clib_dir.borrow().to_str().unwrap(),
-        );
+    fn rerun_if_changed(self) -> Self {
+        println!("cargo:rerun-if-changed={}", self.config.pkg_dir().to_str().unwrap(), );
+        println!("cargo:rerun-if-changed={}", self.clib_config.clib_dir.to_str().unwrap());
         self
     }
-
-    fn rust_clib_a_path(&self) -> PathBuf {
-        self.clib_dir
-            .borrow()
-            .join("lib".to_string() + self.rust_c_header_name_base.borrow().as_str() + ".a")
-    }
-
-    fn rust_clib_h_path(&self) -> PathBuf {
-        self.clib_dir
-            .borrow()
-            .join(self.rust_c_header_name_base.borrow().to_string() + ".h")
-    }
-
-    fn deal_output(output: CmdOutput) {
-        if !output.status.success() {
-            eprintln!("{output:?}");
-            println!("cargo:warning={output:?}");
-            std::process::exit(output.status.code().unwrap_or(-1));
-        } else {
-            if output.stderr.is_empty() {
-                println!("{output:?}");
-            } else {
-                println!("cargo:warning={:?}", String::from_utf8(output.stderr.clone()).unwrap_or(format!("{output:?}")));
-            }
-        }
-    }
-
-    fn crate_project(&self) -> anyhow::Result<()> {
-        fs::create_dir_all(&self.config.go_main_dir())?;
-        fs::create_dir_all(&self.config.rust_mod_dir())?;
-        Ok(())
-    }
-    fn gen_rust_code(&self) -> anyhow::Result<()> {
-        let rust_mod_gen_file = self.config.rust_mod_gen_file();
-        let rust_mod_impl_file = self.config.rust_mod_impl_file();
-        match self.config.idl_type() {
-            IdlType::Proto => pilota_build::Builder::protobuf_with_backend(self.clone())
-                .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
-                .include_dirs(vec![self.include_dir()])
-                .plugin(AutoDerivePlugin::new(
-                    Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
-                    |_| PredicateResult::GoOn,
-                ))
-                .ignore_unused(true)
-                .compile([&self.config.idl_file], Output::File(rust_mod_gen_file.clone())),
-            IdlType::Thrift => pilota_build::Builder::thrift_with_backend(self.clone())
-                .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
-                .include_dirs(vec![self.include_dir()])
-                .plugin(AutoDerivePlugin::new(
-                    Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
-                    |_| PredicateResult::GoOn,
-                ))
-                .ignore_unused(true)
-                .compile([&self.config.idl_file], Output::File(rust_mod_gen_file.clone())),
-        }
-
-        let mut rust_code = fs::read_to_string(&rust_mod_gen_file).unwrap();
-        if !self.has_rustffi {
-            rust_code.push_str(&format!("pub(super) trait RustFfi {{}}"));
-        }
-        if !self.has_goffi {
-            rust_code.push_str(&format!("pub(super) trait GoFfi {{}}"));
-            rust_code.push_str(&format!("pub trait GoFfiCall {{}}"));
-        }
-        let rust_impl_name = self.config.rust_mod_impl_name();
-        rust_code.push_str(&format!(
-            r###"trait Ffi: RustFfi + GoFfi + GoFfiCall {{}}
-
-        pub struct {rust_impl_name};
-
-        impl GoFfiCall for {rust_impl_name} {{}}
-        impl Ffi for {rust_impl_name} {{}}
-        "###
-        ));
-        fs::write(&rust_mod_gen_file, rust_code).unwrap();
-        fmt_file(rust_mod_gen_file);
-
-        if !rust_mod_impl_file.exists() {
-            let rust_impl_rustffi_code = self.rust_impl_rustffi_code.borrow();
-            let rust_impl_goffi_code = self.rust_impl_goffi_code.borrow();
-            let mod_gen_name = self.config.rust_mod_gen_name();
-
-            fs::write(
-                &rust_mod_impl_file,
-                &format!(r###"#![allow(unused_variables)]
-
-                pub use {mod_gen_name}::*;
-
-                mod {mod_gen_name};
-
-                {rust_impl_rustffi_code}
-
-                {rust_impl_goffi_code}
-                "###
-                ),
-            )
-                .unwrap();
-            fmt_file(rust_mod_impl_file);
-        }
-        Ok(())
-    }
-
-    fn gen_go_codec_code(&self) -> anyhow::Result<()> {
-        let pkg_dir = self.config.pkg_dir();
-        let pkg_dir_str = pkg_dir.to_str().unwrap().to_string();
-        let go_mod_name = self.config.go_mod_name();
-        let temp_dir = temp_dir();
-        let temp_dir_str = temp_dir.to_str().unwrap().to_string();
-        match self.config.idl_type() {
-            IdlType::Proto => {
-                let temp_idl = temp_dir.join(go_mod_name.clone() + ".proto");
-                let temp_idl_str = temp_idl.to_str().unwrap().to_string();
-                fs::write(
-                    &temp_idl_str,
-                    fs::read_to_string(&self.config.idl_file).unwrap() + &format!("\noption go_package=\"./;{go_mod_name}\";\npackage {go_mod_name};\n"),
-                ).unwrap();
-                Self::deal_output(
-                    Command::new("protoc")
-                        .arg(format!("--proto_path={temp_dir_str}"))
-                        .arg(format!("--go_out={pkg_dir_str}"))
-                        .arg(temp_idl_str)
-                        .output()?,
-                );
-            }
-            IdlType::Thrift => {
-                let temp_idl = temp_dir.join(go_mod_name.clone() + ".thrift");
-                let temp_idl_str = temp_idl.to_str().unwrap().to_string();
-                fs::copy(&self.config.idl_file, &temp_idl_str).unwrap();
-                Self::deal_output(
-                    Command::new("thriftgo")
-                        .arg(format!("-g=go"))
-                        .arg(format!("-o={}", temp_dir.join("gen-thrift").to_str().unwrap()))
-                        .arg(&temp_idl_str)
-                        .output()?,
-                );
-                fs::copy(
-                    temp_dir.join("gen-thrift").join(&go_mod_name).join(&format!("{go_mod_name}.go")),
-                    pkg_dir.join(&format!("{go_mod_name}.thrift.go")),
-                )
-                    .unwrap();
-            }
-        };
-        Ok(())
-    }
-
-    fn gen_rust_and_go(self) -> anyhow::Result<()> {
-        self.crate_project()?;
+    fn gen_code(self) -> anyhow::Result<()> {
+        self.config.create_crate_dir_all();
         let pkg_dir = self.config.pkg_dir();
         let pkg_dir_str = pkg_dir.to_str().unwrap().to_string();
         let go_mod_name = self.config.go_mod_name();
@@ -349,10 +65,10 @@ impl FFIDL {
 
         let import_gen_pkg = self.config.go_mod_path();
         let import_gen_pkg_var = format!("_ {}.ResultCode", go_mod_name);
-        let rust_c_header_name_base = self.rust_c_header_name_base.borrow().to_string();
+        let rust_c_header_name_base = self.clib_config.rust_c_header_name_base.clone();
         let rust_c_lib_dir = self
+            .clib_config
             .clib_dir
-            .borrow()
             .as_os_str()
             .to_str()
             .unwrap()
@@ -428,7 +144,7 @@ impl FFIDL {
         );
 
         self.gen_rust_code()?;
-        self.gen_rust_clib()?;
+        self.gen_rust_clib();
 
         fs::write(
             &self.config.go_lib_file(),
@@ -456,14 +172,14 @@ impl FFIDL {
                 ),
             )?;
         } else {
-            Self::deal_output(
+            deal_output(
                 Command::new(self.config.go_cmd_path("go"))
                     .env("GO111MODULE", "on")
                     .arg("get")
                     .arg("github.com/andeya/gust@v1.5.2")
                     .output()?,
             );
-            Self::deal_output(
+            deal_output(
                 Command::new(self.config.go_cmd_path("go"))
                     .env("GO111MODULE", "on")
                     .arg("get")
@@ -471,14 +187,14 @@ impl FFIDL {
                     .output()?,
             );
             match self.config.idl_type() {
-                IdlType::Proto => Self::deal_output(
+                IdlType::Proto | IdlType::ProtoNoCodec => deal_output(
                     Command::new(self.config.go_cmd_path("go"))
                         .env("GO111MODULE", "on")
                         .arg("get")
                         .arg("google.golang.org/protobuf@v1.26.0")
                         .output()?,
                 ),
-                IdlType::Thrift => Self::deal_output(
+                IdlType::Thrift | IdlType::ThriftNoCodec => deal_output(
                     Command::new(self.config.go_cmd_path("go"))
                         .env("GO111MODULE", "on")
                         .arg("get")
@@ -488,7 +204,7 @@ impl FFIDL {
             }
         }
 
-        if self.has_goffi {
+        if self.ffi_set.has_goffi {
             fs::write(
                 self.config.go_main_file(),
                 self.go_main_code.borrow().as_str(),
@@ -508,14 +224,9 @@ impl FFIDL {
                     ),
                 )?;
             }
-
-            println!(
-                "cargo:rerun-if-changed={}",
-                self.config.go_main_impl_file().to_str().unwrap(),
-            );
         }
 
-        Self::deal_output(
+        deal_output(
             Command::new(self.config.go_cmd_path("gofmt"))
                 .arg("-l")
                 .arg("-w")
@@ -523,7 +234,7 @@ impl FFIDL {
                 .output()?,
         );
 
-        Self::deal_output(
+        deal_output(
             new_shell_cmd()
                 .current_dir(&pkg_dir)
                 .arg(self.config.go_cmd_path("go") + " mod tidy")
@@ -532,15 +243,123 @@ impl FFIDL {
         );
 
         self.gen_go_clib();
-
-        println!(
-            "cargo:rerun-if-changed={}",
-            self.clib_dir.borrow().to_str().unwrap(),
-        );
         Ok(())
     }
-    fn gen_rust_clib(&self) -> anyhow::Result<()> {
-        cbindgen::Builder::new()
+    fn gen_rust_code(&self) -> anyhow::Result<()> {
+        let rust_mod_gen_file = self.config.rust_mod_gen_file();
+        let rust_mod_impl_file = self.config.rust_mod_impl_file();
+        match self.config.idl_type() {
+            IdlType::Proto | IdlType::ProtoNoCodec => pilota_build::Builder::protobuf_with_backend(self.clone())
+                .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
+                .include_dirs(vec![self.config.include_dir()])
+                .plugin(AutoDerivePlugin::new(
+                    Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
+                    |_| PredicateResult::GoOn,
+                ))
+                .ignore_unused(true)
+                .compile([&self.config.idl_file], Output::File(rust_mod_gen_file.clone())),
+            IdlType::Thrift | IdlType::ThriftNoCodec => pilota_build::Builder::thrift_with_backend(self.clone())
+                .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
+                .include_dirs(vec![self.config.include_dir()])
+                .plugin(AutoDerivePlugin::new(
+                    Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
+                    |_| PredicateResult::GoOn,
+                ))
+                .ignore_unused(true)
+                .compile([&self.config.idl_file], Output::File(rust_mod_gen_file.clone())),
+        }
+
+        let mut rust_code = fs::read_to_string(&rust_mod_gen_file).unwrap();
+        if !self.ffi_set.has_rustffi {
+            rust_code.push_str(&format!("pub(super) trait RustFfi {{}}"));
+        }
+        if !self.ffi_set.has_goffi {
+            rust_code.push_str(&format!("pub(super) trait GoFfi {{}}"));
+            rust_code.push_str(&format!("pub trait GoFfiCall {{}}"));
+        }
+        let rust_impl_name = self.config.rust_mod_impl_name();
+        rust_code.push_str(&format!(
+            r###"trait Ffi: RustFfi + GoFfi + GoFfiCall {{}}
+
+        pub struct {rust_impl_name};
+
+        impl GoFfiCall for {rust_impl_name} {{}}
+        impl Ffi for {rust_impl_name} {{}}
+        "###
+        ));
+        fs::write(&rust_mod_gen_file, rust_code).unwrap();
+        fmt_file(rust_mod_gen_file);
+
+        if !rust_mod_impl_file.exists() {
+            let rust_impl_rustffi_code = self.rust_impl_rustffi_code.borrow();
+            let rust_impl_goffi_code = self.rust_impl_goffi_code.borrow();
+            let mod_gen_name = self.config.rust_mod_gen_name();
+
+            fs::write(
+                &rust_mod_impl_file,
+                &format!(r###"#![allow(unused_variables)]
+
+                pub use {mod_gen_name}::*;
+
+                mod {mod_gen_name};
+
+                {rust_impl_rustffi_code}
+
+                {rust_impl_goffi_code}
+                "###
+                ),
+            )
+                .unwrap();
+            fmt_file(rust_mod_impl_file);
+        }
+        Ok(())
+    }
+
+    fn gen_go_codec_code(&self) -> anyhow::Result<()> {
+        let pkg_dir = self.config.pkg_dir();
+        let pkg_dir_str = pkg_dir.to_str().unwrap().to_string();
+        let go_mod_name = self.config.go_mod_name();
+        let temp_dir = temp_dir();
+        let temp_dir_str = temp_dir.to_str().unwrap().to_string();
+        match self.config.idl_type() {
+            IdlType::Proto | IdlType::ProtoNoCodec => {
+                let temp_idl = temp_dir.join(go_mod_name.clone() + ".proto");
+                let temp_idl_str = temp_idl.to_str().unwrap().to_string();
+                fs::write(
+                    &temp_idl_str,
+                    fs::read_to_string(&self.config.idl_file).unwrap() + &format!("\noption go_package=\"./;{go_mod_name}\";\npackage {go_mod_name};\n"),
+                ).unwrap();
+                deal_output(
+                    Command::new("protoc")
+                        .arg(format!("--proto_path={temp_dir_str}"))
+                        .arg(format!("--go_out={pkg_dir_str}"))
+                        .arg(temp_idl_str)
+                        .output()?,
+                );
+            }
+            IdlType::Thrift | IdlType::ThriftNoCodec => {
+                let temp_idl = temp_dir.join(go_mod_name.clone() + ".thrift");
+                let temp_idl_str = temp_idl.to_str().unwrap().to_string();
+                fs::copy(&self.config.idl_file, &temp_idl_str).unwrap();
+                deal_output(
+                    Command::new("thriftgo")
+                        .arg(format!("-g=go"))
+                        .arg(format!("-o={}", temp_dir.join("gen-thrift").to_str().unwrap()))
+                        .arg(&temp_idl_str)
+                        .output()?,
+                );
+                fs::copy(
+                    temp_dir.join("gen-thrift").join(&go_mod_name).join(&format!("{go_mod_name}.go")),
+                    pkg_dir.join(&format!("{go_mod_name}.thrift.go")),
+                )
+                    .unwrap();
+            }
+        };
+        Ok(())
+    }
+
+    fn gen_rust_clib(&self) {
+        let _ = cbindgen::Builder::new()
             .with_src(self.config.rust_mod_gen_file())
             .with_language(cbindgen::Language::C)
             .with_after_include(
@@ -568,20 +387,22 @@ uintptr_t leak_buffer(struct Buffer buf);
 
 "###,
             )
-            .generate()?
-            .write_to_file(self.rust_clib_h_path());
-        Ok(())
+            .generate()
+            .inspect(|b| {
+                let _ = b.write_to_file(self.clib_config.rust_clib_h_path());
+            })
+            .inspect_err(|e| {
+                exit_with_warning(254, format!("failed to generate rust clib: {e:?}"))
+            });
     }
+
     fn gen_go_clib(&self) {
-        if !self.has_goffi {
+        if !self.ffi_set.has_goffi {
             return;
         }
-        let clib_name = self
-            .clib_dir
-            .borrow()
-            .join("lib".to_string() + &self.go_c_header_name_base.borrow() + ".a");
+        let clib_name = self.clib_config.go_clib_a_path();
         let clib_name_str = clib_name.file_name().unwrap().to_str().unwrap();
-        if !self.rust_clib_a_path().exists() {
+        if !self.clib_config.rust_clib_a_path().exists() {
             println!("cargo:warning='{}' file does not exist, should re-execute 'cargo build'", clib_name_str);
         } else {
             let mut cmd = new_shell_cmd();
@@ -593,7 +414,7 @@ uintptr_t leak_buffer(struct Buffer buf);
                 }
                 Err(e) => { println!("cargo:warning={e}") }
             }
-            Self::deal_output(
+            deal_output(
                 cmd
                     .env("CGO_ENABLED", "1")
                     .env(
@@ -612,34 +433,10 @@ uintptr_t leak_buffer(struct Buffer buf);
             if !clib_name.exists() {
                 println!("cargo:warning=failed to execute 'go build -buildmode=c-archive', should re-execute 'cargo build' to ensure the correctness of '{}'", clib_name_str);
             }
-            println!(
-                "cargo:rustc-link-search={}",
-                self.clib_dir.borrow().to_str().unwrap()
-            );
-            println!(
-                "cargo:rustc-link-lib={}",
-                self.go_c_header_name_base.borrow()
-            );
+            self.clib_config.rustc_link();
         }
-        let crate_modified_path = self.clib_dir.borrow().join("crate_modified");
-        if fs::read_to_string(&crate_modified_path).unwrap_or_default() != self.crate_modified {
-            fs::write(crate_modified_path, self.crate_modified.as_str()).unwrap();
+        if self.clib_config.update_crate_modified() {
             println!("cargo:warning=The crate files has changed, it is recommended to re-execute 'cargo build' to ensure the correctness of '{}'", clib_name_str);
         }
-        println!(
-            "cargo:rerun-if-changed={}",
-            self.config.pkg_dir().to_str().unwrap(),
-        );
     }
-}
-
-fn new_shell_cmd() -> Command {
-    let mut param = ("sh", "-c");
-    if cfg!(target_os = "windows") {
-        param.0 = "cmd";
-        param.1 = "/c";
-    }
-    let mut cmd = Command::new(param.0);
-    cmd.arg(param.1);
-    cmd
 }

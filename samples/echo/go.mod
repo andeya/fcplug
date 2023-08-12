@@ -1,9 +1,10 @@
-module github.com/andeya/fcplug/samples/echo_pb
+module github.com/andeya/fcplug/samples/echo
 
 go 1.18
 
 require (
 	github.com/andeya/gust v1.5.2
+	github.com/apache/thrift v0.13.0
 	github.com/bytedance/sonic v1.10.0
 	google.golang.org/protobuf v1.26.0
 )

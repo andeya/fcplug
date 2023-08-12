@@ -1,5 +1,5 @@
 # echo_thrift
 
-Thrift IDL codec sample.
+Protobuf IDL codec sample.
 
 NOTE: In development!
