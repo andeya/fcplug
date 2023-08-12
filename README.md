@@ -175,7 +175,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/andeya/fcplug/samples/echo"
+	"github.com/andeya/fcplug/samples/echo_pb"
 	"github.com/andeya/gust"
 )
 
@@ -186,12 +186,14 @@ func init() {
 
 type GoFfiImpl struct{}
 
-func (g GoFfiImpl) EchoGo(req echo.TBytes[echo.Ping]) gust.EnumResult[echo.TBytes[*echo.Pong], ResultMsg] {
+func (g GoFfiImpl) EchoGo(req echo_pb.TBytes[echo_pb.Ping]) gust.EnumResult[echo_pb.TBytes[*echo_pb.Pong], ResultMsg] {
+	_ = req.PbUnmarshalUnchecked()
 	fmt.Printf("go receive req: %v\n", req.PbUnmarshalUnchecked())
-	return gust.EnumOk[echo.TBytes[*echo.Pong], ResultMsg](echo.TBytesFromPbUnchecked(&echo.Pong{
+	return gust.EnumOk[echo_pb.TBytes[*echo_pb.Pong], ResultMsg](echo_pb.TBytesFromPbUnchecked(&echo_pb.Pong{
 		Msg: "this is pong from go",
 	}))
 }
+
 ```
 
 #### Step 6: Generate Final Code
@@ -266,16 +268,16 @@ mod tests {
   <br/>the sample code is as follows:
 
 ```go
-package echo_test
+package echo_pb_test
 
 import (
 	"testing"
 
-	"github.com/andeya/fcplug/samples/echo"
+	"github.com/andeya/fcplug/samples/echo_pb"
 )
 
 func TestEcho(t *testing.T) {
-	ret := echo.GlobalRustFfi.EchoRs(echo.TBytesFromPbUnchecked[*echo.Ping](&echo.Ping{
+	ret := echo_pb.GlobalRustFfi.EchoRs(echo_pb.TBytesFromPbUnchecked[*echo_pb.Ping](&echo_pb.Ping{
 		Msg: "this is ping from go",
 	}))
 	if ret.IsOk() {
