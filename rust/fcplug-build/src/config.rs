@@ -104,7 +104,10 @@ impl WorkConfig {
             full_target_dir
         } else {
             target_dir
-        }.join(BUILD_MODE);
+        }
+            .join(BUILD_MODE)
+            .canonicalize()
+            .unwrap();
         self
     }
     fn check_idl(mut self) -> Self {
@@ -255,14 +258,14 @@ impl WorkConfig {
         println!("cargo:rustc-link-lib={}", self.go_c_header_name_base);
     }
     pub(crate) fn rerun_if_changed(&self) {
-        println!("cargo:rerun-if-changed={}", self.pkg_dir().to_str().unwrap(), );
+        println!("cargo:rerun-if-changed={}", self.pkg_dir().to_str().unwrap());
         println!("cargo:rerun-if-changed={}", self.work_dir.to_str().unwrap());
     }
     pub(crate) fn pkg_dir(&self) -> PathBuf {
         if let Some(target_crate_dir) = &self.config.target_crate_dir {
-            target_crate_dir.clone()
+            target_crate_dir.clone().canonicalize().unwrap()
         } else {
-            env::var("CARGO_MANIFEST_DIR").unwrap().into()
+            PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).canonicalize().unwrap()
         }
     }
     fn pkg_name(&self) -> String {
