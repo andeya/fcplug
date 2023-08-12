@@ -3,6 +3,9 @@ use pilota_build::rir::{Enum, Message, Method, NewType, Service};
 
 use crate::generator::{GeneraterBackend, Generator};
 
+mod gen_go_no_codec;
+mod gen_rust_no_codec;
+
 impl Generator {
     pub(crate) fn _gen_code(self) {
         todo!()

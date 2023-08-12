@@ -16,17 +16,9 @@ mod go_os_arch_gen;
 mod rust_os_arch_gen;
 mod generator;
 #[cfg(feature = "no-codec")]
-mod generator_no_codec;
+mod without_codec;
 #[cfg(not(feature = "no-codec"))]
-mod generator_codec;
-#[cfg(feature = "no-codec")]
-mod gen_go_no_codec;
-#[cfg(not(feature = "no-codec"))]
-mod gen_go_codec;
-#[cfg(feature = "no-codec")]
-mod gen_rust_no_codec;
-#[cfg(not(feature = "no-codec"))]
-mod gen_rust_codec;
+mod with_codec;
 
 
 #[allow(dead_code)]

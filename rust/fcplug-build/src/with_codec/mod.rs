@@ -14,6 +14,9 @@ use crate::{CODE_IO, deal_output, deal_result, new_shell_cmd};
 use crate::config::IdlType;
 use crate::generator::{GeneraterBackend, Generator};
 
+mod gen_go_codec;
+mod gen_rust_codec;
+
 impl Generator {
     pub(crate) fn _gen_code(self) {
         let pkg_dir = self.config.pkg_dir();
