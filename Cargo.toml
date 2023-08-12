@@ -16,8 +16,8 @@ members = [
     "rust/fcplug",
     "rust/fcplug-build",
     "samples/echo_pb",
-#    "samples/echo",
-#    "samples/echo_thrift",
+    "samples/echo",
+    #    "samples/echo_thrift",
 ]
 exclude = []
 
@@ -62,6 +62,7 @@ serde_json = "1"
 walkdir = "2.3.3"
 md5 = "0.7.0"
 strum = { version = "0.25", features = ["derive"] }
+backtrace = "0.3"
 
 [patch.crates-io]
 fcplug-build = { path = "rust/fcplug-build" }

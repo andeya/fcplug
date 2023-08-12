@@ -1,6 +1,8 @@
 #![feature(result_option_inspect)]
 #![feature(try_trait_v2)]
 
+use std::fmt::Debug;
+use std::io;
 use std::process::Command;
 use std::process::Output as CmdOutput;
 
@@ -35,13 +37,21 @@ mod go_os_arch_gen;
 mod rust_os_arch_gen;
 mod gen_go_no_codec;
 mod gen_rust_no_codec;
+#[cfg(not(feature = "no-codec"))]
+mod generator_codec;
+#[cfg(feature = "no-codec")]
+mod generator_no_codec;
 
 pub fn generate_code(config: Config) {
     Generator::generate(config)
 }
 
+const CODE_UNKNOWN: i32 = -1;
+const CODE_CMD_UNKNOWN: i32 = -2;
+const CODE_IO: i32 = -3;
+
 fn exit_with_warning(code: i32, message: impl AsRef<str>) {
-    println!("cargo:warning={}", message.as_ref());
+    println!("cargo:warning={}, backtrace={:?}", message.as_ref(), backtrace::Backtrace::new());
     std::process::exit(code);
 }
 
@@ -56,16 +66,31 @@ fn new_shell_cmd() -> Command {
     cmd
 }
 
+fn deal_result<T, E: Debug>(code: i32, result: Result<T, E>) -> T {
+    match result {
+        Ok(t) => { t }
+        Err(e) => {
+            exit_with_warning(code, format!("{e:?}"));
+            unreachable!()
+        }
+    }
+}
 
-fn deal_output(output: CmdOutput) {
-    if !output.status.success() {
-        eprintln!("{output:?}");
-        exit_with_warning(output.status.code().unwrap_or(-1), format!("{output:?}"));
-    } else {
-        if output.stderr.is_empty() {
-            println!("{output:?}");
-        } else {
-            println!("cargo:warning={:?}", String::from_utf8(output.stderr.clone()).unwrap_or(format!("{output:?}")));
+fn deal_output(output: io::Result<CmdOutput>) {
+    match output {
+        Ok(output) => {
+            if !output.status.success() {
+                exit_with_warning(output.status.code().unwrap_or(CODE_CMD_UNKNOWN), format!("{output:?}"));
+            } else {
+                if output.stderr.is_empty() {
+                    println!("{output:?}");
+                } else {
+                    println!("cargo:warning={:?}", String::from_utf8(output.stderr.clone()).unwrap_or(format!("{output:?}")));
+                }
+            }
+        }
+        Err(e) => {
+            exit_with_warning(CODE_UNKNOWN, format!("{e:?}"));
         }
     }
 }
