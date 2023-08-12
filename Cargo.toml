@@ -68,3 +68,7 @@ backtrace = "0.3"
 fcplug-build = { path = "rust/fcplug-build" }
 fcplug = { path = "rust/fcplug" }
 #pilota-build = { path = "../pilota-build", package = "pilota-build2" }
+
+[profile.dev.build-override]
+opt-level = 0
+debug = true
