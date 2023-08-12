@@ -9,29 +9,42 @@ use pilota_build::db::RirDatabase;
 use pilota_build::rir::{Arg, Item};
 use pilota_build::ty::TyKind;
 
-use crate::Config;
-use crate::ffidl::config::IdlType;
-use crate::ffidl::FFIDL;
-use crate::ffidl::gen_go::GoCodegenBackend;
-use crate::ffidl::gen_rust::RustCodegenBackend;
+use crate::config::{IdlType, WorkConfig};
+use crate::gen_go::GoCodegenBackend;
+use crate::gen_go_no_codec::GoCodegenBackendNoCodec;
+use crate::gen_rust::RustCodegenBackend;
+use crate::gen_rust_no_codec::RustCodegenBackendNoCodec;
+use crate::Generator;
 
-impl MakeBackend for FFIDL {
-    type Target = FFIDLBackend;
+impl MakeBackend for Generator {
+    type Target = GeneraterBackend;
 
     fn make_backend(self, context: Context) -> Self::Target {
         let thrift = ThriftBackend::new(context.clone());
         let protobuf = ProtobufBackend::new(context.clone());
         let context = Arc::new(context);
-        FFIDLBackend {
+        GeneraterBackend {
             thrift,
             protobuf,
             rust: RustCodegenBackend {
                 config: self.config.clone(),
                 context: Cx(context.clone()),
+                rust_impl_rustffi_code: self.rust_impl_rustffi_code.clone(),
+                rust_impl_goffi_code: self.rust_impl_goffi_code.clone(),
+            },
+            go: GoCodegenBackend {
+                config: self.config.clone(),
+                context: Cx(context.clone()),
+                go_pkg_code: self.go_pkg_code.clone(),
+                go_main_code: self.go_main_code.clone(),
+            },
+            rust_no_codec: RustCodegenBackendNoCodec {
+                config: self.config.clone(),
+                context: Cx(context.clone()),
                 rust_impl_rustffi_code: self.rust_impl_rustffi_code,
                 rust_impl_goffi_code: self.rust_impl_goffi_code,
             },
-            go: GoCodegenBackend {
+            go_no_codec: GoCodegenBackendNoCodec {
                 config: self.config.clone(),
                 context: Cx(context.clone()),
                 go_pkg_code: self.go_pkg_code.clone(),
@@ -46,16 +59,18 @@ impl MakeBackend for FFIDL {
 
 #[allow(dead_code)]
 #[derive(Clone)]
-pub struct FFIDLBackend {
-    config: Arc<Config>,
+pub struct GeneraterBackend {
+    config: WorkConfig,
     context: Cx,
-    rust: RustCodegenBackend,
-    go: GoCodegenBackend,
     protobuf: ProtobufBackend,
     thrift: ThriftBackend,
+    rust: RustCodegenBackend,
+    go: GoCodegenBackend,
+    rust_no_codec: RustCodegenBackendNoCodec,
+    go_no_codec: GoCodegenBackendNoCodec,
 }
 
-unsafe impl Send for FFIDLBackend {}
+unsafe impl Send for GeneraterBackend {}
 
 #[derive(Clone)]
 pub(crate) struct Cx(Arc<Context>);
@@ -98,7 +113,7 @@ impl Deref for Cx {
     }
 }
 
-impl FFIDLBackend {
+impl GeneraterBackend {
     fn fix_empty_params(&self, method: &Method) -> Method {
         let mut method = method.clone();
         method.args = method
@@ -113,7 +128,7 @@ impl FFIDLBackend {
     }
 }
 
-impl CodegenBackend for FFIDLBackend {
+impl CodegenBackend for GeneraterBackend {
     fn cx(&self) -> &Context {
         self.context.0.as_ref()
     }

@@ -5,12 +5,12 @@ use pilota_build::{DefId, IdentName};
 use pilota_build::rir::{Method, Service};
 use pilota_build::ty::{CodegenTy, TyKind};
 
-use crate::ffidl::Config;
-use crate::ffidl::make_backend::{Cx, ServiceType};
+use crate::config::WorkConfig;
+use crate::make_backend::{Cx, ServiceType};
 
 #[derive(Clone)]
 pub(crate) struct RustCodegenBackend {
-    pub(crate) config: Arc<Config>,
+    pub(crate) config: WorkConfig,
     pub(crate) context: Cx,
     pub(crate) rust_impl_rustffi_code: Arc<RefCell<String>>,
     pub(crate) rust_impl_goffi_code: Arc<RefCell<String>>,

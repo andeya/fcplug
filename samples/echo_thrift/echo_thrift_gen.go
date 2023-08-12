@@ -18,7 +18,7 @@ import (
 
 	"github.com/andeya/gust/valconv"
 	"github.com/bytedance/sonic"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 var (

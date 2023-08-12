@@ -16,8 +16,8 @@ members = [
     "rust/fcplug",
     "rust/fcplug-build",
     "samples/echo_pb",
-    "samples/echo",
-    #    "samples/echo_thrift",
+#    "samples/echo",
+#    "samples/echo_thrift",
 ]
 exclude = []
 

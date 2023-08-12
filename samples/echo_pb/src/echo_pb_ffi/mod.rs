@@ -1,10 +1,10 @@
 #![allow(unused_variables)]
 
-pub use echo_gen::*;
+pub use echo_pb_gen::*;
 use fcplug::{GoFfiResult, TryIntoTBytes};
 use fcplug::protobuf::PbMessage;
 
-mod echo_gen;
+mod echo_pb_gen;
 
 impl RustFfi for FfiImpl {
     fn echo_rs(mut req: ::fcplug::RustFfiArg<Ping>) -> ::fcplug::ABIResult<::fcplug::TBytes<Pong>> {

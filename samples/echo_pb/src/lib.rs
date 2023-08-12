@@ -2,7 +2,7 @@
 
 extern crate test;
 
-mod echo_ffi;
+mod echo_pb_ffi;
 
 
 #[cfg(test)]
@@ -12,7 +12,7 @@ mod tests {
     use fcplug::protobuf::PbMessage;
     use fcplug::TryIntoTBytes;
 
-    use crate::echo_ffi::{FfiImpl, GoFfiCall, Ping, Pong};
+    use crate::echo_pb_ffi::{FfiImpl, GoFfiCall, Ping, Pong};
 
     #[test]
     fn test_call_echo_go() {

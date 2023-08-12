@@ -4,9 +4,14 @@
 use std::process::Command;
 use std::process::Output as CmdOutput;
 
-use crate::ffidl::FFIDL;
+pub use config::{Config, GoObjectPath, UnitLikeStructPath};
 
-pub use self::ffidl::{Config, GoObjectPath, UnitLikeStructPath};
+use crate::generator::Generator;
+
+mod gen_go;
+mod gen_rust;
+mod config;
+mod make_backend;
 
 #[allow(dead_code)]
 enum GenMode {
@@ -24,13 +29,15 @@ const BUILD_MODE: &'static str = "release";
 #[cfg(debug_assertions)]
 const BUILD_MODE: &'static str = "debug";
 
-mod ffidl;
+mod generator;
 mod os_arch;
 mod go_os_arch_gen;
 mod rust_os_arch_gen;
+mod gen_go_no_codec;
+mod gen_rust_no_codec;
 
-pub fn generate_code(config: Config)  {
-    FFIDL::generate(config)
+pub fn generate_code(config: Config) {
+    Generator::generate(config)
 }
 
 fn exit_with_warning(code: i32, message: impl AsRef<str>) {
