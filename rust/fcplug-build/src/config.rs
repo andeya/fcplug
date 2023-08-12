@@ -265,11 +265,12 @@ impl WorkConfig {
             env::var("CARGO_MANIFEST_DIR").unwrap().into()
         }
     }
-    fn pkg_name_prefix(&self) -> String {
-        let idl_name = self.corrected_idl_file.file_name().unwrap().to_str().unwrap();
-        idl_name
-            .rsplit_once(".")
-            .map_or(idl_name, |(idl_name, _)| idl_name)
+    fn pkg_name(&self) -> String {
+        self.pkg_dir()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
             .replace(".", "_")
             .replace("-", "_")
             .trim_start_matches("_")
@@ -278,7 +279,7 @@ impl WorkConfig {
             .to_string()
     }
     fn file_name_base(&self) -> String {
-        let pkg_name_prefix = self.pkg_name_prefix();
+        let pkg_name_prefix = self.pkg_name();
         format!("{pkg_name_prefix}_gen")
     }
     fn check_go_mod_path(self) -> Self {
@@ -300,17 +301,7 @@ impl WorkConfig {
         self
     }
     pub(crate) fn go_mod_name(&self) -> String {
-        self.pkg_dir()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .replace(".", "_")
-            .replace("-", "_")
-            .trim_start_matches("_")
-            .to_string()
-            .trim_end_matches("_")
-            .to_string()
+        self.pkg_name()
     }
     pub(crate) fn go_mod_path(&self) -> String {
         format!(
@@ -342,7 +333,7 @@ impl WorkConfig {
     pub(crate) fn rust_mod_dir(&self) -> PathBuf {
         self.pkg_dir()
             .join("src")
-            .join(self.pkg_name_prefix() + "_ffi")
+            .join(self.pkg_name() + "_ffi")
     }
     pub(crate) fn rust_mod_gen_file(&self) -> PathBuf {
         self.rust_mod_dir().join(self.file_name_base() + ".rs")
