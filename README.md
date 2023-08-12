@@ -138,11 +138,11 @@ cargo build
 ```rust
 #![allow(unused_variables)]
 
-pub use echo_gen::*;
+pub use echo_pb_gen::*;
 use fcplug::{GoFfiResult, TryIntoTBytes};
 use fcplug::protobuf::PbMessage;
 
-mod echo_gen;
+mod echo_pb_gen;
 
 impl RustFfi for FfiImpl {
     fn echo_rs(mut req: ::fcplug::RustFfiArg<Ping>) -> ::fcplug::ABIResult<::fcplug::TBytes<Pong>> {
@@ -157,6 +157,7 @@ impl RustFfi for FfiImpl {
 }
 
 impl GoFfi for FfiImpl {
+    #[allow(unused_mut)]
     unsafe fn echo_go_set_result(mut go_ret: ::fcplug::RustFfiArg<Pong>) -> ::fcplug::GoFfiResult {
         #[cfg(debug_assertions)]
         return GoFfiResult::from_ok(go_ret.try_to_object::<PbMessage<_>>()?);
@@ -227,7 +228,7 @@ cargo build --release
 
 extern crate test;
 
-mod echo_ffi;
+mod echo_pb_ffi;
 
 
 #[cfg(test)]
@@ -237,7 +238,7 @@ mod tests {
     use fcplug::protobuf::PbMessage;
     use fcplug::TryIntoTBytes;
 
-    use crate::echo_ffi::{FfiImpl, GoFfiCall, Ping, Pong};
+    use crate::echo_pb_ffi::{FfiImpl, GoFfiCall, Ping, Pong};
 
     #[test]
     fn test_call_echo_go() {
