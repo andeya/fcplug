@@ -23,10 +23,10 @@ mod generator_codec;
 mod gen_go_no_codec;
 #[cfg(not(feature = "no-codec"))]
 mod gen_go_codec;
-#[cfg(not(feature = "no-codec"))]
-mod gen_rust_codec;
 #[cfg(feature = "no-codec")]
 mod gen_rust_no_codec;
+#[cfg(not(feature = "no-codec"))]
+mod gen_rust_codec;
 
 
 #[allow(dead_code)]
