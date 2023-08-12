@@ -10,16 +10,21 @@ incremental = false
 codegen-units = 1
 rpath = false
 
+[profile.dev.build-override]
+opt-level = 0
+debug = true
+
 [workspace]
 resolver = "2"
 members = [
     "rust/fcplug",
     "rust/fcplug-build",
     "samples/echo_pb",
-    "samples/echo",
-    #    "samples/echo_thrift",
 ]
-exclude = []
+exclude = [
+    "samples/echo",
+    "samples/echo_thrift",
+]
 
 [workspace.package]
 edition = "2021"
@@ -68,7 +73,3 @@ backtrace = "0.3"
 fcplug-build = { path = "rust/fcplug-build" }
 fcplug = { path = "rust/fcplug" }
 #pilota-build = { path = "../pilota-build", package = "pilota-build2" }
-
-[profile.dev.build-override]
-opt-level = 0
-debug = true

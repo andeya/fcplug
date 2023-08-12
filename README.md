@@ -57,11 +57,16 @@ See the [echo_pb](https://github.com/andeya/fcplug/raw/HEAD/samples/echo_pb)
 cargo new --lib {crate_name}
 ```
 
-- Added C static libraries, types and some dependent packages, edited in Cargo.toml as follows:
+- Add `staticlib` crate-type and some dependent packages, open debug log of `build.rs`, edited in Cargo.toml as
+  follows:
 
 ```toml
 [lib]
 crate-type = ["rlib", "staticlib"]
+
+[profile.dev.build-override]
+opt-level = 0
+debug = true
 
 [dependencies]
 fcplug = "0.3"

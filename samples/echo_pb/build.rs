@@ -3,8 +3,6 @@
 use fcplug_build::{generate_code, Config, UnitLikeStructPath};
 
 fn main() {
-    // println!("cargo:rustc-link-search=/Users/henrylee2cn/rust/fcplug/target/debug");
-    // println!("cargo:rustc-link-lib=go_echo");
     generate_code(Config {
         idl_file: "./echo.proto".into(),
         target_crate_dir: None,

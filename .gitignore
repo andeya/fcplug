@@ -1,10 +1,10 @@
-.idea
+.idea/
 
 *.a
 *.h
 
-/target
-/Cargo.lock
+target/
+Cargo.lock
 
 go.work.sum
 go.sum
