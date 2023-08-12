@@ -2,13 +2,17 @@ use std::fs;
 use std::process::Command;
 use std::sync::Arc;
 
+use pilota_build::{
+    CodegenBackend, Context, DefId, rir::Enum, rir::Message,
+    rir::Method, rir::NewType, rir::Service,
+};
 use pilota_build::fmt::fmt_file;
 use pilota_build::Output;
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 
 use crate::{CODE_IO, deal_output, deal_result, new_shell_cmd};
 use crate::config::IdlType;
-use crate::generator::Generator;
+use crate::generator::{GeneraterBackend, Generator};
 
 impl Generator {
     pub(crate) fn _gen_code(self) {
@@ -301,5 +305,41 @@ uintptr_t leak_buffer(struct Buffer buf);
                 ));
             }
         };
+    }
+}
+
+impl CodegenBackend for GeneraterBackend {
+    fn cx(&self) -> &Context {
+        self.context.0.as_ref()
+    }
+    fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
+        match self.config.idl_type() {
+            IdlType::Proto | IdlType::ProtoNoCodec => self.protobuf.codegen_struct_impl(def_id, stream, s),
+            IdlType::Thrift | IdlType::ThriftNoCodec => self.thrift.codegen_struct_impl(def_id, stream, s),
+        }
+    }
+    fn codegen_service_impl(&self, service_def_id: DefId, stream: &mut String, s: &Service) {
+        let mut s = s.clone();
+        s.methods = s
+            .methods
+            .iter()
+            .map(|method| Arc::new(self.fix_empty_params(method)))
+            .collect::<Vec<Arc<Method>>>();
+        self.protobuf
+            .codegen_service_impl(service_def_id, stream, &s);
+        self.rust.codegen_service_impl(service_def_id, stream, &s);
+        self.go.codegen(service_def_id, &s)
+    }
+    fn codegen_service_method(&self, service_def_id: DefId, method: &Method) -> String {
+        let method = self.fix_empty_params(method);
+        self.protobuf
+            .codegen_service_method(service_def_id, &method);
+        String::new()
+    }
+    fn codegen_enum_impl(&self, def_id: DefId, stream: &mut String, e: &Enum) {
+        self.protobuf.codegen_enum_impl(def_id, stream, e);
+    }
+    fn codegen_newtype_impl(&self, def_id: DefId, stream: &mut String, t: &NewType) {
+        self.protobuf.codegen_newtype_impl(def_id, stream, t);
     }
 }

@@ -1,20 +1,10 @@
-use std::cell::RefCell;
 use std::sync::Arc;
 
 use pilota_build::{DefId, IdentName, rir::Service};
 use pilota_build::rir::{Arg, Method};
 use pilota_build::ty::TyKind;
 
-use crate::config::WorkConfig;
-use crate::make_backend::{Cx, ServiceType};
-
-#[derive(Clone)]
-pub(crate) struct GoCodegenBackend {
-    pub(crate) config: WorkConfig,
-    pub(crate) context: Cx,
-    pub(crate) go_pkg_code: Arc<RefCell<String>>,
-    pub(crate) go_main_code: Arc<RefCell<String>>,
-}
+use crate::generator::{GoCodegenBackend, ServiceType};
 
 impl GoCodegenBackend {
     pub(crate) fn codegen(&self, service_def_id: DefId, s: &Service) {

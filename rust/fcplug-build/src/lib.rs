@@ -10,10 +10,24 @@ pub use config::{Config, GoObjectPath, UnitLikeStructPath};
 
 use crate::generator::Generator;
 
-mod gen_go;
-mod gen_rust;
 mod config;
-mod make_backend;
+mod os_arch;
+mod go_os_arch_gen;
+mod rust_os_arch_gen;
+mod generator;
+#[cfg(feature = "no-codec")]
+mod generator_no_codec;
+#[cfg(not(feature = "no-codec"))]
+mod generator_codec;
+#[cfg(feature = "no-codec")]
+mod gen_go_no_codec;
+#[cfg(not(feature = "no-codec"))]
+mod gen_go_codec;
+#[cfg(not(feature = "no-codec"))]
+mod gen_rust_codec;
+#[cfg(feature = "no-codec")]
+mod gen_rust_no_codec;
+
 
 #[allow(dead_code)]
 enum GenMode {
@@ -30,17 +44,6 @@ const GEN_MODE: GenMode = GenMode::Codec;
 const BUILD_MODE: &'static str = "release";
 #[cfg(debug_assertions)]
 const BUILD_MODE: &'static str = "debug";
-
-mod generator;
-mod os_arch;
-mod go_os_arch_gen;
-mod rust_os_arch_gen;
-mod gen_go_no_codec;
-mod gen_rust_no_codec;
-#[cfg(not(feature = "no-codec"))]
-mod generator_codec;
-#[cfg(feature = "no-codec")]
-mod generator_no_codec;
 
 pub fn generate_code(config: Config) {
     Generator::generate(config)

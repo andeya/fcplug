@@ -1,20 +1,8 @@
-use std::cell::RefCell;
-use std::sync::Arc;
-
 use pilota_build::{DefId, IdentName};
 use pilota_build::rir::{Method, Service};
 use pilota_build::ty::{CodegenTy, TyKind};
 
-use crate::config::WorkConfig;
-use crate::make_backend::{Cx, ServiceType};
-
-#[derive(Clone)]
-pub(crate) struct RustCodegenBackend {
-    pub(crate) config: WorkConfig,
-    pub(crate) context: Cx,
-    pub(crate) rust_impl_rustffi_code: Arc<RefCell<String>>,
-    pub(crate) rust_impl_goffi_code: Arc<RefCell<String>>,
-}
+use crate::generator::{RustCodegenBackend, ServiceType};
 
 impl RustCodegenBackend {
     pub(crate) fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {

@@ -1,5 +1,14 @@
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::sync::Arc;
+
+use pilota_build::{
+    Context, DefId, MakeBackend, ProtobufBackend,
+    rir::Method, ThriftBackend,
+};
+use pilota_build::db::RirDatabase;
+use pilota_build::rir::{Arg, Item};
+use pilota_build::ty::TyKind;
 
 use crate::{deal_output, exit_with_warning, new_shell_cmd};
 use crate::config::{Config, WorkConfig};
@@ -82,5 +91,120 @@ impl Generator {
         if self.config.update_crate_modified() {
             println!("cargo:warning=The crate files has changed, it is recommended to re-execute 'cargo build' to ensure the correctness of '{}'", clib_name_str);
         }
+    }
+}
+
+impl MakeBackend for Generator {
+    type Target = GeneraterBackend;
+
+    fn make_backend(self, context: Context) -> Self::Target {
+        let thrift = ThriftBackend::new(context.clone());
+        let protobuf = ProtobufBackend::new(context.clone());
+        let context = Arc::new(context);
+        GeneraterBackend {
+            thrift,
+            protobuf,
+            rust: RustCodegenBackend {
+                config: self.config.clone(),
+                context: Cx(context.clone()),
+                rust_impl_rustffi_code: self.rust_impl_rustffi_code.clone(),
+                rust_impl_goffi_code: self.rust_impl_goffi_code.clone(),
+            },
+            go: GoCodegenBackend {
+                config: self.config.clone(),
+                context: Cx(context.clone()),
+                go_pkg_code: self.go_pkg_code.clone(),
+                go_main_code: self.go_main_code.clone(),
+            },
+            context: Cx(context),
+            config: self.config,
+        }
+    }
+}
+
+
+#[allow(dead_code)]
+#[derive(Clone)]
+pub(crate) struct GeneraterBackend {
+    pub(crate) config: WorkConfig,
+    pub(crate) context: Cx,
+    pub(crate) protobuf: ProtobufBackend,
+    pub(crate) thrift: ThriftBackend,
+    pub(crate) rust: RustCodegenBackend,
+    pub(crate) go: GoCodegenBackend,
+}
+
+
+#[derive(Clone)]
+pub(crate) struct GoCodegenBackend {
+    pub(crate) config: WorkConfig,
+    pub(crate) context: Cx,
+    pub(crate) go_pkg_code: Arc<RefCell<String>>,
+    pub(crate) go_main_code: Arc<RefCell<String>>,
+}
+
+#[derive(Clone)]
+pub(crate) struct RustCodegenBackend {
+    pub(crate) config: WorkConfig,
+    pub(crate) context: Cx,
+    pub(crate) rust_impl_rustffi_code: Arc<RefCell<String>>,
+    pub(crate) rust_impl_goffi_code: Arc<RefCell<String>>,
+}
+
+unsafe impl Send for GeneraterBackend {}
+
+#[derive(Clone)]
+pub(crate) struct Cx(pub(crate) Arc<Context>);
+
+pub(crate) enum ServiceType {
+    RustFfi,
+    GoFfi,
+}
+
+impl Cx {
+    pub(crate) fn service_type(&self, service_def_id: DefId) -> ServiceType {
+        match self.rust_name(service_def_id).to_lowercase().as_str() {
+            "rustffi" => ServiceType::RustFfi,
+            "goffi" => ServiceType::GoFfi,
+            _ => {
+                unreachable!()
+            }
+        }
+    }
+    pub(crate) fn is_empty_ty(&self, kind: &TyKind) -> bool {
+        match kind {
+            TyKind::Path(path) => {
+                if let Item::Message(m) = self.item(path.did).unwrap().as_ref() {
+                    m.fields.is_empty()
+                } else {
+                    false
+                }
+            }
+            TyKind::Void => true,
+            _ => false,
+        }
+    }
+}
+
+impl Deref for Cx {
+    type Target = Context;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+impl GeneraterBackend {
+    pub(crate) fn fix_empty_params(&self, method: &Method) -> Method {
+        let mut method = method.clone();
+        method.args = method
+            .args
+            .into_iter()
+            .filter(|arg| !self.context.is_empty_ty(&arg.ty.kind))
+            .collect::<Vec<Arc<Arg>>>();
+        if self.context.is_empty_ty(&method.ret.kind) {
+            method.ret.kind = TyKind::Void;
+        }
+        method
     }
 }
