@@ -431,17 +431,17 @@ pub(crate) trait GoCodegenBackend {
     fn codegen_struct_type(&self, _def_id: DefId, _s: &Message) -> String {
         Default::default()
     }
-    fn codegen_rustffi_iface_methods(&self, def_id: DefId, s: &Service) -> Vec<(String, String)>;
+    fn codegen_rustffi_iface_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<(String, String)>;
     fn codegen_rustffi_service_impl(&self, service_def_id: DefId, s: &Service) -> String;
-    fn codegen_goffi_iface_methods(&self, def_id: DefId, s: &Service) -> Vec<String>;
+    fn codegen_goffi_iface_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String>;
     fn codegen_goffi_service_impl(&self, service_def_id: DefId, s: &Service) -> String;
 }
 
 pub(crate) trait RustCodegenBackend {
-    fn codegen_rustffi_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String>;
+    fn codegen_rustffi_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String>;
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service);
-    fn codegen_goffi_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String>;
-    fn codegen_goffi_call_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String>;
+    fn codegen_goffi_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String>;
+    fn codegen_goffi_call_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String>;
     fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service);
 }
 
@@ -657,19 +657,35 @@ impl CodegenBackend for GeneratorBackend {
             _ => {}
         }
         let service_type = self.context.service_type(service_def_id);
-        let mut methods = match service_type {
-            ServiceType::RustFfi => self.rust.codegen_rustffi_trait_methods(service_def_id, &s),
-            ServiceType::GoFfi => self.rust.codegen_goffi_trait_methods(service_def_id, &s),
-        };
-        methods.push("".to_string());
+        let mut methods = Vec::new();
+        let mut call_methods = String::new();
+        for method in &s.methods {
+            match service_type {
+                ServiceType::RustFfi => {
+                    if let Some(code) = self.rust.codegen_rustffi_trait_method(service_def_id, method) {
+                        methods.push(code);
+                    }
+                }
+                ServiceType::GoFfi => {
+                    if let Some(code) = self.rust.codegen_goffi_trait_method(service_def_id, method) {
+                        methods.push(code);
+                    }
+                    if let Some(code) = self.rust.codegen_goffi_call_trait_method(service_def_id, method) {
+                        call_methods.push_str(&(code + "\n"));
+                    }
+                }
+            };
+        }
+        let mut methods = methods.into_iter().filter(|m| !m.is_empty()).collect::<Vec<String>>();
         let name = self.context.rust_name(service_def_id);
+        methods.push("".to_string());
         let trait_methods = methods.join(";\n");
-        let impl_trait_methods = methods.join(" {{ todo!() }}\n");
+        let impl_trait_methods = methods.join(" { todo!() }\n");
         stream.push_str(&format! {r#"
-        pub(super) trait {name} {{
-            {trait_methods}
-        }}
-        "#});
+            pub(super) trait {name} {{
+                {trait_methods}
+            }}
+            "#});
         let name = self.context.rust_name(service_def_id);
         let ust = self.config.rust_mod_impl_name();
         self.rust_mod_impl_code.borrow_mut().push_str(&format!(
@@ -679,20 +695,18 @@ impl CodegenBackend for GeneratorBackend {
             }}
             "###
         ));
-        if let ServiceType::GoFfi = service_type {
-            let methods = self.rust.codegen_goffi_call_trait_methods(service_def_id, &s).join("\n");
-            stream.push_str(&format! {r#"
-        pub trait {name}Call {{
-            {methods}
-        }}
-        "#});
-        }
+
         match service_type {
             ServiceType::RustFfi => {
                 self.rust
                     .codegen_rustffi_service_impl(service_def_id, stream, &s);
             }
             ServiceType::GoFfi => {
+                stream.push_str(&format! {r#"
+                pub trait {name}Call {{
+                    {call_methods}
+                }}
+                "#});
                 self.rust
                     .codegen_goffi_service_impl(service_def_id, stream, &s);
             }
@@ -700,20 +714,20 @@ impl CodegenBackend for GeneratorBackend {
         // go
         match service_type {
             ServiceType::RustFfi => {
-                let rustffi_iface_methods =
-                    self.go.codegen_rustffi_iface_methods(service_def_id, &s);
                 let mut iface_methods = String::new();
                 let mut impl_methods = String::new();
-                for (iface_method, impl_method) in &rustffi_iface_methods {
-                    iface_methods += &format!("{iface_method}\n");
-                    impl_methods += &format!(
-                        r###"
+                for method in &s.methods {
+                    if let Some((iface_method, impl_method)) = self.go.codegen_rustffi_iface_method(service_def_id, method) {
+                        iface_methods.push_str(&format!("{iface_method}\n"));
+                        impl_methods.push_str(&format!(
+                            r###"
                     //go:inline
                     func (RustFfiImpl) {iface_method} {{
                         {impl_method}
                     }}
                     "###
-                    )
+                        ));
+                    }
                 }
                 self.go.go_lib_code.borrow_mut().push_str(&format!(
                     r###"
@@ -728,19 +742,17 @@ impl CodegenBackend for GeneratorBackend {
                 ));
             }
             ServiceType::GoFfi => {
-                let goffi_iface_methods = self.go.codegen_goffi_iface_methods(service_def_id, &s);
-                let iface_body = goffi_iface_methods.join("\n");
-                let impl_methods = goffi_iface_methods
-                    .iter()
-                    .map(|s| {
-                        format!(
-                            r###"func (_UnimplementedGoFfi) {s} {{
-                    panic("unimplemented")
-                }}"###
-                        )
-                    })
-                    .collect::<Vec<String>>()
-                    .join("\n");
+                let mut iface_body = String::new();
+                let mut impl_methods = String::new();
+                for method in &s.methods {
+                    if let Some(m) = self.go.codegen_goffi_iface_method(service_def_id, method) {
+                        iface_body.push_str(&format!("{m}\n"));
+                        impl_methods.push_str(&format!(r###"func (_UnimplementedGoFfi) {m} {{
+                        panic("unimplemented")
+                    }}
+                    "###));
+                    }
+                }
                 self.go.go_main_code.borrow_mut().push_str(&format!(
                     r###"
 

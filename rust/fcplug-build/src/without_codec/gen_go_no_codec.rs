@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use std::sync::Arc;
+
 use pilota_build::DefId;
-use pilota_build::rir::{Message, Service};
+use pilota_build::rir::{Message, Method, Service};
 
 use crate::generator::{GoCodegenBackend, GoGeneratorBackend};
 
@@ -27,25 +29,23 @@ type {struct_name} struct {{
         "###)
     }
 
-    fn codegen_rustffi_iface_methods(&self, def_id: DefId, s: &Service) -> Vec<(String, String)> {
-        // TODO:
-        vec![]
+    fn codegen_rustffi_iface_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<(String, String)> {
+        // TODO
+        None
     }
 
-    #[allow(unused_variables)]
     fn codegen_rustffi_service_impl(&self, service_def_id: DefId, s: &Service) -> String {
-        // TODO:
+        // TODO
         String::new()
     }
 
-    fn codegen_goffi_iface_methods(&self, def_id: DefId, s: &Service) -> Vec<String> {
-        // TODO:
-        vec![]
+    fn codegen_goffi_iface_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String> {
+        // TODO
+        None
     }
 
-    #[allow(unused_variables)]
     fn codegen_goffi_service_impl(&self, service_def_id: DefId, s: &Service) -> String {
-        // TODO:
+        // TODO
         String::new()
     }
 }

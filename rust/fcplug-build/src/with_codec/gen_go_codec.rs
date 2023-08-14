@@ -1,52 +1,52 @@
+use std::sync::Arc;
+
 use pilota_build::{DefId, rir::Service};
+use pilota_build::rir::Method;
 use pilota_build::ty::TyKind;
 
 use crate::generator::{GoCodegenBackend, GoGeneratorBackend};
 
 impl GoCodegenBackend for GoGeneratorBackend {
     // {lib}.go
-    fn codegen_rustffi_iface_methods(&self, service_def_id: DefId, s: &Service) -> Vec<(String, String)> {
-        s.methods.iter().map(|method| {
-            let iface_method_name = self.iface_method_name(method);
-            let args_sign = method
-                .args
-                .iter()
-                .map(|arg| {
-                    if arg.ty.is_scalar() {
-                        format!("{} {}", self.arg_name(arg), self.arg_type(arg, false))
+    fn codegen_rustffi_iface_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<(String, String)> {
+        let iface_method_name = self.iface_method_name(method);
+        let args_sign = method
+            .args
+            .iter()
+            .map(|arg| {
+                if arg.ty.is_scalar() {
+                    format!("{} {}", self.arg_name(arg), self.arg_type(arg, false))
+                } else {
+                    format!(
+                        "{} TBytes[*{}]",
+                        self.arg_name(arg),
+                        self.arg_type(arg, false)
+                    )
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(",");
+        let ret_type = self.ret_type(method, false);
+        let iface_method = format!("{iface_method_name}({args_sign}) RustFfiResult[{ret_type}]");
+        let ffi_func_name = self.ffi_func_name(service_def_id, method);
+        let args_assign = method
+            .args
+            .iter()
+            .map(|arg| {
+                if arg.ty.is_scalar() {
+                    let name = self.arg_name(arg);
+                    if let TyKind::Bool = arg.ty.kind {
+                        format!("C._Bool({name})")
                     } else {
-                        format!(
-                            "{} TBytes[*{}]",
-                            self.arg_name(arg),
-                            self.arg_type(arg, false)
-                        )
+                        name
                     }
-                })
-                .collect::<Vec<String>>()
-                .join(",");
-            let ret_type = self.ret_type(method, false);
-            let iface_method = format!("{iface_method_name}({args_sign}) RustFfiResult[{ret_type}]");
-            let ffi_func_name = self.ffi_func_name(service_def_id, method);
-            let args_assign = method
-                .args
-                .iter()
-                .map(|arg| {
-                    if arg.ty.is_scalar() {
-                        let name = self.arg_name(arg);
-                        if let TyKind::Bool = arg.ty.kind {
-                            format!("C._Bool({name})")
-                        } else {
-                            name
-                        }
-                    } else {
-                        format!("{}.asBuffer()", self.arg_name(arg))
-                    }
-                })
-                .collect::<Vec<String>>()
-                .join(",");
-            (iface_method, format!("return newRustFfiResult[{ret_type}](C.{ffi_func_name}({args_assign}))"))
-        })
-            .collect::<Vec<(String, String)>>()
+                } else {
+                    format!("{}.asBuffer()", self.arg_name(arg))
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(",");
+        Some((iface_method, format!("return newRustFfiResult[{ret_type}](C.{ffi_func_name}({args_assign}))")))
     }
     // {lib}.go
     fn codegen_rustffi_service_impl(&self, _service_def_id: DefId, _s: &Service) -> String {
@@ -403,34 +403,32 @@ func (r RustFfiResult[T]) UnmarshalUnchecked(unmarshal func([]byte, any) error) 
     }
 
     // main.go
-    fn codegen_goffi_iface_methods(&self, _def_id: DefId, s: &Service) -> Vec<String> {
+    fn codegen_goffi_iface_method(&self, _def_id: DefId, method: &Arc<Method>) -> Option<String> {
         let mod_name = self.config.go_mod_name();
-        s.methods.iter().map(|method| {
-            let iface_method_name = self.iface_method_name(method);
-            let args_sign = method
-                .args
-                .iter()
-                .map(|arg| {
-                    if arg.ty.is_scalar() {
-                        format!("{} {}", self.arg_name(arg), self.arg_type(arg, true))
-                    } else {
-                        format!(
-                            "{} {mod_name}.TBytes[{}]",
-                            self.arg_name(arg),
-                            self.arg_type(arg, true)
-                        )
-                    }
-                })
-                .collect::<Vec<String>>()
-                .join(",");
-            let ret_type = self.ret_type(method, true);
-            let is_empty_ret = self.context.is_empty_ty(&method.ret.kind);
-            if is_empty_ret {
-                format!("{iface_method_name}({args_sign}) ResultMsg")
-            } else {
-                format!("{iface_method_name}({args_sign}) gust.EnumResult[{mod_name}.TBytes[*{ret_type}], ResultMsg]")
-            }
-        }).collect()
+        let iface_method_name = self.iface_method_name(method);
+        let args_sign = method
+            .args
+            .iter()
+            .map(|arg| {
+                if arg.ty.is_scalar() {
+                    format!("{} {}", self.arg_name(arg), self.arg_type(arg, true))
+                } else {
+                    format!(
+                        "{} {mod_name}.TBytes[{}]",
+                        self.arg_name(arg),
+                        self.arg_type(arg, true)
+                    )
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(",");
+        let ret_type = self.ret_type(method, true);
+        let is_empty_ret = self.context.is_empty_ty(&method.ret.kind);
+        Some(if is_empty_ret {
+            format!("{iface_method_name}({args_sign}) ResultMsg")
+        } else {
+            format!("{iface_method_name}({args_sign}) gust.EnumResult[{mod_name}.TBytes[*{ret_type}], ResultMsg]")
+        })
     }
 
     // main.go
