@@ -12,9 +12,6 @@ import "C"
 import (
 	"reflect"
 	"unsafe"
-
-	"github.com/andeya/fcplug/samples/echo"
-	"github.com/andeya/gust"
 )
 
 // main function is never called by C to.
@@ -23,64 +20,10 @@ func main() {}
 var (
 	_ reflect.SliceHeader
 	_ unsafe.Pointer
-	_ gust.EnumResult[any, any]
-	_ echo.ResultCode
 )
 
 var GlobalGoFfi GoFfi = _UnimplementedGoFfi{}
 
-type ResultMsg struct {
-	Code echo.ResultCode
-	Msg  string
-}
-
-//go:inline
-func asBuffer[T any](b echo.TBytes[T]) C.struct_Buffer {
-	p, size := b.ForCBuffer()
-	if size == 0 {
-		return C.struct_Buffer{}
-	}
-	return C.struct_Buffer{
-		ptr: (*C.uint8_t)(p),
-		len: C.uintptr_t(size),
-		cap: C.uintptr_t(size),
-	}
-}
-
-//go:inline
-func asBytes[T any](buf C.struct_Buffer) echo.TBytes[T] {
-	if buf.len == 0 {
-		return echo.TBytes[T]{}
-	}
-	return echo.TBytesFromBytes[T](*(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(buf.ptr)),
-		Len:  int(buf.len),
-		Cap:  int(buf.cap),
-	})))
-}
-
 type GoFfi interface {
-	EchoGo(req echo.TBytes[echo.Ping]) gust.EnumResult[echo.TBytes[*echo.Pong], ResultMsg]
 }
 type _UnimplementedGoFfi struct{}
-
-func (_UnimplementedGoFfi) EchoGo(req echo.TBytes[echo.Ping]) gust.EnumResult[echo.TBytes[*echo.Pong], ResultMsg] {
-	panic("unimplemented")
-}
-
-//go:inline
-//export goffi_echo_go
-func goffi_echo_go(req C.struct_Buffer) C.struct_GoFfiResult {
-	if _EchoGo_Ret := GlobalGoFfi.EchoGo(asBytes[echo.Ping](req)); _EchoGo_Ret.IsOk() {
-		return C.goffi_echo_go_set_result(asBuffer(_EchoGo_Ret.Unwrap()))
-	} else {
-		_EchoGo_Ret_Msg := _EchoGo_Ret.UnwrapErr()
-		if _EchoGo_Ret_Msg.Code == echo.RcNoError {
-			_EchoGo_Ret_Msg.Code = echo.RcUnknown
-		}
-		return C.struct_GoFfiResult{
-			code:     C.int8_t(_EchoGo_Ret_Msg.Code),
-			data_ptr: C.leak_buffer(asBuffer(echo.TBytesFromString[string](_EchoGo_Ret_Msg.Msg))),
-		}
-	}
-}

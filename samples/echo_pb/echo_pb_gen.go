@@ -26,12 +26,22 @@ var (
 	_ = fmt.Sprintf
 	_ reflect.SliceHeader
 	_ unsafe.Pointer
-	_ valconv.ReadonlyBytes
-	_ = sonic.Marshal
-	_ = proto.Marshal
 )
+var _ valconv.ReadonlyBytes
+var _ = sonic.Marshal
+var _ = proto.Marshal
 
 var GlobalRustFfi RustFfi = RustFfiImpl{}
+
+type RustFfi interface {
+	EchoRs(req TBytes[*Ping]) RustFfiResult[Pong]
+}
+type RustFfiImpl struct{}
+
+//go:inline
+func (RustFfiImpl) EchoRs(req TBytes[*Ping]) RustFfiResult[Pong] {
+	return newRustFfiResult[Pong](C.rustffi_echo_rs(req.asBuffer()))
+}
 
 type ResultCode = int8
 
@@ -381,14 +391,4 @@ func (r RustFfiResult[T]) UnmarshalUnchecked(unmarshal func([]byte, any) error) 
 		_ = unmarshal(r.AsBytes(), &t)
 	}
 	return &t
-}
-
-type RustFfi interface {
-	EchoRs(req TBytes[*Ping]) RustFfiResult[Pong]
-}
-type RustFfiImpl struct{}
-
-//go:inline
-func (RustFfiImpl) EchoRs(req TBytes[*Ping]) RustFfiResult[Pong] {
-	return newRustFfiResult[Pong](C.rustffi_echo_rs(req.asBuffer()))
 }

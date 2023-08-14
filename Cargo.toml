@@ -20,9 +20,9 @@ members = [
     "rust/fcplug",
     "rust/fcplug-build",
     "samples/echo_pb",
+    "samples/echo",
 ]
 exclude = [
-    "samples/echo",
     "samples/echo_thrift",
 ]
 

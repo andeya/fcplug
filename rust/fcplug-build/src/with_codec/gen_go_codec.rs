@@ -1,28 +1,56 @@
-use std::sync::Arc;
-
-use pilota_build::{DefId, IdentName, rir::Service};
-use pilota_build::rir::{Arg, Method};
+use pilota_build::{DefId, rir::Service};
 use pilota_build::ty::TyKind;
 
-use crate::generator::{GoCodegenBackend, ServiceType};
+use crate::generator::{GoCodegenBackend, GoGeneratorBackend};
 
-impl GoCodegenBackend {
-    pub(crate) fn codegen(&self, service_def_id: DefId, s: &Service) {
-        match self.context.service_type(service_def_id) {
-            ServiceType::RustFfi => self
-                .go_pkg_code
-                .borrow_mut()
-                .push_str(&self.codegen_rust_ffi(service_def_id, s)),
-            ServiceType::GoFfi => self
-                .go_main_code
-                .borrow_mut()
-                .push_str(&self.codegen_go_ffi(service_def_id, s)),
-        }
+impl GoCodegenBackend for GoGeneratorBackend {
+    // {lib}.go
+    fn codegen_rustffi_iface_methods(&self, service_def_id: DefId, s: &Service) -> Vec<(String, String)> {
+        s.methods.iter().map(|method| {
+            let iface_method_name = self.iface_method_name(method);
+            let args_sign = method
+                .args
+                .iter()
+                .map(|arg| {
+                    if arg.ty.is_scalar() {
+                        format!("{} {}", self.arg_name(arg), self.arg_type(arg, false))
+                    } else {
+                        format!(
+                            "{} TBytes[*{}]",
+                            self.arg_name(arg),
+                            self.arg_type(arg, false)
+                        )
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(",");
+            let ret_type = self.ret_type(method, false);
+            let iface_method = format!("{iface_method_name}({args_sign}) RustFfiResult[{ret_type}]");
+            let ffi_func_name = self.ffi_func_name(service_def_id, method);
+            let args_assign = method
+                .args
+                .iter()
+                .map(|arg| {
+                    if arg.ty.is_scalar() {
+                        let name = self.arg_name(arg);
+                        if let TyKind::Bool = arg.ty.kind {
+                            format!("C._Bool({name})")
+                        } else {
+                            name
+                        }
+                    } else {
+                        format!("{}.asBuffer()", self.arg_name(arg))
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(",");
+            (iface_method, format!("return newRustFfiResult[{ret_type}](C.{ffi_func_name}({args_assign}))"))
+        })
+            .collect::<Vec<(String, String)>>()
     }
-
-    // {pkg}.go
-    pub(crate) fn codegen_rust_ffi(&self, service_def_id: DefId, s: &Service) -> String {
-        const FIXED_CODE: &'static str = r###"
+    // {lib}.go
+    fn codegen_rustffi_service_impl(&self, _service_def_id: DefId, _s: &Service) -> String {
+        r###"
 type ResultCode = int8
 
 const (
@@ -371,118 +399,13 @@ func (r RustFfiResult[T]) UnmarshalUnchecked(unmarshal func([]byte, any) error) 
 	return &t
 }
 
-"###;
-        let mut iface_methods = String::new();
-        let mut impl_methods = String::new();
-        for method in &s.methods {
-            let iface_method_name = self.iface_method_name(method);
-            let args_sign = method
-                .args
-                .iter()
-                .map(|arg| {
-                    if arg.ty.is_scalar() {
-                        format!("{} {}", self.arg_name(arg), self.arg_type(arg, false))
-                    } else {
-                        format!(
-                            "{} TBytes[*{}]",
-                            self.arg_name(arg),
-                            self.arg_type(arg, false)
-                        )
-                    }
-                })
-                .collect::<Vec<String>>()
-                .join(",");
-            let ret_type = self.ret_type(method, false);
-            iface_methods.push_str(&format!(
-                "{iface_method_name}({args_sign}) RustFfiResult[{ret_type}]\n"
-            ));
-
-            let ffi_func_name = self.ffi_func_name(service_def_id, method, true);
-            let args_assign = method
-                .args
-                .iter()
-                .map(|arg| {
-                    if arg.ty.is_scalar() {
-                        let name = self.arg_name(arg);
-                        if let TyKind::Bool = arg.ty.kind {
-                            format!("C._Bool({name})")
-                        } else {
-                            name
-                        }
-                    } else {
-                        format!("{}.asBuffer()", self.arg_name(arg))
-                    }
-                })
-                .collect::<Vec<String>>()
-                .join(",");
-            impl_methods.push_str(&format!(
-                r###"
-            //go:inline
-            func (RustFfiImpl) {iface_method_name}({args_sign}) RustFfiResult[{ret_type}] {{
-                return newRustFfiResult[{ret_type}]({ffi_func_name}({args_assign}))
-            }}
-            "###
-            ));
-        }
-        format!(
-            r###"
-        var GlobalRustFfi RustFfi = RustFfiImpl{{}}
-
-        {FIXED_CODE}
-
-        type RustFfi interface {{
-	        {iface_methods}
-        }}
-        type RustFfiImpl struct{{}}
-        {impl_methods}
-        "###
-        )
+"###.to_string()
     }
 
     // main.go
-    pub(crate) fn codegen_go_ffi(&self, service_def_id: DefId, s: &Service) -> String {
+    fn codegen_goffi_iface_methods(&self, _def_id: DefId, s: &Service) -> Vec<String> {
         let mod_name = self.config.go_mod_name();
-        let code = format!(
-            r###"
-        type ResultMsg struct {{
-	Code {mod_name}.ResultCode
-	Msg  string
-}}
-
-//go:inline
-func asBuffer[T any](b {mod_name}.TBytes[T]) C.struct_Buffer {{
-	p, size := b.ForCBuffer()
-	if size == 0 {{
-		return C.struct_Buffer{{}}
-	}}
-	return C.struct_Buffer{{
-		ptr: (*C.uint8_t)(p),
-		len: C.uintptr_t(size),
-		cap: C.uintptr_t(size),
-	}}
-}}
-
-//go:inline
-func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
-	if buf.len == 0 {{
-		return {mod_name}.TBytes[T]{{}}
-	}}
-	return {mod_name}.TBytesFromBytes[T](*(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{{
-		Data: uintptr(unsafe.Pointer(buf.ptr)),
-		Len:  int(buf.len),
-		Cap:  int(buf.cap),
-	}})))
-}}
-
-"###
-        );
-
-        let mod_name = self.config.go_mod_name();
-        let mut iface_methods = String::new();
-        let mut impl_methods = String::new();
-        let mut ffi_functions = String::new();
-
-        for method in &s.methods {
+        s.methods.iter().map(|method| {
             let iface_method_name = self.iface_method_name(method);
             let args_sign = method
                 .args
@@ -503,30 +426,22 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
             let ret_type = self.ret_type(method, true);
             let is_empty_ret = self.context.is_empty_ty(&method.ret.kind);
             if is_empty_ret {
-                iface_methods.push_str(&format!(
-                    r###"
-                {iface_method_name}({args_sign}) ResultMsg
-            "###
-                ));
-                impl_methods.push_str(&format!(
-                    r###"
-                func (_UnimplementedGoFfi) {iface_method_name}({args_sign}) ResultMsg {{
-                    panic("unimplemented")
-                }}
-            "###
-                ));
+                format!("{iface_method_name}({args_sign}) ResultMsg")
             } else {
-                iface_methods.push_str(&format!(r###"
-                {iface_method_name}({args_sign}) gust.EnumResult[{mod_name}.TBytes[*{ret_type}], ResultMsg]
-            "###));
-                impl_methods.push_str(&format!(r###"
-                func (_UnimplementedGoFfi) {iface_method_name}({args_sign}) gust.EnumResult[{mod_name}.TBytes[*{ret_type}], ResultMsg] {{
-                    panic("unimplemented")
-                }}
-            "###));
+                format!("{iface_method_name}({args_sign}) gust.EnumResult[{mod_name}.TBytes[*{ret_type}], ResultMsg]")
             }
+        }).collect()
+    }
 
-            let ffi_func_name = self.ffi_func_name(service_def_id, method, false);
+    // main.go
+    fn codegen_goffi_service_impl(&self, service_def_id: DefId, s: &Service) -> String {
+        let mod_name = self.config.go_mod_name();
+        let mut ffi_functions = String::new();
+
+        for method in &s.methods {
+            let is_empty_ret = self.context.is_empty_ty(&method.ret.kind);
+            let iface_method_name = self.iface_method_name(method);
+            let ffi_func_name = self.ffi_func_name(service_def_id, method);
             let ffi_args_assign = method
                 .args
                 .iter()
@@ -600,91 +515,38 @@ func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
 
         format!(
             r###"
-
-        var GlobalGoFfi GoFfi = _UnimplementedGoFfi{{}}
-
-        {code}
-
-        type GoFfi interface {{
-	        {iface_methods}
+        type ResultMsg struct {{
+            Code {mod_name}.ResultCode
+            Msg  string
         }}
-        type _UnimplementedGoFfi struct{{}}
-        {impl_methods}
+
+        //go:inline
+        func asBuffer[T any](b {mod_name}.TBytes[T]) C.struct_Buffer {{
+            p, size := b.ForCBuffer()
+            if size == 0 {{
+                return C.struct_Buffer{{}}
+            }}
+            return C.struct_Buffer{{
+                ptr: (*C.uint8_t)(p),
+                len: C.uintptr_t(size),
+                cap: C.uintptr_t(size),
+            }}
+        }}
+
+        //go:inline
+        func asBytes[T any](buf C.struct_Buffer) {mod_name}.TBytes[T] {{
+            if buf.len == 0 {{
+                return {mod_name}.TBytes[T]{{}}
+            }}
+            return {mod_name}.TBytesFromBytes[T](*(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{{
+                Data: uintptr(unsafe.Pointer(buf.ptr)),
+                Len:  int(buf.len),
+                Cap:  int(buf.cap),
+            }})))
+        }}
 
         {ffi_functions}
         "###
         )
     }
-
-    #[inline]
-    fn codegen_item_ty(&self, ty: &TyKind, is_main: bool) -> String {
-        match &ty {
-            TyKind::String => "string".to_string(),
-            TyKind::Void => "struct{}".to_string(),
-            TyKind::U8 => "uint8".to_string(),
-            TyKind::Bool => "bool".to_string(),
-            TyKind::Bytes => "[]byte".to_string(),
-            TyKind::I8 => "int8".to_string(),
-            TyKind::I16 => "int16".to_string(),
-            TyKind::I32 => "int32".to_string(),
-            TyKind::I64 => "int64".to_string(),
-            TyKind::F64 => "float64".to_string(),
-            TyKind::Vec(ty) => format!("[]{}", self.codegen_item_ty(&ty.kind, is_main)),
-            TyKind::Set(ty) => format!("[]{}", self.codegen_item_ty(&ty.kind, is_main)),
-            TyKind::Map(key, value) => format!(
-                "map[{}]{}",
-                self.codegen_item_ty(&key.kind, is_main),
-                self.codegen_item_ty(&value.kind, is_main)
-            ),
-            TyKind::Path(path) => {
-                let mut pkg_pre = String::new();
-                if is_main {
-                    pkg_pre = self.config.go_mod_name() + ".";
-                }
-                format!(
-                    "{pkg_pre}{}",
-                    self.context.rust_name(path.did).0.to_string()
-                )
-            }
-            TyKind::UInt32 => "uint32".to_string(),
-            TyKind::UInt64 => "uint64".to_string(),
-            TyKind::F32 => "float32".to_string(),
-            TyKind::Arc(ty) => format!("*{}", self.codegen_item_ty(&ty.kind, is_main)),
-        }
-    }
-    fn iface_method_name(&self, method: &Arc<Method>) -> String {
-        method.name.0.upper_camel_ident().to_string()
-    }
-    fn ffi_func_name(
-        &self,
-        service_def_id: DefId,
-        method: &Arc<Method>,
-        with_prefix: bool,
-    ) -> String {
-        let service_name_lower = self.context.rust_name(service_def_id).to_lowercase();
-        let method_name_lower = (&**method.name).fn_ident();
-        if with_prefix {
-            format!("C.{service_name_lower}_{method_name_lower}")
-        } else {
-            format!("{service_name_lower}_{method_name_lower}")
-        }
-    }
-    fn arg_name(&self, arg: &Arc<Arg>) -> String {
-        arg.name.0.to_lowercase()
-    }
-    fn arg_type(&self, arg: &Arc<Arg>, is_main: bool) -> String {
-        self.codegen_item_ty(&arg.ty.kind, is_main)
-    }
-    fn ret_type(&self, method: &Arc<Method>, is_main: bool) -> String {
-        self.codegen_item_ty(&method.ret.kind, is_main)
-    }
-    // fn field_name(&self, f: &Arc<Field>) -> String {
-    //     self.context.rust_name(f.did).0.upper_camel_ident().into_string()
-    // }
-    // fn field_tag(&self, f: &Arc<Field>) -> String {
-    //     format!(r###"`json:"{}"`"###, self.context.rust_name(f.did).0.snake_ident())
-    // }
-    // fn struct_go_name(&self, message_def_id: DefId) -> String {
-    //     self.context.rust_name(message_def_id).to_string()
-    // }
 }

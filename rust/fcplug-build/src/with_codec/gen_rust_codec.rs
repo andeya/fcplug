@@ -1,45 +1,24 @@
 use pilota_build::{DefId, IdentName};
 use pilota_build::rir::{Method, Service};
-use pilota_build::ty::{CodegenTy, TyKind};
 
-use crate::generator::{RustCodegenBackend, ServiceType};
+use crate::generator::{RustCodegenBackend, RustGeneratorBackend, ServiceType};
 
-impl RustCodegenBackend {
-    pub(crate) fn codegen_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
-        match self.context.service_type(def_id) {
-            ServiceType::RustFfi => self.codegen_rustffi_service_impl(def_id, stream, s),
-            ServiceType::GoFfi => self.codegen_goffi_service_impl(def_id, stream, s),
-        }
+impl RustCodegenBackend for RustGeneratorBackend {
+    fn codegen_rustffi_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String> {
+        s.methods
+            .iter()
+            .map(|method| {
+                let method_name = (&**method.name).fn_ident();
+                let args = self.codegen_method_args(def_id, method);
+                let ret = self.codegen_method_ret(def_id, method);
+                format!("fn {method_name}({args}) -> {ret}")
+            })
+            .collect::<Vec<String>>()
     }
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
         let ust = self.config.rust_mod_impl_name();
-
-        let mut trait_methods = String::new();
-        let mut impl_trait_methods = String::new();
-        s.methods
-            .iter()
-            .for_each(|method| {
-                let method_name = (&**method.name).fn_ident();
-                let args = self.codegen_method_args(def_id, method);
-                let ret = self.codegen_method_ret(def_id, method);
-                trait_methods.push_str(&format!("fn {method_name}({args}) -> {ret};\n"));
-                impl_trait_methods.push_str(&format!("fn {method_name}({args}) -> {ret} {{ todo!() }}\n"));
-            });
-        stream.push_str(&format! {r#"
-        pub(super) trait {name} {{
-            {trait_methods}
-        }}
-        "#});
-        self.rust_impl_rustffi_code.borrow_mut().push_str(&format!(
-            r###"
-            impl {name} for {ust} {{
-                {impl_trait_methods}
-            }}
-            "###
-        ));
-
         stream.push_str(
             &s.methods
                 .iter()
@@ -61,12 +40,22 @@ impl RustCodegenBackend {
                 .join("\n"),
         );
     }
-    fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
+    fn codegen_goffi_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String> {
+        s.methods
+            .iter()
+            .filter(|method| { !self.context.is_empty_ty(&method.ret.kind) && !method.ret.is_scalar() })
+            .map(|method| {
+                let method_name = (&**method.name).fn_ident();
+                let ffi_ret = self.codegen_ffi_ret(def_id, method);
+                let ret_ty_name = self.rust_codegen_item_ty(&method.ret.kind);
+                format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret}")
+            })
+            .collect::<Vec<String>>()
+    }
+    fn codegen_goffi_call_trait_body(&self, def_id: DefId, s: &Service) -> String {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
-        let ust = self.config.rust_mod_impl_name();
-
-        let methods = s.methods
+        s.methods
             .iter()
             .map(|method| {
                 let method_name = (&**method.name).fn_ident();
@@ -86,38 +75,12 @@ impl RustCodegenBackend {
                 )
             })
             .collect::<Vec<String>>()
-            .join("\n");
-        stream.push_str(&format! {r#"
-        pub trait {name}Call {{
-            {methods}
-        }}
-        "#});
-
-        let mut trait_methods = String::new();
-        let mut impl_trait_methods = String::new();
-        s.methods
-            .iter()
-            .filter(|method| { !self.context.is_empty_ty(&method.ret.kind) && !method.ret.is_scalar() })
-            .for_each(|method| {
-                let method_name = (&**method.name).fn_ident();
-                let ffi_ret = self.codegen_ffi_ret(def_id, method);
-                let ret_ty_name = self.codegen_item_ty(&method.ret.kind);
-                trait_methods.push_str(&format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret};\n"));
-                impl_trait_methods.push_str(&format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret} {{ todo!() }}\n"));
-            });
-        stream.push_str(&format! {r#"
-        pub(super) trait {name} {{
-            {trait_methods}
-        }}
-        "#});
-        self.rust_impl_goffi_code.borrow_mut().push_str(&format!(
-            r###"
-            impl {name} for {ust} {{
-                {impl_trait_methods}
-            }}
-            "###
-        ));
-
+            .join("\n")
+    }
+    fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
+        let name = self.context.rust_name(def_id);
+        let name_lower = name.to_lowercase();
+        let ust = self.config.rust_mod_impl_name();
         let ffi_fns = s
             .methods
             .iter()
@@ -158,7 +121,7 @@ impl RustCodegenBackend {
     }
 }
 
-impl RustCodegenBackend {
+impl RustGeneratorBackend {
     fn codegen_ffi_args_param(&self, service_def_id: DefId, method: &Method) -> String {
         match self.context.service_type(service_def_id) {
             ServiceType::RustFfi => method
@@ -166,7 +129,7 @@ impl RustCodegenBackend {
                 .iter()
                 .map(|arg| {
                     let ident = (&**arg.name).snake_ident();
-                    let ty_name = self.codegen_item_ty(&arg.ty.kind);
+                    let ty_name = self.rust_codegen_item_ty(&arg.ty.kind);
                     if arg.ty.is_scalar() {
                         format!("{ident}: {ty_name}")
                     } else {
@@ -180,7 +143,7 @@ impl RustCodegenBackend {
                 .iter()
                 .map(|arg| {
                     let ident = (&**arg.name).snake_ident();
-                    let ty_name = self.codegen_item_ty(&arg.ty.kind);
+                    let ty_name = self.rust_codegen_item_ty(&arg.ty.kind);
                     if arg.ty.is_scalar() {
                         format!("{ident}: {ty_name}")
                     } else {
@@ -228,7 +191,7 @@ impl RustCodegenBackend {
                 .iter()
                 .map(|arg| {
                     let ident = (&**arg.name).snake_ident();
-                    let ty_name = self.codegen_item_ty(&arg.ty.kind);
+                    let ty_name = self.rust_codegen_item_ty(&arg.ty.kind);
                     if arg.ty.is_scalar() {
                         format!("{ident}: {ty_name}")
                     } else {
@@ -242,7 +205,7 @@ impl RustCodegenBackend {
                 .iter()
                 .map(|arg| {
                     let ident = (&**arg.name).snake_ident();
-                    let ty_name = self.codegen_item_ty(&arg.ty.kind);
+                    let ty_name = self.rust_codegen_item_ty(&arg.ty.kind);
                     if arg.ty.is_scalar() {
                         format!("{ident}: {ty_name}")
                     } else {
@@ -254,7 +217,7 @@ impl RustCodegenBackend {
         }
     }
     fn codegen_method_ret(&self, service_def_id: DefId, method: &Method) -> String {
-        let ty_name = self.codegen_item_ty(&method.ret.kind);
+        let ty_name = self.rust_codegen_item_ty(&method.ret.kind);
         match self.context.service_type(service_def_id) {
             ServiceType::RustFfi => {
                 if self.context.is_empty_ty(&method.ret.kind) {
@@ -277,7 +240,7 @@ impl RustCodegenBackend {
         }
     }
     fn codegen_ffi_ret(&self, service_def_id: DefId, method: &Method) -> String {
-        let ty_name = self.codegen_item_ty(&method.ret.kind);
+        let ty_name = self.rust_codegen_item_ty(&method.ret.kind);
         match self.context.service_type(service_def_id) {
             ServiceType::RustFfi => {
                 if self.context.is_empty_ty(&method.ret.kind) {
@@ -297,36 +260,6 @@ impl RustCodegenBackend {
                     format!("::fcplug::GoFfiResult")
                 }
             }
-        }
-    }
-    #[inline]
-    fn codegen_item_ty(&self, ty: &TyKind) -> String {
-        match &ty {
-            TyKind::String => CodegenTy::String.to_string(),
-            TyKind::Void => CodegenTy::Void.to_string(),
-            TyKind::U8 => CodegenTy::U8.to_string(),
-            TyKind::Bool => CodegenTy::Bool.to_string(),
-            TyKind::Bytes => CodegenTy::Bytes.to_string(),
-            TyKind::I8 => CodegenTy::I8.to_string(),
-            TyKind::I16 => CodegenTy::I16.to_string(),
-            TyKind::I32 => CodegenTy::I32.to_string(),
-            TyKind::I64 => CodegenTy::I64.to_string(),
-            TyKind::F64 => CodegenTy::F64.to_string(),
-            TyKind::Vec(ty) => format!("::std::vec::Vec<{}>", self.codegen_item_ty(&ty.kind)),
-            TyKind::Set(ty) => format!(
-                "::std::collections::HashSet<{}>",
-                self.codegen_item_ty(&ty.kind)
-            ),
-            TyKind::Map(key, value) => format!(
-                "::std::collections::HashMap<{}, {}>",
-                self.codegen_item_ty(&key.kind),
-                self.codegen_item_ty(&value.kind)
-            ),
-            TyKind::Path(path) => self.context.rust_name(path.did).0.to_string(),
-            TyKind::UInt32 => CodegenTy::UInt32.to_string(),
-            TyKind::UInt64 => CodegenTy::UInt64.to_string(),
-            TyKind::F32 => CodegenTy::F32.to_string(),
-            TyKind::Arc(ty) => format!("::std::sync::Arc<{}>", self.codegen_item_ty(&ty.kind)),
         }
     }
 }

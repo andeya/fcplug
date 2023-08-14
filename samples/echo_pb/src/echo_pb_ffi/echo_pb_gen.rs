@@ -120,14 +120,14 @@ impl ::pilota::prost::Message for Pong {
     }
 }
 
+pub(super) trait GoFfi {
+    unsafe fn echo_go_set_result(go_ret: ::fcplug::RustFfiArg<Pong>) -> ::fcplug::GoFfiResult;
+}
+
 pub trait GoFfiCall {
     unsafe fn echo_go<T: Default>(req: ::fcplug::TBytes<Ping>) -> ::fcplug::ABIResult<T> {
         ::fcplug::ABIResult::from(goffi_echo_go(::fcplug::Buffer::from_vec(req.bytes)))
     }
-}
-
-pub(super) trait GoFfi {
-    unsafe fn echo_go_set_result(go_ret: ::fcplug::RustFfiArg<Pong>) -> ::fcplug::GoFfiResult;
 }
 extern "C" {
     fn goffi_echo_go(req: ::fcplug::Buffer) -> ::fcplug::GoFfiResult;

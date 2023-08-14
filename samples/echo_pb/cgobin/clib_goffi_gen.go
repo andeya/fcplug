@@ -23,11 +23,20 @@ func main() {}
 var (
 	_ reflect.SliceHeader
 	_ unsafe.Pointer
-	_ gust.EnumResult[any, any]
-	_ echo_pb.ResultCode
 )
+var _ gust.EnumResult[any, any]
+var _ echo_pb.ResultCode
 
 var GlobalGoFfi GoFfi = _UnimplementedGoFfi{}
+
+type GoFfi interface {
+	EchoGo(req echo_pb.TBytes[echo_pb.Ping]) gust.EnumResult[echo_pb.TBytes[*echo_pb.Pong], ResultMsg]
+}
+type _UnimplementedGoFfi struct{}
+
+func (_UnimplementedGoFfi) EchoGo(req echo_pb.TBytes[echo_pb.Ping]) gust.EnumResult[echo_pb.TBytes[*echo_pb.Pong], ResultMsg] {
+	panic("unimplemented")
+}
 
 type ResultMsg struct {
 	Code echo_pb.ResultCode
@@ -57,15 +66,6 @@ func asBytes[T any](buf C.struct_Buffer) echo_pb.TBytes[T] {
 		Len:  int(buf.len),
 		Cap:  int(buf.cap),
 	})))
-}
-
-type GoFfi interface {
-	EchoGo(req echo_pb.TBytes[echo_pb.Ping]) gust.EnumResult[echo_pb.TBytes[*echo_pb.Pong], ResultMsg]
-}
-type _UnimplementedGoFfi struct{}
-
-func (_UnimplementedGoFfi) EchoGo(req echo_pb.TBytes[echo_pb.Ping]) gust.EnumResult[echo_pb.TBytes[*echo_pb.Pong], ResultMsg] {
-	panic("unimplemented")
 }
 
 //go:inline

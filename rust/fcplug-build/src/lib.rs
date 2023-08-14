@@ -1,10 +1,10 @@
 #![feature(result_option_inspect)]
 #![feature(try_trait_v2)]
 #![allow(dead_code)]
+#![feature(trait_alias)]
 
 use std::fmt::Debug;
 use std::io;
-use std::process::Command;
 use std::process::Output as CmdOutput;
 
 use backtrace::Backtrace;
@@ -58,17 +58,6 @@ fn exit_with_warning(code: i32, message: impl AsRef<str>) {
     }
     println!("cargo:warning={}\nbacktrace:\n{:?}", message.as_ref(), Backtrace::from(frames));
     std::process::exit(code);
-}
-
-fn new_shell_cmd() -> Command {
-    let mut param = ("sh", "-c");
-    if cfg!(target_os = "windows") {
-        param.0 = "cmd";
-        param.1 = "/c";
-    }
-    let mut cmd = Command::new(param.0);
-    cmd.arg(param.1);
-    cmd
 }
 
 fn deal_result<T, E: Debug>(code: i32, result: Result<T, E>) -> T {
