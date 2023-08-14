@@ -3,20 +3,20 @@ use std::ops::Deref;
 use std::process::Command;
 use std::sync::Arc;
 
+use pilota_build::{
+    CodegenBackend, Context, DefId, IdentName, MakeBackend, Output, ProtobufBackend, rir::Method,
+    ThriftBackend,
+};
 use pilota_build::db::RirDatabase;
 use pilota_build::fmt::fmt_file;
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 use pilota_build::rir::{Arg, Enum, Field, Item, Message, NewType, Service};
 use pilota_build::ty::{CodegenTy, TyKind};
-use pilota_build::{
-    rir::Method, CodegenBackend, Context, DefId, IdentName, MakeBackend, Output, ProtobufBackend,
-    ThriftBackend,
-};
 
-use crate::config::IdlType;
+use crate::{CODE_IO, deal_output, deal_result, exit_with_warning};
 use crate::config::{Config, WorkConfig};
+use crate::config::IdlType;
 use crate::os_arch::get_go_os_arch_from_env;
-use crate::{deal_output, deal_result, exit_with_warning, CODE_IO};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Generator {
@@ -441,7 +441,7 @@ pub(crate) trait RustCodegenBackend {
     fn codegen_rustffi_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String>;
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service);
     fn codegen_goffi_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String>;
-    fn codegen_goffi_call_trait_body(&self, def_id: DefId, s: &Service) -> String;
+    fn codegen_goffi_call_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String>;
     fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service);
 }
 
@@ -680,7 +680,7 @@ impl CodegenBackend for GeneratorBackend {
             "###
         ));
         if let ServiceType::GoFfi = service_type {
-            let methods = self.rust.codegen_goffi_call_trait_body(service_def_id, &s);
+            let methods = self.rust.codegen_goffi_call_trait_methods(service_def_id, &s).join("\n");
             stream.push_str(&format! {r#"
         pub trait {name}Call {{
             {methods}

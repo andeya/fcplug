@@ -52,7 +52,7 @@ impl RustCodegenBackend for RustGeneratorBackend {
             })
             .collect::<Vec<String>>()
     }
-    fn codegen_goffi_call_trait_body(&self, def_id: DefId, s: &Service) -> String {
+    fn codegen_goffi_call_trait_methods(&self, def_id: DefId, s: &Service) -> Vec<String> {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
         s.methods
@@ -75,7 +75,6 @@ impl RustCodegenBackend for RustGeneratorBackend {
                 )
             })
             .collect::<Vec<String>>()
-            .join("\n")
     }
     fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
