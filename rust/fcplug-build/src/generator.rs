@@ -91,7 +91,7 @@ impl Generator {
             package {go_mod_name}
             /*
             #cgo CFLAGS: -I{rust_c_lib_dir}
-            #cgo LDFLAGS: -L{rust_c_lib_dir} -l{rust_c_header_name_base} -ldl
+            #cgo LDFLAGS: -L{rust_c_lib_dir} -l{rust_c_header_name_base} -ldl -lm
 
             #include "{rust_c_header_name_base}.h"
             */
@@ -145,7 +145,7 @@ impl Generator {
 
         /*
         #cgo CFLAGS: -I{rust_c_lib_dir}
-        #cgo LDFLAGS: -L{rust_c_lib_dir} -l{rust_c_header_name_base} -ldl
+        #cgo LDFLAGS: -L{rust_c_lib_dir} -l{rust_c_header_name_base} -ldl -lm
 
         #include "{rust_c_header_name_base}.h"
         */
