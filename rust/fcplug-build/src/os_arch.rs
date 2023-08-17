@@ -30,8 +30,8 @@ impl TryFrom<RustArch> for GoArch {
 
     fn try_from(value: RustArch) -> Result<Self, Self::Error> {
         match value {
-            RustArch::aarch64 => Ok(GoArch::amd64),
-            RustArch::aarch64_be => Ok(GoArch::amd64),
+            RustArch::aarch64 => Ok(GoArch::_386),
+            RustArch::aarch64_be => Ok(GoArch::_386),
             RustArch::arm => Ok(GoArch::arm),
             RustArch::arm64_32 => Ok(GoArch::arm64),
             RustArch::armeb => Ok(GoArch::arm),
