@@ -4,7 +4,7 @@ package main
 
 /*
    #cgo CFLAGS: -I/Users/henrylee2cn/rust/fcplug/target/debug
-   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/debug -lecho_pb -ldl
+   #cgo LDFLAGS: -L/Users/henrylee2cn/rust/fcplug/target/debug -lecho_pb -ldl -lm
 
    #include "echo_pb.h"
 */
