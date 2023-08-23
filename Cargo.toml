@@ -42,7 +42,7 @@ categories = ["development-tools::ffi", "external-ffi-bindings"]
 fcplug = { path = "rust/fcplug" }
 fcplug-build = { path = "rust/fcplug-build" }
 
-pilota-build = { version = "0.7.12", package = "pilota-build2" }
+pilota-build = { version = "0.7.13", package = "pilota-build2" }
 
 syn = { version = "1.0.109", features = ["full"] }
 quote = "1.0.29"
