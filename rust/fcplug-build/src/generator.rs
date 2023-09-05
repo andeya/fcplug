@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::fs;
 use std::ops::Deref;
 use std::process::Command;
 use std::sync::Arc;
@@ -224,7 +225,11 @@ impl Generator {
                 ),
             );
         } else {
+            let mod_content = fs::read_to_string(go_mod_file).unwrap();
             for mod_require in &mid_output.mod_requires {
+                if mod_content.contains(&(mod_require.splitn(2, "@").next().unwrap_or_default().to_string() + " ")) {
+                    continue;
+                }
                 deal_output(
                     Command::new(self.config.go_cmd_path("go"))
                         .env("GO111MODULE", "on")
