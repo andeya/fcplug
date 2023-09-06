@@ -298,7 +298,7 @@ impl Generator {
             deal_output(
                 cmd.env("CGO_ENABLED", "1")
                     .arg("build")
-                    .arg("-buildmode=c-archive")
+                    .arg("-buildmode=c-shared")
                     .arg(format!("-o={}", clib_name.to_str().unwrap()))
                     .arg(self.config.go_main_dir().to_str().unwrap())
                     .output(),
