@@ -4,7 +4,7 @@ Protobuf IDL codec sample.
 
 ## Compile go into a C dynamic library
 
-Set build parameters: `config.use_goffi_cdylib=true`
+Set build parameters `Config::use_goffi_cdylib` to `true`
 
 ```shell
 cargo build -Z unstable-options --out-dir .
