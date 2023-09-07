@@ -81,10 +81,14 @@ impl RustCodegenBackend for RustGeneratorBackend {
             .collect::<Vec<String>>()
             .join("\n");
         stream.push_str(&format!(
-            r###"extern "C" {{
+            r###"
+            #[link(name = "{}", kind = "{}")]
+            extern "C" {{
             {ffi_fns}
         }}
-        "###
+        "###,
+            self.config.go_c_header_name_base,
+            self.config.rustc_link_kind_goffi(),
         ));
 
         let store_to_rust_fns = s

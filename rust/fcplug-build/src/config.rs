@@ -267,19 +267,21 @@ impl WorkConfig {
             "c-archive"
         }
     }
+    pub(crate) fn rustc_link_kind_goffi(&self) -> &'static str {
+        if self.config.use_goffi_cdylib {
+            "dylib"
+        } else {
+            "static"
+        }
+    }
     // rustc-link-lib=[KIND=]NAME indicates that the specified value is a library name and should be passed to the compiler as a -l flag. The optional KIND can be one of static, dylib (the default), or framework, see rustc --help for more details.
     //
     // rustc-link-search=[KIND=]PATH indicates the specified value is a library search path and should be passed to the compiler as a -L flag. The optional KIND can be one of dependency, crate, native, framework or all (the default), see rustc --help for more details.
     //
     // rustc-flags=FLAGS is a set of flags passed to the compiler, only -l and -L flags are supported.
     pub(crate) fn rustc_link(&self) {
-        let lib_kind = if self.config.use_goffi_cdylib {
-            "dylib"
-        } else {
-            "static"
-        };
         println!("cargo:rustc-link-search=native={}", self.work_dir.to_str().unwrap());
-        println!("cargo:rustc-link-lib={lib_kind}={}", self.go_c_header_name_base);
+        println!("cargo:rustc-link-lib={}={}", self.rustc_link_kind_goffi(), self.go_c_header_name_base);
     }
     pub(crate) fn rerun_if_changed(&self) {
         println!("cargo:rerun-if-changed={}", self.pkg_dir().to_str().unwrap());
