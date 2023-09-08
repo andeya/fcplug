@@ -278,7 +278,7 @@ impl Generator {
         if !self.config.has_goffi {
             return;
         }
-        let clib_name = self.config.go_clib_a_path();
+        let clib_name = self.config.go_clib_path();
         let clib_name_str = clib_name.file_name().unwrap().to_str().unwrap();
         if !self.config.rust_clib_a_path().exists() {
             println!(
@@ -298,13 +298,16 @@ impl Generator {
             deal_output(
                 cmd.env("CGO_ENABLED", "1")
                     .arg("build")
-                    .arg("-buildmode=c-archive")
+                    .arg(format!("-buildmode={}", self.config.go_buildmode()))
                     .arg(format!("-o={}", clib_name.to_str().unwrap()))
                     .arg(self.config.go_main_dir().to_str().unwrap())
                     .output(),
             );
             if !clib_name.exists() {
-                println!("cargo:warning=failed to execute 'go build -buildmode=c-archive', should re-execute 'cargo build' to ensure the correctness of '{}'", clib_name_str);
+                println!(
+                    "cargo:warning=failed to execute 'go build -buildmode={}', should re-execute 'cargo build' to ensure the correctness of '{}'",
+                    self.config.go_buildmode(), clib_name_str,
+                );
             }
             self.config.rustc_link();
         }

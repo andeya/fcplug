@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 
-use fcplug_build::{Config, generate_code, UnitLikeStructPath};
+use fcplug_build::{generate_code, Config, UnitLikeStructPath};
 
 fn main() {
     generate_code(Config {
@@ -8,5 +8,6 @@ fn main() {
         go_root_path: None,
         go_mod_parent: "github.com/andeya/fcplug/samples",
         target_crate_dir: None,
+        use_goffi_cdylib: false,
     });
 }

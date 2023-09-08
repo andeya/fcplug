@@ -8,3 +8,5 @@ Cargo.lock
 
 go.work.sum
 go.sum
+samples/echo_pb/echo_pb
+*.rlib

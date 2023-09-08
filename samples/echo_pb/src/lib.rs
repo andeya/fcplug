@@ -2,7 +2,7 @@
 
 extern crate test;
 
-mod echo_pb_ffi;
+pub mod echo_pb_ffi;
 
 
 #[cfg(test)]

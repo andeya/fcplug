@@ -17,6 +17,8 @@ pub struct Config {
     /// go command dir, default to find from $GOROOT > $PATH
     pub go_root_path: Option<PathBuf>,
     pub go_mod_parent: &'static str,
+    /// If use_goffi_cdylib is true, go will be compiled into a c dynamic library.
+    pub use_goffi_cdylib: bool,
 }
 
 pub(crate) enum IdlType {
@@ -250,12 +252,36 @@ impl WorkConfig {
     pub(crate) fn rust_clib_h_path(&self) -> PathBuf {
         self.work_dir.join(self.rust_c_header_name_base.clone() + ".h")
     }
-    pub(crate) fn go_clib_a_path(&self) -> PathBuf {
-        self.work_dir.join("lib".to_string() + &self.go_c_header_name_base.as_str() + ".a")
+    pub(crate) fn go_clib_path(&self) -> PathBuf {
+        let ext = if self.config.use_goffi_cdylib {
+            ".so"
+        } else {
+            ".a"
+        };
+        self.work_dir.join("lib".to_string() + &self.go_c_header_name_base.as_str() + ext)
     }
+    pub(crate) fn go_buildmode(&self) -> &'static str {
+        if self.config.use_goffi_cdylib {
+            "c-shared"
+        } else {
+            "c-archive"
+        }
+    }
+    pub(crate) fn rustc_link_kind_goffi(&self) -> &'static str {
+        if self.config.use_goffi_cdylib {
+            "dylib"
+        } else {
+            "static"
+        }
+    }
+    // rustc-link-lib=[KIND=]NAME indicates that the specified value is a library name and should be passed to the compiler as a -l flag. The optional KIND can be one of static, dylib (the default), or framework, see rustc --help for more details.
+    //
+    // rustc-link-search=[KIND=]PATH indicates the specified value is a library search path and should be passed to the compiler as a -L flag. The optional KIND can be one of dependency, crate, native, framework or all (the default), see rustc --help for more details.
+    //
+    // rustc-flags=FLAGS is a set of flags passed to the compiler, only -l and -L flags are supported.
     pub(crate) fn rustc_link(&self) {
-        println!("cargo:rustc-link-search={}", self.work_dir.to_str().unwrap());
-        println!("cargo:rustc-link-lib={}", self.go_c_header_name_base);
+        println!("cargo:rustc-link-search=native={}", self.work_dir.to_str().unwrap());
+        println!("cargo:rustc-link-lib={}={}", self.rustc_link_kind_goffi(), self.go_c_header_name_base);
     }
     pub(crate) fn rerun_if_changed(&self) {
         println!("cargo:rerun-if-changed={}", self.pkg_dir().to_str().unwrap());
