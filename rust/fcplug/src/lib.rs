@@ -39,9 +39,9 @@ pub extern "C" fn leak_buffer(buf: Buffer) -> usize {
 pub trait FromMessage<M> {
     fn from_message(value: M) -> Self;
     fn try_from_bytes(buf: &mut [u8]) -> ABIResult<Self>
-    where
-        Self: Sized,
-        M: for<'a> TryFromBytes<'a>,
+        where
+            Self: Sized,
+            M: for<'a> TryFromBytes<'a>,
     {
         Ok(Self::from_message(M::try_from_bytes(buf)?))
     }
@@ -50,9 +50,9 @@ pub trait FromMessage<M> {
 pub trait IntoMessage<M> {
     fn into_message(self) -> M;
     fn try_into_bytes(self) -> ABIResult<Vec<u8>>
-    where
-        Self: Sized,
-        M: TryIntoBytes,
+        where
+            Self: Sized,
+            M: TryIntoBytes,
     {
         self.into_message().try_into_bytes()
     }
@@ -62,14 +62,14 @@ pub trait ABIMessage<'a>: TryFromBytes<'a> + TryIntoBytes {}
 
 pub trait TryFromBytes<'b>: Debug {
     fn try_from_bytes(buf: &'b mut [u8]) -> ABIResult<Self>
-    where
-        Self: Sized;
+        where
+            Self: Sized;
 }
 
 pub trait TryIntoBytes: Debug {
     fn try_into_bytes(self) -> ABIResult<Vec<u8>>
-    where
-        Self: Sized;
+        where
+            Self: Sized;
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -135,7 +135,7 @@ impl Buffer {
 
     /// this releases our memory to the caller
     #[inline]
-    pub fn from_vec(mut v: Vec<u8>) -> Self {
+    pub fn from_vec(mut v: Vec<u8>, should_leak: bool) -> Self {
         if v.is_empty() {
             Self::null()
         } else {
@@ -143,7 +143,7 @@ impl Buffer {
             Self {
                 len: v.len(),
                 cap: v.capacity(),
-                ptr: v.leak().as_mut_ptr(),
+                ptr: if should_leak { v.leak().as_mut_ptr() } else { v.as_mut_ptr() },
             }
         }
     }
@@ -197,9 +197,9 @@ impl<T> TBytes<T> {
 impl<T> TBytes<T> {
     #[inline]
     pub fn try_from<M>(value: T) -> ABIResult<Self>
-    where
-        T: IntoMessage<M>,
-        M: TryIntoBytes,
+        where
+            T: IntoMessage<M>,
+            M: TryIntoBytes,
     {
         Ok(TBytes::<T>::new(T::into_message(value).try_into_bytes()?))
     }
@@ -208,9 +208,9 @@ impl<T> TBytes<T> {
 pub trait TryIntoTBytes {
     #[inline]
     fn try_into_tbytes<M>(self) -> ABIResult<TBytes<Self>>
-    where
-        Self: IntoMessage<M> + Sized,
-        for<'a> M: TryIntoBytes,
+        where
+            Self: IntoMessage<M> + Sized,
+            for<'a> M: TryIntoBytes,
     {
         Ok(TBytes::<Self>::new(self.into_message().try_into_bytes()?))
     }
@@ -220,8 +220,8 @@ impl<T> TryIntoTBytes for T {}
 
 impl<T: Debug> TryIntoBytes for TBytes<T> {
     fn try_into_bytes(self) -> ABIResult<Vec<u8>>
-    where
-        Self: Sized,
+        where
+            Self: Sized,
     {
         Ok(self.bytes)
     }
@@ -248,10 +248,10 @@ impl<T> RustFfiArg<T> {
         self.buf.read_mut().unwrap_or_default()
     }
     pub fn try_to_object<U>(&mut self) -> ABIResult<T>
-    where
-        Self: Sized,
-        for<'a> U: TryFromBytes<'a>,
-        T: FromMessage<U>,
+        where
+            Self: Sized,
+            for<'a> U: TryFromBytes<'a>,
+            T: FromMessage<U>,
     {
         Ok(T::from_message(U::try_from_bytes(self.bytes_mut())?))
     }
@@ -315,7 +315,7 @@ impl<T: TryIntoBytes> From<ABIResult<T>> for GoFfiResult {
     fn from(value: ABIResult<T>) -> Self {
         match value {
             Ok(v) => match v.try_into_bytes() {
-                Ok(v) => Self::from_ok(Buffer::from_vec(v)),
+                Ok(v) => Self::from_ok(Buffer::from_vec(v, true)),
                 Err(e) => Self::from_err(e),
             },
             Err(e) => Self::from_err(e),
@@ -373,7 +373,7 @@ impl RustFfiResult {
         }
         Self {
             code: ret_msg.code,
-            data: Buffer::from_vec(ret_msg.msg.into_bytes()),
+            data: Buffer::from_vec(ret_msg.msg.into_bytes(), true),
         }
     }
 }
@@ -392,7 +392,7 @@ impl<T: TryIntoBytes> From<ABIResult<T>> for RustFfiResult {
     fn from(value: ABIResult<T>) -> Self {
         match value {
             Ok(v) => match v.try_into_bytes() {
-                Ok(v) => Self::from_ok(Buffer::from_vec(v)),
+                Ok(v) => Self::from_ok(Buffer::from_vec(v, true)),
                 Err(e) => Self::from_err(e),
             },
             Err(e) => Self::from_err(e),
@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn test_free() {
-        let buf = Buffer::from_vec(vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
+        let buf = Buffer::from_vec(vec![0, 1, 2, 3, 4, 5, 6, 7, 8], true);
         println!("{:?}", buf.read());
         {
             println!("{:?}", unsafe {

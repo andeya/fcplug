@@ -169,7 +169,7 @@ impl RustGeneratorBackend {
                     if arg.ty.is_scalar() {
                         format!("{ident}")
                     } else {
-                        format!("::fcplug::Buffer::from_vec({ident}.bytes)")
+                        format!("::fcplug::Buffer::from_vec({ident}.bytes, false)")
                     }
                 })
                 .collect::<Vec<String>>()

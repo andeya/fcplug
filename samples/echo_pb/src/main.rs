@@ -3,10 +3,12 @@ use fcplug::protobuf::PbMessage;
 use fcplug::TryIntoTBytes;
 
 fn main() {
-    let pong = unsafe {
-        FfiImpl::echo_go::<Pong>(Ping {
-            msg: "this is ping from rust".to_string(),
-        }.try_into_tbytes::<PbMessage<_>>().unwrap())
-    };
-    println!("{:?}", pong);
+    for i in 0..1000000 {
+        let pong = unsafe {
+            FfiImpl::echo_go::<Pong>(Ping {
+                msg: "this is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rustthis is ping from rust".to_string(),
+            }.try_into_tbytes::<PbMessage<_>>().unwrap())
+        };
+        println!("{i}: {:?}", pong);
+    }
 }
