@@ -125,8 +125,10 @@ pub(super) trait GoFfi {
 }
 
 pub trait GoFfiCall {
-    unsafe fn echo_go<T: Default>(req: ::fcplug::TBytes<Ping>) -> ::fcplug::ABIResult<T> {
-        ::fcplug::ABIResult::from(goffi_echo_go(::fcplug::Buffer::from_vec(req.bytes, false)))
+    unsafe fn echo_go<T: Default>(mut req: ::fcplug::TBytes<Ping>) -> ::fcplug::ABIResult<T> {
+        ::fcplug::ABIResult::from(goffi_echo_go(::fcplug::Buffer::from_vec_mut(
+            &mut req.bytes,
+        )))
     }
 }
 

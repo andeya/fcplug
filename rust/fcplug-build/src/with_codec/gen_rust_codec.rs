@@ -1,12 +1,16 @@
 use std::sync::Arc;
 
-use pilota_build::{DefId, IdentName};
 use pilota_build::rir::{Method, Service};
+use pilota_build::{DefId, IdentName};
 
 use crate::generator::{RustCodegenBackend, RustGeneratorBackend, ServiceType};
 
 impl RustCodegenBackend for RustGeneratorBackend {
-    fn codegen_rustffi_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String> {
+    fn codegen_rustffi_trait_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<String> {
         let method_name = (&**method.name).fn_ident();
         let args = self.codegen_method_args(service_def_id, method);
         let ret = self.codegen_method_ret(service_def_id, method);
@@ -37,7 +41,11 @@ impl RustCodegenBackend for RustGeneratorBackend {
                 .join("\n"),
         );
     }
-    fn codegen_goffi_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String> {
+    fn codegen_goffi_trait_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<String> {
         if self.context.is_empty_ty(&method.ret.kind) && !method.ret.is_scalar() {
             return None;
         }
@@ -46,7 +54,11 @@ impl RustCodegenBackend for RustGeneratorBackend {
         let ret_ty_name = self.rust_codegen_item_ty(&method.ret.kind);
         Some(format!("unsafe fn {method_name}_set_result(go_ret: ::fcplug::RustFfiArg<{ret_ty_name}>) -> {ffi_ret}"))
     }
-    fn codegen_goffi_call_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String> {
+    fn codegen_goffi_call_trait_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<String> {
         let name = self.context.rust_name(service_def_id);
         let name_lower = name.to_lowercase();
         let method_name = (&**method.name).fn_ident();
@@ -169,7 +181,7 @@ impl RustGeneratorBackend {
                     if arg.ty.is_scalar() {
                         format!("{ident}")
                     } else {
-                        format!("::fcplug::Buffer::from_vec({ident}.bytes, false)")
+                        format!("::fcplug::Buffer::from_vec_mut(&mut {ident}.bytes)")
                     }
                 })
                 .collect::<Vec<String>>()
@@ -201,7 +213,7 @@ impl RustGeneratorBackend {
                     if arg.ty.is_scalar() {
                         format!("{ident}: {ty_name}")
                     } else {
-                        format!("{ident}: ::fcplug::TBytes<{ty_name}>")
+                        format!("mut {ident}: ::fcplug::TBytes<{ty_name}>")
                     }
                 })
                 .collect::<Vec<String>>()

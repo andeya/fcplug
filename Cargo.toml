@@ -22,13 +22,11 @@ members = [
     "samples/echo_pb",
     "samples/echo",
 ]
-exclude = [
-    "samples/echo_thrift",
-]
+exclude = ["samples/echo_thrift"]
 
 [workspace.package]
 edition = "2021"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Andeya <andeyalee@outlook.com>"]
 description = "Foreign-Clang-Plugin solution, such as solving rust and go two-way calls"
 repository = "https://github.com/andeya/fcplug"

@@ -13,7 +13,10 @@ func init() {
 type GoFfiImpl struct{}
 
 func (g GoFfiImpl) EchoGo(req echo_pb.TBytes[echo_pb.Ping]) gust.EnumResult[echo_pb.TBytes[*echo_pb.Pong], ResultMsg] {
-	_ = req.PbUnmarshalUnchecked()
+	ping := req.PbUnmarshalUnchecked()
+	if ping.Msg != "this is ping from rust" {
+		panic("ping==============:" + ping.Msg)
+	}
 	// fmt.Printf("go receive req: %v\n", req.PbUnmarshalUnchecked())
 	return gust.EnumOk[echo_pb.TBytes[*echo_pb.Pong], ResultMsg](echo_pb.TBytesFromPbUnchecked(&echo_pb.Pong{
 		Msg: "this is pong from go",

@@ -1,8 +1,8 @@
 #![allow(unused_variables)]
 
 pub use echo_pb_gen::*;
-use fcplug::{GoFfiResult, TryIntoTBytes};
 use fcplug::protobuf::PbMessage;
+use fcplug::{GoFfiResult, TryIntoTBytes};
 
 mod echo_pb_gen;
 
@@ -14,16 +14,13 @@ impl RustFfi for FfiImpl {
         Pong {
             msg: "this is pong from rust".to_string(),
         }
-            .try_into_tbytes::<PbMessage<_>>()
+        .try_into_tbytes::<PbMessage<_>>()
     }
 }
 
 impl GoFfi for FfiImpl {
     #[allow(unused_mut)]
     unsafe fn echo_go_set_result(mut go_ret: ::fcplug::RustFfiArg<Pong>) -> ::fcplug::GoFfiResult {
-        #[cfg(debug_assertions)]
         return GoFfiResult::from_ok(go_ret.try_to_object::<PbMessage<_>>()?);
-        #[cfg(not(debug_assertions))]
-        return GoFfiResult::from_ok(go_ret.bytes().to_owned());
     }
 }
