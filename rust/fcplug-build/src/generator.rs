@@ -4,20 +4,20 @@ use std::ops::Deref;
 use std::process::Command;
 use std::sync::Arc;
 
-use pilota_build::{
-    CodegenBackend, Context, DefId, IdentName, MakeBackend, Output, ProtobufBackend, rir::Method,
-    ThriftBackend,
-};
 use pilota_build::db::RirDatabase;
 use pilota_build::fmt::fmt_file;
 use pilota_build::plugin::{AutoDerivePlugin, PredicateResult};
 use pilota_build::rir::{Arg, Enum, Field, Item, Message, NewType, Service};
 use pilota_build::ty::{CodegenTy, TyKind};
+use pilota_build::{
+    rir::Method, CodegenBackend, Context, DefId, IdentName, MakeBackend, Output, ProtobufBackend,
+    ThriftBackend,
+};
 
-use crate::{CODE_IO, deal_output, deal_result, exit_with_warning};
-use crate::config::{Config, WorkConfig};
 use crate::config::IdlType;
+use crate::config::{Config, WorkConfig};
 use crate::os_arch::get_go_os_arch_from_env;
+use crate::{deal_output, deal_result, exit_with_warning, CODE_IO};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Generator {
@@ -51,21 +51,21 @@ impl Generator {
             go_main_code: Arc::new(RefCell::new(String::new())),
             rust_mod_impl_code: Arc::new(RefCell::new("".to_string())),
         }
-            .gen_code();
+        .gen_code();
     }
     fn gen_code(self) {
-        self.config.create_crate_dir_all();
         self.config.rerun_if_changed();
 
-        let go_mod_name = self.config.go_mod_name();
-        let rust_c_header_name_base = self.config.rust_c_header_name_base.clone();
-        let rust_c_lib_dir = self
+        let clib_gen_relative_path = self
             .config
-            .work_dir
-            .as_os_str()
+            .clib_gen_dir
+            // .strip_prefix(&self.config.pkg_dir)
+            // .unwrap()
             .to_str()
             .unwrap()
             .to_string();
+        let go_mod_name = self.config.gomod_name.clone();
+        let rust_clib_name_base = self.config.rust_clib_name_base.clone();
 
         self.build_code_by_idl();
         self.rust_gen_more_code();
@@ -91,10 +91,10 @@ impl Generator {
 
             package {go_mod_name}
             /*
-            #cgo CFLAGS: -I{rust_c_lib_dir}
-            #cgo LDFLAGS: -L{rust_c_lib_dir} -l{rust_c_header_name_base} -ldl -lm
+            #cgo CFLAGS: -I{clib_gen_relative_path}
+            #cgo LDFLAGS: -L{clib_gen_relative_path} -l{rust_clib_name_base} -ldl -lm
 
-            #include "{rust_c_header_name_base}.h"
+            #include "{rust_clib_name_base}.h"
             */
             import "C"
 
@@ -120,10 +120,7 @@ impl Generator {
         );
         deal_result(
             CODE_IO,
-            std::fs::write(
-                &self.config.go_lib_file(),
-                self.go_lib_code.borrow().as_str(),
-            ),
+            std::fs::write(&self.config.go_lib_file, self.go_lib_code.borrow().as_str()),
         );
 
         // write go main code
@@ -145,10 +142,10 @@ impl Generator {
         package main
 
         /*
-        #cgo CFLAGS: -I{rust_c_lib_dir}
-        #cgo LDFLAGS: -L{rust_c_lib_dir} -l{rust_c_header_name_base} -ldl -lm
+        #cgo CFLAGS: -I{clib_gen_relative_path}
+        #cgo LDFLAGS: -L{clib_gen_relative_path} -l{rust_clib_name_base} -ldl -lm
 
-        #include "{rust_c_header_name_base}.h"
+        #include "{rust_clib_name_base}.h"
         */
         import "C"
         import (
@@ -173,15 +170,15 @@ impl Generator {
             deal_result(
                 CODE_IO,
                 std::fs::write(
-                    self.config.go_main_file(),
+                    &self.config.go_main_file,
                     self.go_main_code.borrow().as_str(),
                 ),
             );
-            if !self.config.go_main_impl_file().exists() {
+            if !self.config.go_main_impl_file.exists() {
                 deal_result(
                     CODE_IO,
                     std::fs::write(
-                        self.config.go_main_impl_file(),
+                        &self.config.go_main_impl_file,
                         format!(
                             r###"package main
 
@@ -198,8 +195,7 @@ impl Generator {
         }
 
         // write go mod
-        let go_mod_file = self.config.go_mod_file();
-        let _ = if !go_mod_file.exists() {
+        let _ = if !self.config.gomod_file.exists() {
             let mod_requires = mid_output
                 .mod_requires
                 .iter()
@@ -209,7 +205,7 @@ impl Generator {
             deal_result(
                 CODE_IO,
                 std::fs::write(
-                    &go_mod_file,
+                    &self.config.gomod_file,
                     format!(
                         r###"module {}
 
@@ -220,14 +216,21 @@ impl Generator {
             )
 
             "###,
-                        self.config.go_mod_path()
+                        &self.config.gomod_path
                     ),
                 ),
             );
         } else {
-            let mod_content = fs::read_to_string(go_mod_file).unwrap();
+            let mod_content = fs::read_to_string(&self.config.gomod_file).unwrap();
             for mod_require in &mid_output.mod_requires {
-                if mod_content.contains(&(mod_require.splitn(2, "@").next().unwrap_or_default().to_string() + " ")) {
+                if mod_content.contains(
+                    &(mod_require
+                        .splitn(2, "@")
+                        .next()
+                        .unwrap_or_default()
+                        .to_string()
+                        + " "),
+                ) {
                     continue;
                 }
                 deal_output(
@@ -241,8 +244,7 @@ impl Generator {
         };
 
         // format go code
-        let pkg_dir = self.config.pkg_dir();
-        let pkg_dir_str = pkg_dir.to_str().unwrap().to_string();
+        let pkg_dir_str = self.config.pkg_dir.to_str().unwrap().to_string();
         deal_output(
             Command::new(self.config.go_cmd_path("gofmt"))
                 .arg("-l")
@@ -252,7 +254,7 @@ impl Generator {
         );
         deal_output(
             Command::new(self.config.go_cmd_path("go"))
-                .current_dir(&pkg_dir)
+                .current_dir(&self.config.pkg_dir)
                 .arg("mod")
                 .arg("tidy")
                 .output(),
@@ -261,14 +263,15 @@ impl Generator {
         // build go c lib
         self.gen_go_clib();
     }
+
     fn gen_rust_clib(&self, with_after_include: &str) {
         let _ = cbindgen::Builder::new()
-            .with_src(self.config.rust_mod_gen_file())
+            .with_src(&self.config.rust_mod_gen_file)
             .with_language(cbindgen::Language::C)
             .with_after_include(with_after_include)
             .generate()
             .inspect(|b| {
-                let _ = b.write_to_file(self.config.rust_clib_h_path());
+                let _ = b.write_to_file(&self.config.rust_clib_header);
             })
             .inspect_err(|e| {
                 exit_with_warning(254, format!("failed to generate rust clib: {e:?}"))
@@ -278,12 +281,13 @@ impl Generator {
         if !self.config.has_goffi {
             return;
         }
-        let clib_name = self.config.go_clib_path();
+        let clib_name = &self.config.go_clib_file;
         let clib_name_str = clib_name.file_name().unwrap().to_str().unwrap();
-        if !self.config.rust_clib_a_path().exists() {
+        let rust_clib_file = &self.config.rust_clib_file;
+        if !rust_clib_file.exists() {
             println!(
                 "cargo:warning='{}' file does not exist, should re-execute 'cargo build'",
-                clib_name_str
+                rust_clib_file.file_name().unwrap().to_str().unwrap()
             );
         } else {
             let mut cmd = Command::new(self.config.go_cmd_path("go"));
@@ -297,16 +301,17 @@ impl Generator {
             }
             deal_output(
                 cmd.env("CGO_ENABLED", "1")
+                    // .current_dir(std::env::current_dir().unwrap())
                     .arg("build")
-                    .arg(format!("-buildmode={}", self.config.go_buildmode()))
+                    .arg(format!("-buildmode={}", self.config.go_buildmode))
                     .arg(format!("-o={}", clib_name.to_str().unwrap()))
-                    .arg(self.config.go_main_dir().to_str().unwrap())
+                    .arg(self.config.go_main_dir.to_str().unwrap())
                     .output(),
             );
             if !clib_name.exists() {
                 println!(
                     "cargo:warning=failed to execute 'go build -buildmode={}', should re-execute 'cargo build' to ensure the correctness of '{}'",
-                    self.config.go_buildmode(), clib_name_str,
+                    self.config.go_buildmode, clib_name_str,
                 );
             }
             self.config.rustc_link();
@@ -316,42 +321,41 @@ impl Generator {
         }
     }
     fn build_code_by_idl(&self) {
-        let rust_mod_gen_file = self.config.rust_mod_gen_file();
-        match self.config.idl_type() {
+        let include_dirs = vec![self.config.idl_include_dir.clone()];
+        match self.config.idl_type {
             IdlType::Proto | IdlType::ProtoNoCodec => {
                 pilota_build::Builder::protobuf_with_backend(self.clone())
                     .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
-                    .include_dirs(vec![self.config.include_dir()])
+                    .include_dirs(include_dirs)
                     .plugin(AutoDerivePlugin::new(
                         Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
                         |_| PredicateResult::GoOn,
                     ))
                     .ignore_unused(true)
                     .compile(
-                        [&self.config.corrected_idl_file],
-                        Output::File(rust_mod_gen_file.clone()),
+                        [&self.config.idl_file],
+                        Output::File(self.config.rust_mod_gen_file.clone()),
                     )
             }
             IdlType::Thrift | IdlType::ThriftNoCodec => {
                 pilota_build::Builder::thrift_with_backend(self.clone())
                     .doc_header("// Code generated by fcplug. DO NOT EDIT.".to_string())
-                    .include_dirs(vec![self.config.include_dir()])
+                    .include_dirs(include_dirs)
                     .plugin(AutoDerivePlugin::new(
                         Arc::new(["#[derive(::serde::Serialize, ::serde::Deserialize)]".into()]),
                         |_| PredicateResult::GoOn,
                     ))
                     .ignore_unused(true)
                     .compile(
-                        [&self.config.corrected_idl_file],
-                        Output::File(rust_mod_gen_file.clone()),
+                        [&self.config.idl_file],
+                        Output::File(self.config.rust_mod_gen_file.clone()),
                     )
             }
         }
     }
+
     fn rust_gen_more_code(&self) {
-        let rust_mod_gen_file = self.config.rust_mod_gen_file();
-        let rust_mod_impl_file = self.config.rust_mod_impl_file();
-        let mut rust_code = std::fs::read_to_string(&rust_mod_gen_file).unwrap();
+        let mut rust_code = std::fs::read_to_string(&self.config.rust_mod_gen_file).unwrap();
         if !self.config.has_rustffi {
             rust_code.push_str(&format!("pub(super) trait RustFfi {{}}"));
         }
@@ -359,7 +363,7 @@ impl Generator {
             rust_code.push_str(&format!("pub(super) trait GoFfi {{}}"));
             rust_code.push_str(&format!("pub trait GoFfiCall {{}}"));
         }
-        let rust_impl_name = self.config.rust_mod_impl_name();
+        let rust_impl_name = &self.config.rust_mod_impl_name;
         rust_code.push_str(&format!(
             r###"trait Ffi: RustFfi + GoFfi + GoFfiCall {{}}
 
@@ -369,16 +373,16 @@ impl Generator {
         impl Ffi for {rust_impl_name} {{}}
         "###
         ));
-        std::fs::write(&rust_mod_gen_file, rust_code).unwrap();
-        fmt_file(rust_mod_gen_file);
+        std::fs::write(&self.config.rust_mod_gen_file, rust_code).unwrap();
+        fmt_file(&self.config.rust_mod_gen_file);
 
-        if !rust_mod_impl_file.exists() {
+        if !self.config.rust_mod_impl_file.exists() {
             let rust_mod_impl_code = self.rust_mod_impl_code.borrow();
-            let mod_gen_name = self.config.rust_mod_gen_name();
+            let mod_gen_name = &self.config.rust_mod_gen_name;
             deal_result(
                 CODE_IO,
                 std::fs::write(
-                    &rust_mod_impl_file,
+                    &self.config.rust_mod_impl_file,
                     &format!(
                         r###"#![allow(unused_variables)]
 
@@ -391,7 +395,7 @@ impl Generator {
                     ),
                 ),
             );
-            fmt_file(rust_mod_impl_file);
+            fmt_file(&self.config.rust_mod_impl_file);
         }
     }
 }
@@ -439,17 +443,37 @@ pub(crate) trait GoCodegenBackend {
     fn codegen_struct_type(&self, _def_id: DefId, _s: &Message) -> String {
         Default::default()
     }
-    fn codegen_rustffi_iface_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<(String, String)>;
+    fn codegen_rustffi_iface_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<(String, String)>;
     fn codegen_rustffi_service_impl(&self, service_def_id: DefId, s: &Service) -> String;
-    fn codegen_goffi_iface_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String>;
+    fn codegen_goffi_iface_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<String>;
     fn codegen_goffi_service_impl(&self, service_def_id: DefId, s: &Service) -> String;
 }
 
 pub(crate) trait RustCodegenBackend {
-    fn codegen_rustffi_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String>;
+    fn codegen_rustffi_trait_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<String>;
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service);
-    fn codegen_goffi_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String>;
-    fn codegen_goffi_call_trait_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<String>;
+    fn codegen_goffi_trait_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<String>;
+    fn codegen_goffi_call_trait_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<String>;
     fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service);
 }
 
@@ -557,7 +581,7 @@ impl GoGeneratorBackend {
             TyKind::Path(path) => {
                 let mut pkg_pre = String::new();
                 if is_main {
-                    pkg_pre = self.config.go_mod_name() + ".";
+                    pkg_pre = self.config.gomod_name.clone() + ".";
                 }
                 format!("{pkg_pre}{}", self.struct_name(path.did))
             }
@@ -581,7 +605,7 @@ impl GoGeneratorBackend {
             .rust_name(f.did)
             .0
             .upper_camel_ident()
-            .into_string()
+            .to_string()
     }
     pub(crate) fn field_type(&self, f: &Arc<Field>) -> String {
         self.go_codegen_item_ty(&f.ty.kind, false)
@@ -638,7 +662,7 @@ impl CodegenBackend for GeneratorBackend {
     }
     fn codegen_struct_impl(&self, def_id: DefId, stream: &mut String, s: &Message) {
         // rust
-        match self.config.idl_type() {
+        match self.config.idl_type {
             IdlType::Proto => self.protobuf.codegen_struct_impl(def_id, stream, s),
             IdlType::Thrift => self.thrift.codegen_struct_impl(def_id, stream, s),
             _ => {}
@@ -657,7 +681,7 @@ impl CodegenBackend for GeneratorBackend {
             .map(|method| Arc::new(self.fix_empty_params(method)))
             .collect::<Vec<Arc<Method>>>();
         // rust
-        match self.config.idl_type() {
+        match self.config.idl_type {
             IdlType::Proto => self
                 .protobuf
                 .codegen_service_impl(service_def_id, stream, &s),
@@ -670,21 +694,31 @@ impl CodegenBackend for GeneratorBackend {
         for method in &s.methods {
             match service_type {
                 ServiceType::RustFfi => {
-                    if let Some(code) = self.rust.codegen_rustffi_trait_method(service_def_id, method) {
+                    if let Some(code) = self
+                        .rust
+                        .codegen_rustffi_trait_method(service_def_id, method)
+                    {
                         methods.push(code);
                     }
                 }
                 ServiceType::GoFfi => {
-                    if let Some(code) = self.rust.codegen_goffi_trait_method(service_def_id, method) {
+                    if let Some(code) = self.rust.codegen_goffi_trait_method(service_def_id, method)
+                    {
                         methods.push(code);
                     }
-                    if let Some(code) = self.rust.codegen_goffi_call_trait_method(service_def_id, method) {
+                    if let Some(code) = self
+                        .rust
+                        .codegen_goffi_call_trait_method(service_def_id, method)
+                    {
                         call_methods.push_str(&(code + "\n"));
                     }
                 }
             };
         }
-        let mut methods = methods.into_iter().filter(|m| !m.is_empty()).collect::<Vec<String>>();
+        let mut methods = methods
+            .into_iter()
+            .filter(|m| !m.is_empty())
+            .collect::<Vec<String>>();
         let name = self.context.rust_name(service_def_id);
         methods.push("".to_string());
         let trait_methods = methods.join(";\n");
@@ -695,7 +729,7 @@ impl CodegenBackend for GeneratorBackend {
             }}
             "#});
         let name = self.context.rust_name(service_def_id);
-        let ust = self.config.rust_mod_impl_name();
+        let ust = &self.config.rust_mod_impl_name;
         self.rust_mod_impl_code.borrow_mut().push_str(&format!(
             r###"
             impl {name} for {ust} {{
@@ -725,7 +759,9 @@ impl CodegenBackend for GeneratorBackend {
                 let mut iface_methods = String::new();
                 let mut impl_methods = String::new();
                 for method in &s.methods {
-                    if let Some((iface_method, impl_method)) = self.go.codegen_rustffi_iface_method(service_def_id, method) {
+                    if let Some((iface_method, impl_method)) =
+                        self.go.codegen_rustffi_iface_method(service_def_id, method)
+                    {
                         iface_methods.push_str(&format!("{iface_method}\n"));
                         impl_methods.push_str(&format!(
                             r###"
@@ -755,10 +791,12 @@ impl CodegenBackend for GeneratorBackend {
                 for method in &s.methods {
                     if let Some(m) = self.go.codegen_goffi_iface_method(service_def_id, method) {
                         iface_body.push_str(&format!("{m}\n"));
-                        impl_methods.push_str(&format!(r###"func (_UnimplementedGoFfi) {m} {{
+                        impl_methods.push_str(&format!(
+                            r###"func (_UnimplementedGoFfi) {m} {{
                         panic("unimplemented")
                     }}
-                    "###));
+                    "###
+                        ));
                     }
                 }
                 self.go.go_main_code.borrow_mut().push_str(&format!(
@@ -792,7 +830,7 @@ impl CodegenBackend for GeneratorBackend {
     }
     fn codegen_enum_impl(&self, def_id: DefId, stream: &mut String, e: &Enum) {
         // rust codec
-        match self.config.idl_type() {
+        match self.config.idl_type {
             IdlType::Proto => self.protobuf.codegen_enum_impl(def_id, stream, e),
             IdlType::Thrift => self.thrift.codegen_enum_impl(def_id, stream, e),
             _ => {}
@@ -800,7 +838,7 @@ impl CodegenBackend for GeneratorBackend {
     }
     fn codegen_newtype_impl(&self, def_id: DefId, stream: &mut String, t: &NewType) {
         // rust codec
-        match self.config.idl_type() {
+        match self.config.idl_type {
             IdlType::Proto => self.protobuf.codegen_newtype_impl(def_id, stream, t),
             IdlType::Thrift => self.thrift.codegen_newtype_impl(def_id, stream, t),
             _ => {}

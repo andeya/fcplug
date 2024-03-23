@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/andeya/gust v1.5.2
-	github.com/bytedance/sonic v1.10.1
+	github.com/bytedance/sonic v1.11.3
 	google.golang.org/protobuf v1.26.0
 )
 

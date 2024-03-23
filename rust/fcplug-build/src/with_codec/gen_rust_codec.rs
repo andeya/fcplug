@@ -19,7 +19,7 @@ impl RustCodegenBackend for RustGeneratorBackend {
     fn codegen_rustffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
-        let ust = self.config.rust_mod_impl_name();
+        let ust = &self.config.rust_mod_impl_name;
         stream.push_str(
             &s.methods
                 .iter()
@@ -80,7 +80,7 @@ impl RustCodegenBackend for RustGeneratorBackend {
     fn codegen_goffi_service_impl(&self, def_id: DefId, stream: &mut String, s: &Service) {
         let name = self.context.rust_name(def_id);
         let name_lower = name.to_lowercase();
-        let ust = self.config.rust_mod_impl_name();
+        let ust = &self.config.rust_mod_impl_name;
         let ffi_fns = s
             .methods
             .iter()
@@ -99,8 +99,7 @@ impl RustCodegenBackend for RustGeneratorBackend {
             {ffi_fns}
         }}
         "###,
-            self.config.go_c_header_name_base,
-            self.config.rustc_link_kind_goffi(),
+            self.config.go_clib_name_base, self.config.rustc_link_kind_goffi,
         ));
 
         let store_to_rust_fns = s

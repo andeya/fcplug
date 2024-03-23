@@ -16,13 +16,8 @@ debug = true
 
 [workspace]
 resolver = "2"
-members = [
-    "rust/fcplug",
-    "rust/fcplug-build",
-    "samples/echo_pb",
-    "samples/echo",
-]
-exclude = ["samples/echo_thrift"]
+members = ["rust/fcplug", "rust/fcplug-build", "samples/echo_pb"]
+exclude = ["samples/echo_thrift", "samples/echo"]
 
 [workspace.package]
 edition = "2021"

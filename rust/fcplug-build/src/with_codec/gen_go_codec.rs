@@ -1,14 +1,18 @@
 use std::sync::Arc;
 
-use pilota_build::{DefId, rir::Service};
 use pilota_build::rir::Method;
 use pilota_build::ty::TyKind;
+use pilota_build::{rir::Service, DefId};
 
 use crate::generator::{GoCodegenBackend, GoGeneratorBackend};
 
 impl GoCodegenBackend for GoGeneratorBackend {
     // {lib}.go
-    fn codegen_rustffi_iface_method(&self, service_def_id: DefId, method: &Arc<Method>) -> Option<(String, String)> {
+    fn codegen_rustffi_iface_method(
+        &self,
+        service_def_id: DefId,
+        method: &Arc<Method>,
+    ) -> Option<(String, String)> {
         let iface_method_name = self.iface_method_name(method);
         let args_sign = method
             .args
@@ -46,7 +50,10 @@ impl GoCodegenBackend for GoGeneratorBackend {
             })
             .collect::<Vec<String>>()
             .join(",");
-        Some((iface_method, format!("return newRustFfiResult[{ret_type}](C.{ffi_func_name}({args_assign}))")))
+        Some((
+            iface_method,
+            format!("return newRustFfiResult[{ret_type}](C.{ffi_func_name}({args_assign}))"),
+        ))
     }
     // {lib}.go
     fn codegen_rustffi_service_impl(&self, _service_def_id: DefId, _s: &Service) -> String {
@@ -399,12 +406,13 @@ func (r RustFfiResult[T]) UnmarshalUnchecked(unmarshal func([]byte, any) error) 
 	return &t
 }
 
-"###.to_string()
+"###
+        .to_string()
     }
 
     // main.go
     fn codegen_goffi_iface_method(&self, _def_id: DefId, method: &Arc<Method>) -> Option<String> {
-        let mod_name = self.config.go_mod_name();
+        let mod_name = self.config.gomod_name.clone();
         let iface_method_name = self.iface_method_name(method);
         let args_sign = method
             .args
@@ -433,7 +441,7 @@ func (r RustFfiResult[T]) UnmarshalUnchecked(unmarshal func([]byte, any) error) 
 
     // main.go
     fn codegen_goffi_service_impl(&self, service_def_id: DefId, s: &Service) -> String {
-        let mod_name = self.config.go_mod_name();
+        let mod_name = self.config.gomod_name.clone();
         let mut ffi_functions = String::new();
 
         for method in &s.methods {

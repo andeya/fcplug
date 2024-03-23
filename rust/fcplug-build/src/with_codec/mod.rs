@@ -1,9 +1,9 @@
 use std::fs;
 use std::process::Command;
 
-use crate::{CODE_IO, deal_output, deal_result};
 use crate::config::IdlType;
 use crate::generator::{Generator, ImportPkg, MidOutput};
+use crate::{deal_output, deal_result, CODE_IO};
 
 mod gen_go_codec;
 mod gen_rust_codec;
@@ -34,14 +34,16 @@ typedef struct GoFfiResult {
 void free_buffer(struct Buffer buf);
 uintptr_t leak_buffer(struct Buffer buf);
 
-"###.to_string(),
+"###
+            .to_string(),
             mod_requires: vec![
                 "github.com/andeya/gust@v1.5.2".to_string(),
                 "github.com/bytedance/sonic@latest".to_string(),
-                match self.config.idl_type() {
+                match self.config.idl_type {
                     IdlType::Proto | IdlType::ProtoNoCodec => "google.golang.org/protobuf@v1.26.0",
                     IdlType::Thrift | IdlType::ThriftNoCodec => "github.com/apache/thrift@v0.13.0",
-                }.to_string(),
+                }
+                .to_string(),
             ],
             imports: vec![
                 ImportPkg {
@@ -62,7 +64,7 @@ uintptr_t leak_buffer(struct Buffer buf);
                     import_path: "github.com/bytedance/sonic".to_string(),
                     use_code: "var _ = sonic.Marshal".to_string(),
                 },
-                match self.config.idl_type() {
+                match self.config.idl_type {
                     IdlType::Proto | IdlType::ProtoNoCodec => ImportPkg {
                         in_main: false,
                         in_lib: true,
@@ -74,32 +76,58 @@ uintptr_t leak_buffer(struct Buffer buf);
                 ImportPkg {
                     in_main: true,
                     in_lib: false,
-                    import_path: self.config.go_mod_path(),
-                    use_code: format!("var _ {}.ResultCode", self.config.go_mod_name()),
+                    import_path: self.config.gomod_path,
+                    use_code: format!("var _ {}.ResultCode", self.config.gomod_name),
                 },
             ],
         }
     }
     fn gen_go_codec_code(&self) {
-        match self.config.idl_type() {
+        match self.config.idl_type {
             IdlType::Proto | IdlType::ProtoNoCodec => {
-                deal_output(Command::new("protoc")
-                    .arg(format!("--proto_path={}", self.config.work_dir.to_str().unwrap()))
-                    .arg(format!("--go_out={}", self.config.pkg_dir().to_str().unwrap()))
-                    .arg(self.config.corrected_idl_file.as_os_str())
-                    .output());
+                deal_output(
+                    Command::new("protoc")
+                        .arg(format!(
+                            "--proto_path={}",
+                            self.config.target_out_dir.to_str().unwrap()
+                        ))
+                        .arg(format!(
+                            "--go_out={}",
+                            self.config.pkg_dir.to_str().unwrap()
+                        ))
+                        .arg(self.config.idl_file.as_os_str())
+                        .output(),
+                );
             }
             IdlType::Thrift | IdlType::ThriftNoCodec => {
-                deal_output(Command::new("thriftgo")
-                    .arg(format!("-g=go"))
-                    .arg(format!("-o={}", self.config.work_dir.join("gen-thrift").to_str().unwrap()))
-                    .arg(self.config.corrected_idl_file.as_os_str())
-                    .output());
-                let go_mod_name = self.config.go_mod_name();
-                deal_result(CODE_IO, fs::rename(
-                    self.config.work_dir.join("gen-thrift").join(&go_mod_name).join(&format!("{go_mod_name}.go")),
-                    self.config.pkg_dir().join(&format!("{go_mod_name}.thrift.go")),
-                ));
+                deal_output(
+                    Command::new("thriftgo")
+                        .arg(format!("-g=go"))
+                        .arg(format!(
+                            "-o={}",
+                            self.config
+                                .target_out_dir
+                                .join("gen-thrift")
+                                .to_str()
+                                .unwrap()
+                        ))
+                        .arg(self.config.idl_file.as_os_str())
+                        .output(),
+                );
+                let go_mod_name = &self.config.gomod_name;
+                deal_result(
+                    CODE_IO,
+                    fs::rename(
+                        self.config
+                            .target_out_dir
+                            .join("gen-thrift")
+                            .join(&go_mod_name)
+                            .join(&format!("{go_mod_name}.go")),
+                        self.config
+                            .pkg_dir
+                            .join(&format!("{go_mod_name}.thrift.go")),
+                    ),
+                );
             }
         };
     }

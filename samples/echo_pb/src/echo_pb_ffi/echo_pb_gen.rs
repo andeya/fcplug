@@ -132,7 +132,7 @@ pub trait GoFfiCall {
     }
 }
 
-#[link(name = "go_echo_pb", kind = "static")]
+#[link(name = "libgo_echo_pb", kind = "static")]
 extern "C" {
     fn goffi_echo_go(req: ::fcplug::Buffer) -> ::fcplug::GoFfiResult;
 }
