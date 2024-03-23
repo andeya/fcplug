@@ -45,6 +45,7 @@ pub fn generate_code(config: Config) {
 const CODE_UNKNOWN: i32 = -1;
 const CODE_CMD_UNKNOWN: i32 = -2;
 const CODE_IO: i32 = -3;
+const CODE_GIT: i32 = -4;
 
 fn exit_with_warning(code: i32, message: impl AsRef<str>) {
     let mut frames = vec![];

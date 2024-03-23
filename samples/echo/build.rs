@@ -9,5 +9,6 @@ fn main() {
         go_mod_parent: "github.com/andeya/fcplug/samples",
         target_crate_dir: None,
         use_goffi_cdylib: false,
+        add_clib_to_git: false,
     });
 }

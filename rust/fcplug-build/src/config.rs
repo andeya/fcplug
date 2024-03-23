@@ -1,12 +1,13 @@
 use std::fs::OpenOptions;
 use std::path::PathBuf;
+use std::process::Command;
 use std::str::FromStr;
 use std::{env, fs};
 
 use pilota_build::ir::ItemKind;
 use pilota_build::parser::{Parser, ProtobufParser, ThriftParser};
 
-use crate::{exit_with_warning, GenMode, BUILD_MODE, GEN_MODE};
+use crate::{deal_output, exit_with_warning, GenMode, BUILD_MODE, GEN_MODE};
 
 const CGOBIN: &'static str = "cgobin";
 
@@ -20,6 +21,8 @@ pub struct Config {
     pub go_mod_parent: &'static str,
     /// If use_goffi_cdylib is true, go will be compiled into a c dynamic library.
     pub use_goffi_cdylib: bool,
+    /// If add_clib_to_git is true, the c lib files will be automatically added to the git version management list.
+    pub add_clib_to_git: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -129,6 +132,7 @@ impl WorkConfig {
         let _ = c
             .init_files()
             .inspect_err(|e| exit_with_warning(-2, format!("failed init files to {e:?}")));
+        c.git_add();
         c
     }
 
@@ -242,6 +246,24 @@ impl WorkConfig {
         self.go_clib_header = self
             .clib_gen_dir
             .join(format!("{}.h", self.go_clib_name_base));
+    }
+
+    fn git_add(&self) {
+        if !self.config.add_clib_to_git {
+            return;
+        }
+        deal_output(
+            Command::new("git")
+                .arg("add")
+                .arg("-f")
+                .args([
+                    self.go_clib_header.display().to_string(),
+                    self.go_clib_file.display().to_string(),
+                    self.rust_clib_header.display().to_string(),
+                    self.rust_clib_file.display().to_string(),
+                ])
+                .output(),
+        );
     }
 
     fn set_crate_modified(&mut self) {
