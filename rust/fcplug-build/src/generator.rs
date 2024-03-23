@@ -56,14 +56,20 @@ impl Generator {
     fn gen_code(self) {
         self.config.rerun_if_changed();
 
-        let clib_gen_relative_path = self
-            .config
-            .clib_gen_dir
-            // .strip_prefix(&self.config.pkg_dir)
-            // .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
+        let clib_dir_relative_root =
+            pathdiff::diff_paths(&self.config.clib_gen_dir, &self.config.pkg_dir)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+
+        let clib_dir_relative_cgobin = 
+            pathdiff::diff_paths(&self.config.clib_gen_dir, &self.config.go_main_dir)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+
         let go_mod_name = self.config.gomod_name.clone();
         let rust_clib_name_base = self.config.rust_clib_name_base.clone();
 
@@ -91,8 +97,8 @@ impl Generator {
 
             package {go_mod_name}
             /*
-            #cgo CFLAGS: -I{clib_gen_relative_path}
-            #cgo LDFLAGS: -L{clib_gen_relative_path} -l{rust_clib_name_base} -ldl -lm
+            #cgo CFLAGS: -I{clib_dir_relative_root}
+            #cgo LDFLAGS: -L{clib_dir_relative_root} -l{rust_clib_name_base} -ldl -lm
 
             #include "{rust_clib_name_base}.h"
             */
@@ -142,8 +148,8 @@ impl Generator {
         package main
 
         /*
-        #cgo CFLAGS: -I{clib_gen_relative_path}
-        #cgo LDFLAGS: -L{clib_gen_relative_path} -l{rust_clib_name_base} -ldl -lm
+        #cgo CFLAGS: -I{clib_dir_relative_cgobin}
+        #cgo LDFLAGS: -L{clib_dir_relative_cgobin} -l{rust_clib_name_base} -ldl -lm
 
         #include "{rust_clib_name_base}.h"
         */

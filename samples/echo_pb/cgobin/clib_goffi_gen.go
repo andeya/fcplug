@@ -3,8 +3,8 @@
 package main
 
 /*
-   #cgo CFLAGS: -I/data00/home/liyachuan/rspath/fcplug/target/debug
-   #cgo LDFLAGS: -L/data00/home/liyachuan/rspath/fcplug/target/debug -lecho_pb -ldl -lm
+   #cgo CFLAGS: -I../../../target/debug
+   #cgo LDFLAGS: -L../../../target/debug -lecho_pb -ldl -lm
 
    #include "echo_pb.h"
 */
