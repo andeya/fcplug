@@ -1,4 +1,5 @@
 #!/bin/bash
 
-cargo publish -p fcplug-build
-cargo publish -p fcplug
+# cargo login --registry crates-io
+cargo publish --registry crates-io -p fcplug-build 
+cargo publish --registry crates-io -p fcplug
