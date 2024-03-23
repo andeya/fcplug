@@ -29,6 +29,7 @@ walkdir = { workspace = true }
 md5 = { workspace = true }
 strum = { workspace = true }
 backtrace = { workspace = true }
+pathdiff = { workspace = true }
 
 [features]
 default = []

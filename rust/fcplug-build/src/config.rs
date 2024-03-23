@@ -1,5 +1,5 @@
 use std::fs::OpenOptions;
-use std::path::{self, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::{env, fs};
 
@@ -99,9 +99,8 @@ impl WorkConfig {
         c.idl_file = c.config.idl_file.clone();
         c.idl_include_dir = c.idl_file.parent().unwrap().to_path_buf();
         c.idl_type = Self::new_idl_type(&c.idl_file);
-        let c_header_name_base = env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
-        c.rust_clib_name_base = "librs_".to_string() + &c_header_name_base;
-        c.go_clib_name_base = "libgo_".to_string() + &c_header_name_base;
+        c.rust_clib_name_base = env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
+        c.go_clib_name_base = "go_".to_string() + &c.rust_clib_name_base;
         c.target_out_dir = Self::new_target_out_dir();
         c.pkg_dir = Self::new_pkg_dir(&c.config.target_crate_dir);
         c.gomod_file = c.pkg_dir.join("go.mod");
@@ -118,7 +117,6 @@ impl WorkConfig {
         c.rust_mod_gen_file = c.rust_mod_dir.join(format!("{file_name_base}.rs"));
         c.go_lib_file = c.pkg_dir.join(format!("{file_name_base}.go"));
         c.rust_mod_impl_file = c.rust_mod_dir.join("mod.rs");
-        // c.clib_gen_dir = c.pkg_dir.join("clib_gen");
         c.clib_gen_dir = c.target_out_dir.clone();
         c.go_main_dir = c.pkg_dir.join(CGOBIN);
         c.go_main_file = c.go_main_dir.join("clib_goffi_gen.go");
@@ -225,22 +223,25 @@ impl WorkConfig {
     fn set_rust_clib_paths(&mut self) {
         self.rust_clib_file = self
             .clib_gen_dir
-            .join(self.rust_clib_name_base.clone() + ".a");
+            .join(format!("lib{}.a", self.rust_clib_name_base));
         self.rust_clib_header = self
             .clib_gen_dir
-            .join(self.rust_clib_name_base.clone() + ".h");
+            .join(format!("{}.h", self.rust_clib_name_base));
     }
 
     fn set_go_clib_paths(&mut self) {
-        let ext = if self.config.use_goffi_cdylib {
-            ".so"
-        } else {
-            ".a"
-        };
-        self.go_clib_file = self.clib_gen_dir.join(self.go_clib_name_base.clone() + ext);
+        self.go_clib_file = self.clib_gen_dir.join(format!(
+            "lib{}{}",
+            self.go_clib_name_base,
+            if self.config.use_goffi_cdylib {
+                ".so"
+            } else {
+                ".a"
+            }
+        ));
         self.go_clib_header = self
             .clib_gen_dir
-            .join(self.go_clib_name_base.clone() + ".h");
+            .join(format!("{}.h", self.go_clib_name_base));
     }
 
     fn set_crate_modified(&mut self) {
@@ -390,6 +391,10 @@ impl WorkConfig {
     pub(crate) fn rustc_link(&self) {
         println!(
             "cargo:rustc-link-search=native={}",
+            self.clib_gen_dir.to_str().unwrap()
+        );
+        println!(
+            "cargo:rustc-link-search=dependency={}",
             self.clib_gen_dir.to_str().unwrap()
         );
         println!(

@@ -61,6 +61,7 @@ walkdir = "2.3.3"
 md5 = "0.7.0"
 strum = { version = "0.25", features = ["derive"] }
 backtrace = "0.3"
+pathdiff = "0.2"
 
 [patch.crates-io]
 fcplug-build = { path = "rust/fcplug-build" }

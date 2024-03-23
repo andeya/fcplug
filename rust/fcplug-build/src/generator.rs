@@ -281,8 +281,8 @@ impl Generator {
         if !self.config.has_goffi {
             return;
         }
-        let clib_name = &self.config.go_clib_file;
-        let clib_name_str = clib_name.file_name().unwrap().to_str().unwrap();
+        let go_clib_file = &self.config.go_clib_file;
+        let go_clib_filename = go_clib_file.file_name().unwrap().to_str().unwrap();
         let rust_clib_file = &self.config.rust_clib_file;
         if !rust_clib_file.exists() {
             println!(
@@ -301,23 +301,32 @@ impl Generator {
             }
             deal_output(
                 cmd.env("CGO_ENABLED", "1")
-                    // .current_dir(std::env::current_dir().unwrap())
                     .arg("build")
                     .arg(format!("-buildmode={}", self.config.go_buildmode))
-                    .arg(format!("-o={}", clib_name.to_str().unwrap()))
+                    .arg(format!("-o={}", go_clib_file.to_str().unwrap()))
                     .arg(self.config.go_main_dir.to_str().unwrap())
                     .output(),
             );
-            if !clib_name.exists() {
+            // lib{go_clib_name_base}.h -> {go_clib_name_base}.h
+            if let Err(err) = fs::rename(
+                go_clib_file
+                    .parent()
+                    .unwrap()
+                    .join(go_clib_filename.rsplit_once(".").unwrap().0.to_owned() + ".h"),
+                &self.config.go_clib_header,
+            ) {
+                println!("cargo:warning=failed to fix go C lib file name '{}'", err);
+            };
+            if !go_clib_file.exists() {
                 println!(
                     "cargo:warning=failed to execute 'go build -buildmode={}', should re-execute 'cargo build' to ensure the correctness of '{}'",
-                    self.config.go_buildmode, clib_name_str,
+                    self.config.go_buildmode, go_clib_filename,
                 );
             }
             self.config.rustc_link();
         }
         if self.config.update_crate_modified() {
-            println!("cargo:warning=The crate files has changed, it is recommended to re-execute 'cargo build' to ensure the correctness of '{}'", clib_name_str);
+            println!("cargo:warning=The crate files has changed, it is recommended to re-execute 'cargo build' to ensure the correctness of '{}'", go_clib_filename);
         }
     }
     fn build_code_by_idl(&self) {

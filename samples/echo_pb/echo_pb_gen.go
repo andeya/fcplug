@@ -4,9 +4,9 @@ package echo_pb
 
 /*
    #cgo CFLAGS: -I/data00/home/liyachuan/rspath/fcplug/target/debug
-   #cgo LDFLAGS: -L/data00/home/liyachuan/rspath/fcplug/target/debug -llibrs_echo_pb -ldl -lm
+   #cgo LDFLAGS: -L/data00/home/liyachuan/rspath/fcplug/target/debug -lecho_pb -ldl -lm
 
-   #include "librs_echo_pb.h"
+   #include "echo_pb.h"
 */
 import "C"
 
