@@ -7,7 +7,9 @@ use std::{env, fs};
 use pilota_build::ir::ItemKind;
 use pilota_build::parser::{Parser, ProtobufParser, ThriftParser};
 
-use crate::{deal_output, exit_with_warning, GenMode, BUILD_MODE, GEN_MODE};
+use crate::{
+    deal_output, exit_with_warning, os_arch::get_go_os_arch_from_env, GenMode, BUILD_MODE, GEN_MODE,
+};
 
 const CGOBIN: &'static str = "cgobin";
 
@@ -118,11 +120,24 @@ impl WorkConfig {
         c.rust_mod_gen_name = format!("{}_gen", c.pkg_name.clone());
         let file_name_base = &c.rust_mod_gen_name;
         c.rust_mod_gen_file = c.rust_mod_dir.join(format!("{file_name_base}.rs"));
-        c.go_lib_file = c.pkg_dir.join(format!("{file_name_base}.go"));
         c.rust_mod_impl_file = c.rust_mod_dir.join("mod.rs");
         c.clib_gen_dir = c.target_out_dir.clone();
         c.go_main_dir = c.pkg_dir.join(CGOBIN);
-        c.go_main_file = c.go_main_dir.join("clib_goffi_gen.go");
+        let go_file_suffix = match get_go_os_arch_from_env() {
+            Ok((os, arch)) => {
+                format!("_{}_{}", os.as_ref(), arch.as_ref())
+            }
+            Err(err) => {
+                println!("cargo:warning={}", err);
+                String::new()
+            }
+        };
+        c.go_lib_file = c
+            .pkg_dir
+            .join(format!("{file_name_base}{go_file_suffix}.go"));
+        c.go_main_file = c
+            .go_main_dir
+            .join(format!("clib_goffi_gen{go_file_suffix}.go"));
         c.go_main_impl_file = c.go_main_dir.join("clib_goffi_impl.go");
         c.set_rust_clib_paths();
         c.set_go_clib_paths();
