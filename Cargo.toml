@@ -21,7 +21,7 @@ exclude = ["samples/echo_thrift", "samples/echo"]
 
 [workspace.package]
 edition = "2021"
-version = "0.4.4"
+version = "0.4.5"
 authors = ["Andeya <andeyalee@outlook.com>"]
 description = "Foreign-Clang-Plugin solution, such as solving rust and go two-way calls"
 repository = "https://github.com/andeya/fcplug"

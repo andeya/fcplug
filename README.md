@@ -2,6 +2,17 @@
 
 Foreign-Clang-Plugin solution, such as solving rust and go two-way calls.
 
+[![Crates.io][crates-badge]][crates-url]
+[![Apache-2.0 licensed][mit-badge]][mit-url]
+[![API Docs][docs-badge]][docs-url]
+
+[crates-badge]: https://img.shields.io/crates/v/fcplug-build.svg
+[crates-url]: https://crates.io/crates/fcplug-build
+[mit-badge]: https://img.shields.io/badge/license-Apache2.0-blue.svg
+[mit-url]: https://github.com/andeya/fcplug/blob/main/LICENSE
+[docs-badge]: https://img.shields.io/badge/API-Docs-green.svg
+[docs-url]: https://docs.rs/fcplug-build
+
 ## Features
 
 | ⇊Caller \ Callee⇉ | Go | Rust |
@@ -306,7 +317,7 @@ func TestEcho(t *testing.T) {
 ```rust
 use fcplug::protobuf::PbMessage;
 use fcplug::TryIntoTBytes;
-use tokio::task;
+use fcplug-build::task;
 
 use crate::echo_ffi::{FfiImpl, GoFfiCall, Ping, Pong};
 

@@ -80,10 +80,11 @@ pub(crate) struct WorkConfig {
     pub(crate) rust_clib_header: PathBuf,
     pub(crate) go_clib_file: PathBuf,
     pub(crate) go_clib_header: PathBuf,
-    pub(crate) crate_modified: String,
     pub(crate) has_goffi: bool,
     pub(crate) has_rustffi: bool,
     pub(crate) rust_mod_impl_name: String,
+    pub(crate) fingerprint: String,
+    pub(crate) fingerprint_path: PathBuf,
 }
 
 impl WorkConfig {
@@ -107,6 +108,8 @@ impl WorkConfig {
         c.rust_clib_name_base = env::var("CARGO_PKG_NAME").unwrap().replace("-", "_");
         c.go_clib_name_base = "go_".to_string() + &c.rust_clib_name_base;
         c.target_out_dir = Self::new_target_out_dir();
+        c.clib_gen_dir = c.target_out_dir.clone();
+        c.fingerprint_path = c.clib_gen_dir.join("fcplug.fingerprint");
         c.pkg_dir = Self::new_pkg_dir(&c.config.target_crate_dir);
         c.gomod_file = c.pkg_dir.join("go.mod");
         c.pkg_name = Self::new_pkg_name(&c.pkg_dir);
@@ -121,7 +124,6 @@ impl WorkConfig {
         let file_name_base = &c.rust_mod_gen_name;
         c.rust_mod_gen_file = c.rust_mod_dir.join(format!("{file_name_base}.rs"));
         c.rust_mod_impl_file = c.rust_mod_dir.join("mod.rs");
-        c.clib_gen_dir = c.target_out_dir.clone();
         c.go_main_dir = c.pkg_dir.join(CGOBIN);
         let go_file_suffix = match get_go_os_arch_from_env() {
             Ok((os, arch)) => {
@@ -142,7 +144,7 @@ impl WorkConfig {
         c.set_rust_clib_paths();
         c.set_go_clib_paths();
         c.check_go_mod_path();
-        c.set_crate_modified();
+        c.set_fingerprint();
         c.clean_idl();
         let _ = c
             .init_files()
@@ -276,13 +278,14 @@ impl WorkConfig {
                     self.go_clib_file.display().to_string(),
                     self.rust_clib_header.display().to_string(),
                     self.rust_clib_file.display().to_string(),
+                    self.fingerprint_path.display().to_string(),
                 ])
                 .output(),
         );
     }
 
-    fn set_crate_modified(&mut self) {
-        self.crate_modified = walkdir::WalkDir::new(&self.pkg_dir)
+    fn set_fingerprint(&mut self) {
+        self.fingerprint = walkdir::WalkDir::new(&self.pkg_dir)
             .into_iter()
             .filter_map(|entry| entry.ok())
             .filter(|entry| {
@@ -303,10 +306,9 @@ impl WorkConfig {
                 format!("{acc}|{digest:x}")
             });
     }
-    pub(crate) fn update_crate_modified(&self) -> bool {
-        let crate_modified_path = self.target_out_dir.join("crate_modified");
-        if fs::read_to_string(&crate_modified_path).unwrap_or_default() != self.crate_modified {
-            fs::write(crate_modified_path, self.crate_modified.as_str()).unwrap();
+    pub(crate) fn update_fingerprint(&self) -> bool {
+        if fs::read_to_string(&self.fingerprint_path).unwrap_or_default() != self.fingerprint {
+            fs::write(&self.fingerprint_path, self.fingerprint.as_str()).unwrap();
             return true;
         }
         return false;
@@ -482,6 +484,7 @@ impl WorkConfig {
             &self.rust_clib_header,
             &self.go_clib_file,
             &self.go_clib_header,
+            &self.fingerprint_path,
         ] {
             OpenOptions::new()
                 .write(true)

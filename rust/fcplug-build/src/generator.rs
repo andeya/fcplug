@@ -63,7 +63,7 @@ impl Generator {
                 .unwrap()
                 .to_string();
 
-        let clib_dir_relative_cgobin = 
+        let clib_dir_relative_cgobin =
             pathdiff::diff_paths(&self.config.clib_gen_dir, &self.config.go_main_dir)
                 .unwrap()
                 .to_str()
@@ -331,7 +331,7 @@ impl Generator {
             }
             self.config.rustc_link();
         }
-        if self.config.update_crate_modified() {
+        if self.config.update_fingerprint() {
             println!("cargo:warning=The crate files has changed, it is recommended to re-execute 'cargo build' to ensure the correctness of '{}'", go_clib_filename);
         }
     }
