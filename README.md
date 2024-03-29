@@ -129,10 +129,12 @@ use fcplug_build::{Config, generate_code, UnitLikeStructPath};
 fn main() {
     generate_code(Config {
         idl_file: "./echo.proto".into(),
+        target_crate_dir: None,
         // go command dir, default to find from $GOROOT > $PATH
         go_root_path: None,
         go_mod_parent: "github.com/andeya/fcplug/samples",
-        target_crate_dir: None,
+        use_goffi_cdylib: false,
+        add_clib_to_git: false,
     });
 }
 ```
